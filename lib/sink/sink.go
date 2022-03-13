@@ -6,7 +6,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"plane.watch/lib/dedupe"
 	"plane.watch/lib/export"
-	"plane.watch/lib/logging"
 	"plane.watch/lib/monitoring"
 	"plane.watch/lib/rabbitmq"
 	"plane.watch/lib/tracker"
@@ -54,18 +53,10 @@ func NewSink(conf *Config, dest Destination) tracker.Sink {
 		dest:   dest,
 		events: make(chan tracker.Event),
 	}
-	if _, ok := s.config.queue[QueueTypeLogs]; ok {
-		logging.AddLogDestination(&s)
-	}
 
 	s.sendFrameAll = s.sendFrameEvent(QueueTypeAvrAll, QueueTypeBeastAll, QueueTypeSbs1All)
 	s.sendFrameDedupe = s.sendFrameEvent(QueueTypeAvrReduce, QueueTypeBeastReduce, QueueTypeSbs1Reduce)
 	return &s
-}
-
-// Write is for the logs sending
-func (s *Sink) Write(b []byte) (int, error) {
-	return len(b), s.dest.PublishText(QueueTypeLogs, []byte(stripAnsi(string(b))))
 }
 
 func (s *Sink) Listen() chan tracker.Event {
@@ -177,9 +168,6 @@ func (s *Sink) sendFrameEvent(queueAvr, queueBeast, queueSbs1 string) func(track
 func (s *Sink) OnEvent(e tracker.Event) {
 	var err error
 	switch e.(type) {
-	case *tracker.LogEvent:
-		err = s.dest.PublishJson(QueueTypeLogs, []byte(e.String()))
-
 	case *tracker.PlaneLocationEvent:
 		le := e.(*tracker.PlaneLocationEvent)
 		var jsonBuf []byte

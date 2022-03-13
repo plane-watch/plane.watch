@@ -4,7 +4,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"io"
 	"os"
 	"runtime/pprof"
 	"time"
@@ -87,16 +86,6 @@ func cliWriter() zerolog.ConsoleWriter {
 func ConfigureForCli() {
 	isCli = true
 	log.Logger = log.Output(cliWriter())
-}
-
-func AddLogDestination(newLogger io.Writer) {
-	var multi zerolog.LevelWriter
-	if isCli {
-		multi = zerolog.MultiLevelWriter(cliWriter(), newLogger)
-	} else {
-		multi = zerolog.MultiLevelWriter(log.Logger, newLogger)
-	}
-	log.Logger = zerolog.New(multi).With().Timestamp().Logger()
 }
 
 func ConfigureForProfiling(outFile string) {

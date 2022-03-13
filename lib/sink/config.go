@@ -16,7 +16,6 @@ const (
 	QueueTypeSbs1All     = "sbs1-all"
 	QueueTypeSbs1Reduce  = "sbs1-reduce"
 	QueueTypeDecodedJson = "decoded-json"
-	QueueTypeLogs        = "logs"
 	QueueLocationUpdates = "location-updates"
 )
 
@@ -28,7 +27,6 @@ var AllQueues = [...]string{
 	QueueTypeSbs1All,
 	QueueTypeSbs1Reduce,
 	QueueTypeDecodedJson,
-	QueueTypeLogs,
 	QueueLocationUpdates,
 }
 
@@ -43,7 +41,6 @@ type (
 
 		waiter sync.WaitGroup
 
-		logLocation       bool
 		sourceTag         string
 		messageTtlSeconds int
 
@@ -76,12 +73,6 @@ func WithUserPass(user, pass string) Option {
 	return func(conf *Config) {
 		conf.user = user
 		conf.pass = pass
-	}
-}
-
-func WithoutLoggingLocation() Option {
-	return func(config *Config) {
-		config.logLocation = false
 	}
 }
 
@@ -155,7 +146,6 @@ func WithAllQueues() Option {
 		conf.queue[QueueTypeSbs1All] = QueueTypeSbs1All
 		conf.queue[QueueTypeSbs1Reduce] = QueueTypeSbs1Reduce
 		conf.queue[QueueTypeDecodedJson] = QueueTypeDecodedJson
-		conf.queue[QueueTypeLogs] = QueueTypeLogs
 		conf.queue[QueueLocationUpdates] = QueueLocationUpdates
 	}
 }

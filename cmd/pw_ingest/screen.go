@@ -197,15 +197,6 @@ func (d *display) Finish() {
 }
 func (d *display) OnEvent(e tracker.Event) {
 	switch e.(type) {
-	case *tracker.LogEvent:
-		d.App().QueueUpdate(func() {
-			_, _, _, height := d.bottom.GetRect()
-			d.bottom.SetWordWrap(false).SetMaxLines(height)
-
-			w := tview.ANSIWriter(d.bottom)
-			_, _ = fmt.Fprintln(w, e)
-			d.bottom.ScrollToEnd()
-		})
 	case *tracker.PlaneLocationEvent:
 		d.App().QueueUpdate(func() {
 			ple := e.(*tracker.PlaneLocationEvent)

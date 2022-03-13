@@ -3,12 +3,12 @@ package tracker
 import (
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"plane.watch/lib/tracker/mode_s"
 	"plane.watch/lib/tracker/sbs1"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -41,10 +41,10 @@ type (
 		pruneExitChan chan bool
 
 		startTime time.Time
-		numFrames uint64
 
 		stats struct {
 			currentPlanes prometheus.Gauge
+			decodedFrames prometheus.Counter
 		}
 	}
 )
@@ -82,6 +82,10 @@ func NewTracker(opts ...Option) *Tracker {
 	return t
 }
 
+func (t *Tracker) traceMessage(sfmt string, a ...interface{}) {
+	log.Trace().Str("section", "Tracker").Msgf(sfmt, a...)
+}
+
 func (t *Tracker) debugMessage(sfmt string, a ...interface{}) {
 	log.Debug().Str("section", "Tracker").Msgf(sfmt, a...)
 }
@@ -108,7 +112,7 @@ func (t *Tracker) GetPlane(icao uint32) *Plane {
 	if ok {
 		return plane.(*Plane)
 	}
-	t.infoMessage("Plane %06X has made an appearance", icao)
+	t.traceMessage("Plane %06X has made an appearance", icao)
 	if nil != t.stats.currentPlanes {
 		t.stats.currentPlanes.Inc()
 	}
@@ -140,20 +144,24 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 	p.incMsgCount()
 
 	debugMessage := func(sfmt string, a ...interface{}) {
-		planeFormat = fmt.Sprintf("DF%02d - \033[0;97mPlane (\033[38;5;118m%s %-8s\033[0;97m)", frame.DownLinkType(), p.IcaoIdentifierStr(), p.FlightNumber())
-		p.tracker.debugMessage(planeFormat+sfmt, a...)
+		if zerolog.GlobalLevel() >= zerolog.DebugLevel {
+			planeFormat = fmt.Sprintf("DF%02d - \033[0;97mPlane (\033[38;5;118m%s %-8s\033[0;97m)", frame.DownLinkType(), p.IcaoIdentifierStr(), p.FlightNumber())
+			p.tracker.debugMessage(planeFormat+sfmt, a...)
+		}
 	}
 
 	hasChanged = p.setRegistration(frame.DecodeAuIcaoRegistration()) || hasChanged
 
-	log.Trace().
-		Str("frame", frame.String()).
-		Str("icao", frame.IcaoStr()).
-		Str("Downlink Type", "DF"+strconv.Itoa(int(frame.DownLinkType()))).
-		Int("Downlink Format", int(frame.DownLinkType())).
-		Str("DF17 Msg Type", frame.MessageTypeString()).
-		Bytes("RAW", frame.Raw()).
-		Send()
+	if zerolog.GlobalLevel() == zerolog.TraceLevel {
+		log.Trace().
+			Str("frame", frame.String()).
+			Str("icao", frame.IcaoStr()).
+			Str("Downlink Type", "DF"+strconv.Itoa(int(frame.DownLinkType()))).
+			Int("Downlink Format", int(frame.DownLinkType())).
+			Str("DF17 Msg Type", frame.MessageTypeString()).
+			Bytes("RAW", frame.Raw()).
+			Send()
+	}
 
 	// determine what to do with our given frame
 	switch frame.DownLinkType() {
@@ -423,17 +431,8 @@ func (t *Tracker) prunePlanes() {
 				return true
 			})
 
-			t.AddEvent(t.newInfoEvent())
 		case <-t.pruneExitChan:
 			return
 		}
-	}
-}
-
-func (t *Tracker) newInfoEvent() *InfoEvent {
-	return &InfoEvent{
-		receivedFrames: atomic.LoadUint64(&t.numFrames),
-		numReceivers:   len(t.producers),
-		uptime:         time.Now().Sub(t.startTime).Seconds(),
 	}
 }
