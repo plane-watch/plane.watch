@@ -33,7 +33,7 @@ func IncludeSinkFlags(app *cli.App) {
 	app.Flags = append(app.Flags, []cli.Flag{
 		&cli.StringSliceFlag{
 			Name:    "sink",
-			Usage:   "The place to send decoded JSON in URL Form. [redis|amqp]://user:pass@host:port/vhost?ttl=60",
+			Usage:   "The place to send decoded JSON in URL Form. [amqp|nats|redis]://user:pass@host:port/vhost?ttl=60",
 			EnvVars: []string{"SINK"},
 		},
 		&cli.StringSliceFlag{

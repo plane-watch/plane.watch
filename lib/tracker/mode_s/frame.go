@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"sync"
 	"time"
 )
 
@@ -304,6 +305,8 @@ type (
 		alert          bool
 		// if we have trouble decoding our frame, the message ends up here
 		err error
+
+		decodeLock sync.Mutex
 	}
 )
 

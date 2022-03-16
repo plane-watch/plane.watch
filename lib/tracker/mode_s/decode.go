@@ -50,6 +50,8 @@ func (f *Frame) Decode() error {
 	if nil == f {
 		return nil
 	}
+	f.decodeLock.Lock()
+	defer f.decodeLock.Unlock()
 
 	if err := f.parseIntoRaw(); nil != err {
 		return err
@@ -132,7 +134,7 @@ func (f *Frame) parse() error {
 }
 
 func (f *Frame) parseIntoRaw() error {
-	if len(f.message) > 0 {
+	if len(f.raw) > 0 {
 		// prevent double parse
 		return nil
 	}
@@ -228,7 +230,6 @@ func (f *Frame) SetTimeStamp(t time.Time) {
 // call after frame.raw is set. does the preparing
 func (f *Frame) parseRawToMessage() error {
 	if nil != f.message {
-		println("Message Already Parsed")
 		// prevent overwriting if called twice
 		return nil
 	}

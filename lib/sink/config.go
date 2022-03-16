@@ -15,7 +15,6 @@ const (
 	QueueTypeAvrReduce   = "avr-reduce"
 	QueueTypeSbs1All     = "sbs1-all"
 	QueueTypeSbs1Reduce  = "sbs1-reduce"
-	QueueTypeDecodedJson = "decoded-json"
 	QueueLocationUpdates = "location-updates"
 )
 

@@ -220,7 +220,9 @@ func (t *Tracker) decodeQueue() {
 		if nil == f {
 			continue
 		}
-		t.stats.decodedFrames.Inc()
+		if nil != t.stats.decodedFrames {
+			t.stats.decodedFrames.Inc()
+		}
 		frame := f.Frame()
 		err := frame.Decode()
 		if nil != err {
