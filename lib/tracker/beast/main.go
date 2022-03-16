@@ -27,7 +27,7 @@ func (f *Frame) Icao() uint32 {
 		return 0
 	}
 	if !f.hasDecoded {
-		_, _ = f.Decode()
+		_ = f.Decode()
 	}
 	return f.decodedModeS.Icao()
 }
@@ -37,17 +37,24 @@ func (f *Frame) IcaoStr() string {
 		return ""
 	}
 	if !f.hasDecoded {
-		_, _ = f.Decode()
+		_ = f.Decode()
 	}
 	return f.decodedModeS.IcaoStr()
 }
 
-func (f *Frame) Decode() (bool, error) {
+func (f *Frame) Decode() error {
 	if nil == f {
-		return false, errors.New("nil frame")
+		return errors.New("nil frame")
 	}
-	f.hasDecoded = true
-	return f.decodedModeS.Decode()
+	if f.hasDecoded {
+		return nil
+	}
+	err := f.decodedModeS.Decode()
+	if nil == err {
+		f.hasDecoded = true
+	}
+
+	return err
 }
 
 func (f *Frame) TimeStamp() time.Time {
@@ -189,7 +196,7 @@ func (f *Frame) AvrFrame() *mode_s.Frame {
 		return nil
 	}
 	if !f.hasDecoded {
-		_, _ = f.Decode()
+		_ = f.Decode()
 	}
 	return f.decodedModeS
 }

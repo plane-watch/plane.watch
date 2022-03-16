@@ -163,14 +163,17 @@ func icaoStringToInt(icao string) (uint32, error) {
 }
 
 func (f *Frame) Icao() uint32 {
+	if nil == f {
+		return 0
+	}
 	return f.IcaoInt
 }
 func (f *Frame) IcaoStr() string {
 	return f.icaoStr
 }
 
-func (f *Frame) Decode() (bool, error) {
-	return true, f.Parse()
+func (f *Frame) Decode() error {
+	return f.Parse()
 }
 
 func (f *Frame) Raw() []byte {

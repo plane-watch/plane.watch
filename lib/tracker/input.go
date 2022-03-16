@@ -34,7 +34,7 @@ type (
 	Frame interface {
 		Icao() uint32
 		IcaoStr() string
-		Decode() (bool, error)
+		Decode() error
 		TimeStamp() time.Time
 		Raw() []byte
 	}
@@ -222,15 +222,12 @@ func (t *Tracker) decodeQueue() {
 		}
 		t.stats.decodedFrames.Inc()
 		frame := f.Frame()
-		ok, err := frame.Decode()
+		err := frame.Decode()
 		if nil != err {
-			// the decode operation failed to produce valid output, and we tell someone about it
-			t.handleError(err)
-			continue
-		}
-		if !ok {
-			// the decode operation did not produce a valid frame, but this is not an error
-			// example: NoOp heartbeat
+			if mode_s.ErrNoOp != err {
+				// the decode operation failed to produce valid output, and we tell someone about it
+				t.handleError(err)
+			}
 			continue
 		}
 

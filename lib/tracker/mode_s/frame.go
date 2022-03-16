@@ -577,6 +577,9 @@ func (f *Frame) DownLinkType() byte {
 }
 
 func (f *Frame) Icao() uint32 {
+	if nil == f {
+		return 0
+	}
 	return f.icao
 }
 
@@ -804,16 +807,20 @@ func (f *Frame) Emergency() string {
 
 // the first character can be * or @ (or left out)
 // if the entire string is then 0's, it's a noop
-var noopRw = regexp.MustCompile("^[*@]?0+$")
+var noopRw = regexp.MustCompile("^[*@]?0+;?$")
 
 func (f *Frame) isNoOp() bool {
-	if "" == f.raw {
+	if nil == f {
 		return true
 	}
-	if len(f.raw) > 16 { // if we have a frame that is at least the right size, it is not a heart beat
-		return false
+	if "" == f.full || "*;" == f.full || "*" == f.full {
+		return true
 	}
-	return noopRw.MatchString(f.raw)
+	if "0000000000000000000000000000" == f.full {
+		// this is a perf thing, as this is a common case with beast
+		return true
+	}
+	return noopRw.MatchString(f.full)
 }
 
 // ContainmentRadiusLimit calculates the horizontal containment radius limit in meters.

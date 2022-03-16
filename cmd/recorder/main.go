@@ -159,8 +159,8 @@ func (fp *frameProcessor) Handle(frame tracker.Frame, frameSource *tracker.Frame
 	switch (frame).(type) {
 	case *beast.Frame:
 		write(typeBeast, frame.Raw())
-		ok, err := frame.Decode()
-		if nil == err && ok {
+		err := frame.Decode()
+		if nil == err {
 			b := frame.(*beast.Frame)
 			write(typeAvr, append(b.AvrFrame().Raw(), 0x0A))
 		}

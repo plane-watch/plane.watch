@@ -16,11 +16,6 @@ const (
 	modesShortMsgBits  = modesShortMsgBytes * 8
 )
 
-//type icaoList struct {
-//	icao     int
-//	lastSeen time.Time
-//}
-
 type (
 	ReceivedFrame struct {
 		Frame string
@@ -28,16 +23,16 @@ type (
 	}
 )
 
+var ErrNoOp = errors.New("frame is NoOp")
+
 func DecodeString(rawFrame string, t time.Time) (*Frame, error) {
 	frame := NewFrame(rawFrame, t)
 	if nil == frame {
 		return nil, errors.New("unable to parse frame")
 	}
-	if ok, err := frame.Decode(); !ok || nil != err {
+	err := frame.Decode()
+	if nil != err {
 		return nil, err
-	}
-	if frame.isNoOp() {
-		return nil, nil
 	}
 	return frame, nil
 }
@@ -47,73 +42,28 @@ func NewFrame(rawFrame string, t time.Time) *Frame {
 		full:      rawFrame,
 		timeStamp: t,
 	}
-	if err := f.parseIntoRaw(); nil != err {
-		return nil
-	}
 
 	return &f
 }
 
-func (f *Frame) Decode() (bool, error) {
+func (f *Frame) Decode() error {
 	if nil == f {
-		return false, nil
+		return nil
 	}
+
 	if err := f.parseIntoRaw(); nil != err {
-		return false, err
-	}
-	return !f.isNoOp(), f.parse()
-}
-
-func (f *Frame) parseIntoRaw() error {
-	encodedFrame := strings.TrimFunc(f.full, func(r rune) bool {
-		return unicode.IsSpace(r) || ';' == r
-	})
-
-	// let's ensure that we have some correct data...
-	if "" == encodedFrame {
-		return errors.New("cannot decode empty string")
+		return err
 	}
 
-	if len(encodedFrame) < 14 {
-		return fmt.Errorf("frame (%s) too short to be a Mode S frame", f.full)
+	if f.isNoOp() {
+		return ErrNoOp
 	}
 
-	// determine what type of frame we are dealing with
-	if encodedFrame[0] == '@' {
-		// Beast Timestamp+AVR format
-		f.mode = "MLAT"
-	} else {
-		f.mode = "NORMAL"
-	}
-
-	// ensure we have a timestamp
-	frameStart := 0
-	if "MLAT" == f.mode {
-		frameStart = 13
-		// try and use the provided timestamp
-		f.beastTimeStamp = encodedFrame[1:12]
-		if err := f.parseBeastTimeStamp(); nil != err {
-			return err
-		}
-	} else if "*" == encodedFrame[0:1] {
-		frameStart = 1
-	}
-	f.raw = encodedFrame[frameStart:]
-
-	return nil
+	return f.parse()
 }
 
 func (f *Frame) parse() error {
 	var err error
-
-	if f.isNoOp() {
-		return nil
-	}
-
-	err = f.parseRawToMessage()
-	if nil != err {
-		return err
-	}
 
 	f.decodeDownLinkFormat()
 
@@ -181,6 +131,52 @@ func (f *Frame) parse() error {
 	return err
 }
 
+func (f *Frame) parseIntoRaw() error {
+	if len(f.message) > 0 {
+		// prevent double parse
+		return nil
+	}
+	encodedFrame := strings.TrimFunc(f.full, func(r rune) bool {
+		return unicode.IsSpace(r) || ';' == r
+	})
+
+	// let's ensure that we have some correct data...
+	if "" == encodedFrame {
+		return errors.New("cannot decode empty string")
+	}
+
+	if len(encodedFrame) < 14 {
+		return fmt.Errorf("frame (%s) too short to be a Mode S frame", f.full)
+	}
+
+	// determine what type of frame we are dealing with
+	if encodedFrame[0] == '@' {
+		// Beast Timestamp+AVR format
+		f.mode = "MLAT"
+	} else {
+		f.mode = "NORMAL"
+	}
+
+	// ensure we have a timestamp
+	frameStart := 0
+	if "MLAT" == f.mode {
+		frameStart = 13
+		// try and use the provided timestamp
+		f.beastTimeStamp = encodedFrame[1:12]
+		if err := f.parseBeastTimeStamp(); nil != err {
+			return err
+		}
+	} else if "*" == encodedFrame[0:1] {
+		frameStart = 1
+	}
+	f.raw = encodedFrame[frameStart:]
+
+	if len(f.raw) == 0 {
+		return errors.New("failed to decode message raw")
+	}
+	return f.parseRawToMessage()
+}
+
 func (f *Frame) decodeDownLinkFormat() {
 	// DF24 is a little different. if the first two bits of the message are set, it is a DF24 message
 	if f.message[0]&0xc0 == 0xc0 {
@@ -189,7 +185,6 @@ func (f *Frame) decodeDownLinkFormat() {
 		// get the down link format (DF) - first 5 bits
 		f.downLinkFormat = f.message[0] >> 3
 	}
-
 }
 
 func (f *Frame) parseRadarcapeTimeStamp() {
@@ -232,10 +227,12 @@ func (f *Frame) SetTimeStamp(t time.Time) {
 
 // call after frame.raw is set. does the preparing
 func (f *Frame) parseRawToMessage() error {
-	frameLen := len(f.raw)
 	if nil != f.message {
+		println("Message Already Parsed")
+		// prevent overwriting if called twice
 		return nil
 	}
+	frameLen := len(f.raw)
 
 	// cheap bitwise even number check!
 	if 0 != (frameLen & 1) {
@@ -261,6 +258,9 @@ func (f *Frame) parseRawToMessage() error {
 		}
 		f.message[index] = byte(myInt)
 		index++
+	}
+	if len(f.message) == 0 {
+		return errors.New("failed to decode message in bytes")
 	}
 	return nil
 }

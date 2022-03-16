@@ -26,7 +26,6 @@ var AllQueues = [...]string{
 	QueueTypeAvrReduce,
 	QueueTypeSbs1All,
 	QueueTypeSbs1Reduce,
-	QueueTypeDecodedJson,
 	QueueLocationUpdates,
 }
 
@@ -145,7 +144,6 @@ func WithAllQueues() Option {
 		conf.queue[QueueTypeBeastReduce] = QueueTypeBeastReduce
 		conf.queue[QueueTypeSbs1All] = QueueTypeSbs1All
 		conf.queue[QueueTypeSbs1Reduce] = QueueTypeSbs1Reduce
-		conf.queue[QueueTypeDecodedJson] = QueueTypeDecodedJson
 		conf.queue[QueueLocationUpdates] = QueueLocationUpdates
 	}
 }
