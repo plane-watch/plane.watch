@@ -324,8 +324,9 @@ func TestCorrectCprDecodeSouthAmerica(t *testing.T) {
 	for _, sample := range samples {
 		t.Run(fmt.Sprintf("decode_%s_%s", sample.odd, sample.even), func(tt *testing.T) {
 			oddFrame, err := mode_s.DecodeString(sample.odd, time.Now())
-			if nil != err {
+			if nil != err || oddFrame == nil {
 				tt.Error(err)
+				return
 			}
 			if oddFrame.IsEven() {
 				tt.Error("Odd Frame was Even")

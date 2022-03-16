@@ -12,7 +12,6 @@ import (
 	"plane.watch/lib/tracker/mode_s"
 	"plane.watch/lib/tracker/sbs1"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -35,7 +34,7 @@ type (
 	Frame interface {
 		Icao() uint32
 		IcaoStr() string
-		Decode() (bool, error)
+		Decode() error
 		TimeStamp() time.Time
 		Raw() []byte
 	}
@@ -75,9 +74,10 @@ func WithPruneTiming(pruneTick, pruneAfter time.Duration) Option {
 		t.pruneAfter = pruneAfter
 	}
 }
-func WithPrometheusCounters(currentPlanes prometheus.Gauge) Option {
+func WithPrometheusCounters(currentPlanes prometheus.Gauge, decodedFrames prometheus.Counter) Option {
 	return func(t *Tracker) {
 		t.stats.currentPlanes = currentPlanes
+		t.stats.decodedFrames = decodedFrames
 	}
 }
 
@@ -119,8 +119,6 @@ func (t *Tracker) EventListener(eventSource EventMaker, waiter *sync.WaitGroup) 
 		case *FrameEvent:
 			t.decodingQueue <- e.(*FrameEvent)
 			// send this event on!
-			t.AddEvent(e)
-		case *LogEvent:
 			t.AddEvent(e)
 		case *DedupedFrameEvent:
 			t.AddEvent(e)
@@ -180,7 +178,7 @@ func (t *Tracker) Stop() {
 
 //StopOnCancel listens for SigInt etc and gracefully stops
 func (t *Tracker) StopOnCancel() {
-	ch := make(chan os.Signal)
+	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	isStopping := false
 	for {
@@ -213,7 +211,7 @@ func (t *Tracker) Wait() {
 
 func (t *Tracker) handleError(err error) {
 	if nil != err {
-		t.errorMessage("%s", err)
+		t.errorMessage(err.Error())
 	}
 }
 
@@ -222,17 +220,16 @@ func (t *Tracker) decodeQueue() {
 		if nil == f {
 			continue
 		}
-		atomic.AddUint64(&t.numFrames, 1)
-		frame := f.Frame()
-		ok, err := frame.Decode()
-		if nil != err {
-			// the decode operation failed to produce valid output, and we tell someone about it
-			t.handleError(err)
-			continue
+		if nil != t.stats.decodedFrames {
+			t.stats.decodedFrames.Inc()
 		}
-		if !ok {
-			// the decode operation did not produce a valid frame, but this is not an error
-			// example: NoOp heartbeat
+		frame := f.Frame()
+		err := frame.Decode()
+		if nil != err {
+			if mode_s.ErrNoOp != err {
+				// the decode operation failed to produce valid output, and we tell someone about it
+				t.handleError(err)
+			}
 			continue
 		}
 

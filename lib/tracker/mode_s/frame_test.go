@@ -5,7 +5,7 @@ import (
 )
 
 func TestIsNoop(t *testing.T) {
-	frames := []Frame{
+	frames := []*Frame{
 		{raw: ""},
 		{raw: "0"},
 		{raw: "@00000"},
@@ -20,7 +20,7 @@ func TestIsNoop(t *testing.T) {
 }
 
 func TestIsNotNoop(t *testing.T) {
-	frames := []Frame{
+	frames := []*Frame{
 		{raw: "10"},
 		{raw: "123"},
 		{raw: "@123;"},
@@ -38,59 +38,85 @@ func TestIsNotNoop(t *testing.T) {
 
 func TestFrame_isNoOp(t *testing.T) {
 	type fields struct {
-		raw string
+		full string
+	}
+	type variation struct {
+		name, start, end string
 	}
 	tests := []struct {
 		name   string
 		fields fields
 		want   bool
 	}{
-		{name: "noop", fields: fields{raw: ""}, want: true},
-		{name: "noop", fields: fields{raw: "0"}, want: true},
-		{name: "noop", fields: fields{raw: "00"}, want: true},
-		{name: "noop", fields: fields{raw: "000"}, want: true},
-		{name: "noop", fields: fields{raw: "0000"}, want: true},
-		{name: "noop", fields: fields{raw: "00000"}, want: true},
-		{name: "noop", fields: fields{raw: "000000"}, want: true},
-		{name: "noop", fields: fields{raw: "0000000"}, want: true},
-		{name: "noop", fields: fields{raw: "00000000"}, want: true},
-		{name: "noop", fields: fields{raw: "000000000"}, want: true},
-		{name: "noop", fields: fields{raw: "0000000000"}, want: true},
-		{name: "noop", fields: fields{raw: "00000000000"}, want: true},
-		{name: "noop", fields: fields{raw: "000000000000"}, want: true},
-		{name: "noop", fields: fields{raw: "0000000000000"}, want: true},
-		{name: "noop", fields: fields{raw: "00000000000000"}, want: true},
-		{name: "noop", fields: fields{raw: "000000000000000"}, want: true},
-		{name: "noop", fields: fields{raw: "0000000000000000"}, want: true},
-		{name: "noop", fields: fields{raw: "00000000000000000"}, want: false},
-		{name: "bad", fields: fields{raw: "1"}, want: false},
-		{name: "bad", fields: fields{raw: "12"}, want: false},
-		{name: "bad", fields: fields{raw: "123"}, want: false},
-		{name: "bad", fields: fields{raw: "1234"}, want: false},
-		{name: "bad", fields: fields{raw: "12345"}, want: false},
-		{name: "bad", fields: fields{raw: "123456"}, want: false},
-		{name: "bad", fields: fields{raw: "1234567"}, want: false},
-		{name: "bad", fields: fields{raw: "12345678"}, want: false},
-		{name: "bad", fields: fields{raw: "123456789"}, want: false},
-		{name: "bad", fields: fields{raw: "1234567890"}, want: false},
-		{name: "bad", fields: fields{raw: "12345678901"}, want: false},
-		{name: "bad", fields: fields{raw: "123456789012"}, want: false},
-		{name: "bad", fields: fields{raw: "1234567890123"}, want: false},
-		{name: "bad", fields: fields{raw: "12345678901234"}, want: false},
-		{name: "bad", fields: fields{raw: "123456789012345"}, want: false},
-		{name: "bad", fields: fields{raw: "1234567890123456"}, want: false},
-		{name: "bad", fields: fields{raw: "12345678901234567"}, want: false},
+		{name: "noop", fields: fields{full: ""}, want: true},
+		{name: "noop", fields: fields{full: "0"}, want: true},
+		{name: "noop", fields: fields{full: "00"}, want: true},
+		{name: "noop", fields: fields{full: "000"}, want: true},
+		{name: "noop", fields: fields{full: "0000"}, want: true},
+		{name: "noop", fields: fields{full: "00000"}, want: true},
+		{name: "noop", fields: fields{full: "000000"}, want: true},
+		{name: "noop", fields: fields{full: "0000000"}, want: true},
+		{name: "noop", fields: fields{full: "00000000"}, want: true},
+		{name: "noop", fields: fields{full: "000000000"}, want: true},
+		{name: "noop", fields: fields{full: "0000000000"}, want: true},
+		{name: "noop", fields: fields{full: "00000000000"}, want: true},
+		{name: "noop", fields: fields{full: "000000000000"}, want: true},
+		{name: "noop", fields: fields{full: "0000000000000"}, want: true},
+		{name: "noop", fields: fields{full: "00000000000000"}, want: true},
+		{name: "noop", fields: fields{full: "000000000000000"}, want: true},
+		{name: "noop", fields: fields{full: "0000000000000000"}, want: true},
+		{name: "noop", fields: fields{full: "00000000000000000"}, want: true},
+		{name: "noop", fields: fields{full: "000000000000000000"}, want: true},
+		{name: "noop", fields: fields{full: "0000000000000000000"}, want: true},
+		{name: "noop", fields: fields{full: "00000000000000000000"}, want: true},
+		{name: "noop", fields: fields{full: "000000000000000000000"}, want: true},
+		{name: "noop", fields: fields{full: "0000000000000000000000"}, want: true},
+		{name: "noop", fields: fields{full: "00000000000000000000000"}, want: true},
+		{name: "noop", fields: fields{full: "000000000000000000000000"}, want: true},
+		{name: "noop", fields: fields{full: "0000000000000000000000000"}, want: true},
+		{name: "noop", fields: fields{full: "00000000000000000000000000"}, want: true},
+		{name: "noop", fields: fields{full: "000000000000000000000000000"}, want: true},
+		{name: "noop", fields: fields{full: "0000000000000000000000000000"}, want: true},
+		{name: "bad", fields: fields{full: "1"}, want: false},
+		{name: "bad", fields: fields{full: "12"}, want: false},
+		{name: "bad", fields: fields{full: "123"}, want: false},
+		{name: "bad", fields: fields{full: "1234"}, want: false},
+		{name: "bad", fields: fields{full: "12345"}, want: false},
+		{name: "bad", fields: fields{full: "123456"}, want: false},
+		{name: "bad", fields: fields{full: "1234567"}, want: false},
+		{name: "bad", fields: fields{full: "12345678"}, want: false},
+		{name: "bad", fields: fields{full: "123456789"}, want: false},
+		{name: "bad", fields: fields{full: "1234567890"}, want: false},
+		{name: "bad", fields: fields{full: "12345678901"}, want: false},
+		{name: "bad", fields: fields{full: "123456789012"}, want: false},
+		{name: "bad", fields: fields{full: "1234567890123"}, want: false},
+		{name: "bad", fields: fields{full: "12345678901234"}, want: false},
+		{name: "bad", fields: fields{full: "123456789012345"}, want: false},
+		{name: "bad", fields: fields{full: "1234567890123456"}, want: false},
+		{name: "bad", fields: fields{full: "12345678901234567"}, want: false},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			f := &Frame{
-				raw:  tt.fields.raw,
-				full: "*" + tt.fields.raw + ";",
-			}
-			if got := f.isNoOp(); got != tt.want {
-				t.Errorf("for %s isNoOp() = %v, want %v", tt.fields.raw, got, tt.want)
-			}
-		})
+	variations := []variation{
+		{name: "empty/", start: "", end: ""},
+		{name: "star+semicolon/", start: "*", end: ";"},
+	}
+	for _, v := range variations {
+		for _, tt := range tests {
+			t.Run(v.name+tt.name, func(t *testing.T) {
+				f := &Frame{
+					full: v.start + tt.fields.full + v.end,
+				}
+
+				if got := f.isNoOp(); got != tt.want {
+					t.Errorf("for `%s` isNoOp() = %v, want %v", f.full, got, tt.want)
+				}
+			})
+		}
+	}
+
+	// test nil
+	var f *Frame
+	if !f.isNoOp() {
+		t.Errorf("nil frames should NoOp")
 	}
 }
 

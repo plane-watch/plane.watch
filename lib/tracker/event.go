@@ -1,27 +1,13 @@
 package tracker
 
-import (
-	"fmt"
-	"time"
-)
-
 const LogEventType = "log-event"
 const PlaneLocationEventType = "plane-location-event"
-const InfoEventType = "info-event"
 
 type (
 	// Event is something that we want to know about. This is the base of our sending of data
 	Event interface {
 		Type() string
 		String() string
-	}
-
-	//LogEvent allows us to send out logs in a structured manner
-	LogEvent struct {
-		When    time.Time
-		Level   int
-		Section string
-		Message string
 	}
 
 	//PlaneLocationEvent is send whenever a planes information has been updated
@@ -44,13 +30,6 @@ type (
 		Name, Tag        string
 		RefLat, RefLon   *float64
 	}
-
-	// InfoEvent periodically sends out some interesting stats
-	InfoEvent struct {
-		receivedFrames uint64
-		numReceivers   int
-		uptime         float64
-	}
 )
 
 func (t *Tracker) AddEvent(e Event) {
@@ -69,13 +48,6 @@ func (t *Tracker) processEvents() {
 		}
 	}
 	t.eventsWaiter.Done()
-}
-
-func (l *LogEvent) Type() string {
-	return LogEventType
-}
-func (l *LogEvent) String() string {
-	return l.Message
 }
 
 func newPlaneLocationEvent(p *Plane) *PlaneLocationEvent {
@@ -124,24 +96,4 @@ func (f *FrameEvent) Frame() Frame {
 
 func (f *FrameEvent) Source() *FrameSource {
 	return f.source
-}
-
-func (i *InfoEvent) Type() string {
-	return InfoEventType
-}
-
-func (i *InfoEvent) String() string {
-	return fmt.Sprintf("Info: #feeders=%d, #frames=%d. uptime(s)=%0.2f", i.numReceivers, i.receivedFrames, i.uptime)
-}
-
-func (i *InfoEvent) NumReceivers() int {
-	return i.numReceivers
-}
-
-func (i *InfoEvent) NumFrames() uint64 {
-	return i.receivedFrames
-}
-
-func (i *InfoEvent) Uptime() float64 {
-	return i.uptime
 }

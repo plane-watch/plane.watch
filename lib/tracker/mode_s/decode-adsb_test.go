@@ -110,8 +110,9 @@ func TestBeastAvrTimestampDecode112BitModeS(t *testing.T) {
 	raw := "@016CE3671AA88D00199A8BB80030A8000628F400;"
 	t1 := time.Now()
 	frame, err := DecodeString(raw, t1)
-	if nil != err {
+	if nil != err || nil == frame {
 		t.Errorf("Failed to decode frame: %s", err)
+		return
 	}
 
 	if raw != frame.full {
