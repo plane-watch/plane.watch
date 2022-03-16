@@ -18,7 +18,7 @@ RUN go mod verify && go mod download
 COPY . /app/
 
 # Build the application
-RUN go build plane.watch/cmd/pw_discord_bot
+RUN go build -buildvcs=false plane.watch/cmd/pw_discord_bot
 
 FROM alpine:latest
 WORKDIR /app
