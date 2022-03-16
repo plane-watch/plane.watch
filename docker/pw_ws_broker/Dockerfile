@@ -4,15 +4,17 @@ FROM golang:1.17-alpine AS build
 ENV GO111MODULE=on \
     CGO_ENABLED=0 \
     GOOS=linux \
-    GOARCH=amd64
+    GOARCH=amd64 \
+    GOAMD64=v3
 
 WORKDIR /app
 
-# Copy the code into the container
+# prefill the build steps
 COPY go.mod /app
 COPY go.sum /app
 RUN go mod verify && go mod download
 
+# Copy the code into the container
 COPY . /app
 
 # Build the application
