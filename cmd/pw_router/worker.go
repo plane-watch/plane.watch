@@ -23,7 +23,7 @@ var (
 
 const SigHeadingChange = 1.0 // at least 1.0 degrees change.
 const SigVerticalRateChange = 180.0 // at least 180 fpm change (3ft in 1min)
-const SigAltitudeChange = 10.0 // at least 5 ft in altitude change.
+const SigAltitudeChange = 10.0 // at least 10 ft in altitude change.
 
 func (w *worker) isSignificant(last export.PlaneLocation, candidate export.PlaneLocation) bool {
 	// check the candidate vs last, if any of the following have changed
