@@ -196,7 +196,7 @@ func (w *worker) handleMsg(msg []byte) error {
 		return nil
 	}
 
-	return ErrUnhandledMessage
+	//return ErrUnhandledMessage
 }
 
 func (w *worker) handleRemovedUpdate(update export.PlaneLocation, msg []byte) {

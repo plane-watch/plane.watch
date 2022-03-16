@@ -116,7 +116,6 @@ func handleSink(urlSink, defaultTag string, defaultTtl int, defaultQueues []stri
 
 	default:
 		return nil, fmt.Errorf("unknown scheme: %s, expected one of [nats|redis|amqp]", parsedUrl.Scheme)
-		return nil, fmt.Errorf("unknown scheme: %s, expected one of [nats|redis|amqp]", parsedUrl.Scheme)
 	}
 
 }

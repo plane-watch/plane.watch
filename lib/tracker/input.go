@@ -178,7 +178,7 @@ func (t *Tracker) Stop() {
 
 //StopOnCancel listens for SigInt etc and gracefully stops
 func (t *Tracker) StopOnCancel() {
-	ch := make(chan os.Signal)
+	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	isStopping := false
 	for {
@@ -211,7 +211,7 @@ func (t *Tracker) Wait() {
 
 func (t *Tracker) handleError(err error) {
 	if nil != err {
-		t.errorMessage("%s", err)
+		t.errorMessage(err.Error())
 	}
 }
 
