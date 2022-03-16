@@ -1,4 +1,5 @@
 export GOBIN=$(shell pwd)/bin
+export GOAMD64=v3
 
 .PHONY: all
 
