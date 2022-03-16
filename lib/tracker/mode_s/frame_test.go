@@ -5,7 +5,7 @@ import (
 )
 
 func TestIsNoop(t *testing.T) {
-	frames := []Frame{
+	frames := []*Frame{
 		{raw: ""},
 		{raw: "0"},
 		{raw: "@00000"},
@@ -20,7 +20,7 @@ func TestIsNoop(t *testing.T) {
 }
 
 func TestIsNotNoop(t *testing.T) {
-	frames := []Frame{
+	frames := []*Frame{
 		{raw: "10"},
 		{raw: "123"},
 		{raw: "@123;"},

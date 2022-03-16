@@ -307,6 +307,7 @@ type (
 		err error
 
 		decodeLock sync.Mutex
+		hasDecoded bool
 	}
 )
 

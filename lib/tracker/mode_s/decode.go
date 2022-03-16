@@ -52,6 +52,9 @@ func (f *Frame) Decode() error {
 	}
 	f.decodeLock.Lock()
 	defer f.decodeLock.Unlock()
+	if f.hasDecoded {
+		return nil
+	}
 
 	if err := f.parseIntoRaw(); nil != err {
 		return err
@@ -61,7 +64,12 @@ func (f *Frame) Decode() error {
 		return ErrNoOp
 	}
 
-	return f.parse()
+	err := f.parse()
+	if nil == err {
+		// successful decode
+		f.hasDecoded = true
+	}
+	return err
 }
 
 func (f *Frame) parse() error {
