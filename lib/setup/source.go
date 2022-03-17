@@ -47,12 +47,14 @@ func IncludeSourceFlags(app *cli.App) {
 		},
 
 		&cli.Float64Flag{
-			Name:  "ref-lat",
-			Usage: "The reference latitude for decoding messages. Needs to be within 45nm of where the messages are generated.",
+			Name:    "ref-lat",
+			Usage:   "The reference latitude for decoding messages. Needs to be within 45nm of where the messages are generated.",
+			EnvVars: []string{"REF_LAT", "LAT"},
 		},
 		&cli.Float64Flag{
-			Name:  "ref-lon",
-			Usage: "The reference longitude for decoding messages. Needs to be within 45nm of where the messages are generated.",
+			Name:    "ref-lon",
+			Usage:   "The reference longitude for decoding messages. Needs to be within 45nm of where the messages are generated.",
+			EnvVars: []string{"REF_LON", "LONG"},
 		},
 
 		&cli.StringFlag{
