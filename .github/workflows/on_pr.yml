@@ -56,5 +56,5 @@ jobs:
           no-cache: true
           platforms: ${{ matrix.arch }}
           push: false
-          tags: ghcr.io/${{ env.GHCR_IMAGE }}:${{ matrix.image }}_${{ matrix.arch }}
+          tags: test_${{ matrix.image }}_${{ matrix.arch }}
           labels: ${{ steps.meta.outputs.labels }}
