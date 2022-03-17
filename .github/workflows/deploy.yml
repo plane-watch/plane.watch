@@ -66,8 +66,8 @@ jobs:
       - name: Build & Push - pw_discord_bot
         uses: docker/build-push-action@v2
         with:
-          context: ${{ env.GITHUB_WORKSPACE }}/docker/pw_discord_bot
-          file: ${{ env.GITHUB_WORKSPACE }}/docker/pw_discord_bot/Dockerfile
+          context: .
+          file: docker/pw_discord_bot/Dockerfile
           no-cache: true
           platforms: linux/amd64,linux/arm64
           push: true
@@ -78,8 +78,8 @@ jobs:
       - name: Build & Push - pw_ingest
         uses: docker/build-push-action@v2
         with:
-          context: ${{ env.GITHUB_WORKSPACE }}/docker/pw_ingest
-          file: ${{ env.GITHUB_WORKSPACE }}/docker/pw_ingest/Dockerfile
+          context: .
+          file: docker/pw_ingest/Dockerfile
           no-cache: true
           platforms: linux/amd64,linux/arm64
           push: true
@@ -90,8 +90,8 @@ jobs:
       - name: Build & Push - pw_router
         uses: docker/build-push-action@v2
         with:
-          context: ${{ env.GITHUB_WORKSPACE }}/docker/pw_router
-          file: ${{ env.GITHUB_WORKSPACE }}/docker/pw_router/Dockerfile
+          context: .
+          file: docker/pw_router/Dockerfile
           no-cache: true
           platforms: linux/amd64,linux/arm64
           push: true
@@ -102,8 +102,8 @@ jobs:
       - name: Build & Push - pw_ws_broker
         uses: docker/build-push-action@v2
         with:
-          context: ${{ env.GITHUB_WORKSPACE }}/docker/pw_ws_broker
-          file: ${{ env.GITHUB_WORKSPACE }}/docker/pw_ws_broker/Dockerfile
+          context: .
+          file: docker/pw_ws_broker/Dockerfile
           no-cache: true
           platforms: linux/amd64,linux/arm64
           push: true
