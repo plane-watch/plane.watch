@@ -1,0 +1,83 @@
+---
+name: Deploy
+
+on:
+  workflow_dispatch:
+    # inputs:
+    #   reason:
+    #     required: true
+    #     description: 'Reason for running this workflow'
+  # push:
+  #   branches:
+  #     - main
+  #   # Don't trigger if it's just a documentation update
+  #   paths-ignore:
+  #     - '**.md'
+  #     - '**.MD'
+  #     - '**.yml'
+  #     - 'LICENSE'
+  #     - '.gitattributes'
+  #     - '.gitignore'
+  #     - '.dockerignore'
+
+# Set workflow-wide environment variables
+env:
+  GHCR_IMAGE: ${{ github.repository }}
+  GHCR_REGISTRY: ghcr.io
+
+jobs:
+
+  deploy_ghcr_multiarch:
+    name: Deploy ghcr.io (Multi-Arch)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - pw_discord_bot
+          - pw_ingest
+          - pw_router
+          - pw_ws_broker
+
+    steps:
+
+      # Check out our code
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # Log into ghcr (so we can push images)
+      - name: Login to ghcr.io
+        uses: docker/login-action@v1
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Get metadata from repo
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v3
+        with:
+          images: ${{ env.GHCR_REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      # Set up QEMU for multi-arch builds
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+
+      # Set up buildx for multi platform builds
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+
+      # Build
+      - name: Build & Push - ${{ matrix.image }}
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: docker/${{ matrix.image }}/Dockerfile
+          no-cache: true
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ghcr.io/${{ env.GHCR_IMAGE }}:${{ matrix.image }}
+          labels: ${{ steps.meta.outputs.labels }}
