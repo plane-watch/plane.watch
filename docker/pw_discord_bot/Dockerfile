@@ -27,4 +27,4 @@ COPY --from=build /app/pw_discord_bot /app
 COPY docker/pw_discord_bot/entrypoint.sh /app
 
 # Command to run
-CMD ["/app/entrypoint.sh"]
+CMD [ "/app/entrypoint.sh" ]
