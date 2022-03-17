@@ -39,10 +39,23 @@ jobs:
           ignore: DL3007
           format: tty
 
+  gochecks:
+    name: Go Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          check-latest: true
+      - name: go vet
+        run: go vet ./...
+      - name: go test
+        run: go test ./...
+
   test_build:
     name: Test Build
     runs-on: ubuntu-latest
-    needs: [hadolint]
+    needs: [hadolint, gochecks]
     strategy:
       matrix:
         image:
