@@ -29,4 +29,4 @@ EXPOSE 80
 HEALTHCHECK --interval=15s --timeout=3s CMD wget --spider http://localhost:9603/status
 
 # Command to run
-CMD /app/pw_ws_broker daemon
+CMD [ "/app/pw_ws_broker daemon" ]

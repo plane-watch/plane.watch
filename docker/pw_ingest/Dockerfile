@@ -31,4 +31,4 @@ ENV PUBLISH_TYPES=location-updates
 HEALTHCHECK --interval=15s --timeout=3s CMD wget --spider http://localhost:9602/status
 
 # Command to run
-CMD /app/pw_ingest daemon
+CMD [ "/app/pw_ingest daemon" ]

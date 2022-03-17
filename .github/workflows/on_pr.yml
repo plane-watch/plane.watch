@@ -9,9 +9,54 @@ on:
 
 jobs:
 
+  hadolint:
+    name: Hadolint (Dockerfiles)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2 
+      - uses: hadolint/hadolint-action@v1.6.0
+        name: pw_discord_bot
+        with:
+          dockerfile: docker/pw_discord_bot/Dockerfile
+          ignore: DL3007
+          format: tty
+      - uses: hadolint/hadolint-action@v1.6.0
+        name: pw_ingest
+        with:
+          dockerfile: docker/pw_ingest/Dockerfile
+          ignore: DL3007
+          format: tty
+      - uses: hadolint/hadolint-action@v1.6.0
+        name: pw_router
+        with:
+          dockerfile: docker/pw_router/Dockerfile
+          ignore: DL3007
+          format: tty
+      - uses: hadolint/hadolint-action@v1.6.0
+        name: pw_ws_broker
+        with:
+          dockerfile: docker/pw_ws_broker/Dockerfile
+          ignore: DL3007
+          format: tty
+
+  gochecks:
+    name: Go Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '1.18'
+          check-latest: true
+      - name: go vet
+        run: go vet ./...
+      - name: go test
+        run: go test ./...
+
   test_build:
     name: Test Build
     runs-on: ubuntu-latest
+    needs: [hadolint, gochecks]
     strategy:
       matrix:
         image:

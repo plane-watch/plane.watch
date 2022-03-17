@@ -28,4 +28,4 @@ COPY --from=build /app/pw_router /app
 HEALTHCHECK --interval=15s --timeout=3s CMD wget --spider http://localhost:9601/status
 
 # Command to run
-CMD /app/pw_router daemon
+CMD [ "/app/pw_router daemon" ]
