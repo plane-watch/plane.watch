@@ -64,7 +64,7 @@ func TestCprDecodeSurfacePosition(t *testing.T) {
 			if err = cpr.SetEvenLocation(test.evenCprLat, test.evenCprLon, time.Now()); nil != err {
 				t.Error(err)
 			}
-			if err = cpr.SetOddLocation(test.oddCprLat, test.oddCprLon, time.Now()); nil != err {
+			if err = cpr.SetOddLocation(test.oddCprLat, test.oddCprLon, time.Now().Add(time.Microsecond)); nil != err {
 				t.Error(err)
 			}
 			loc, err = cpr.decode(true)
