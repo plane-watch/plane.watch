@@ -9,9 +9,32 @@ on:
 
 jobs:
 
+  hadolint:
+    name: Hadolint (Dockerfiles)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2 
+      - uses: hadolint/hadolint-action@v1.6.0
+        name: pw_discord_bot
+        with:
+          dockerfile: docker/pw_discord_bot/Dockerfile
+      - uses: hadolint/hadolint-action@v1.6.0
+        name: pw_ingest
+        with:
+          dockerfile: docker/pw_ingest/Dockerfile
+      - uses: hadolint/hadolint-action@v1.6.0
+        name: pw_router
+        with:
+          dockerfile: docker/pw_router/Dockerfile
+      - uses: hadolint/hadolint-action@v1.6.0
+        name: pw_ws_broker
+        with:
+          dockerfile: docker/pw_ws_broker/Dockerfile
+
   test_build:
     name: Test Build
     runs-on: ubuntu-latest
+    needs: [hadolint]
     strategy:
       matrix:
         image:
