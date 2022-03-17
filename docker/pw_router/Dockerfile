@@ -3,8 +3,6 @@ FROM golang:1.18-alpine AS build
 # Set necessary environmet variables needed for our image
 ENV GO111MODULE=on \
     CGO_ENABLED=0 \
-    GOOS=linux \
-    GOARCH=amd64 \
     GOAMD64=v3
 
 WORKDIR /app
