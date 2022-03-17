@@ -18,6 +18,9 @@ COPY . /app/
 # Build the application
 RUN go build -buildvcs=false plane.watch/cmd/pw_ingest
 
+# test binary (make sure it will run on this arch)
+RUN ./pw_ingest --help
+
 FROM alpine:latest
 WORKDIR /app
 COPY --from=build /app/pw_ingest /app
