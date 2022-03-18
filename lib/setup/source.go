@@ -42,7 +42,7 @@ func IncludeSourceFlags(app *cli.App) {
 		},
 		&cli.StringSliceFlag{
 			Name:    "file",
-			Usage:   "The Source in URL Form. [avr|beast|sbs1]:///path/to/file?tag=MYTAG&refLat=-31.0&refLon=115.0",
+			Usage:   "The Source in URL Form. [avr|beast|sbs1]:///path/to/file?tag=MYTAG&refLat=-31.0&refLon=115.0&delay=no",
 			EnvVars: []string{"FILE"},
 		},
 
@@ -169,6 +169,16 @@ func handleFileSource(urlFile, defaultTag string, defaultRefLat, defaultRefLon f
 		producerOpts[0] = producer.WithType(producer.Avr)
 	case "beast":
 		producerOpts[0] = producer.WithType(producer.Beast)
+		delay := false
+		if parsedUrl.Query().Has("delay") {
+			switch strings.ToLower(parsedUrl.Query().Get("delay")) {
+			case "", "no", "false", "0":
+				delay = false
+			default:
+				delay = true
+			}
+		}
+		producerOpts = append(producerOpts, producer.WithBeastDelay(delay))
 	case "sbs1":
 		producerOpts[0] = producer.WithType(producer.Sbs1)
 	default:
