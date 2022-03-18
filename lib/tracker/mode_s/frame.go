@@ -593,6 +593,12 @@ func (f *Frame) Raw() []byte {
 	}
 	return []byte(f.raw)
 }
+func (f *Frame) RawString() string {
+	if nil == f {
+		return ""
+	}
+	return f.raw
+}
 
 func (f *Frame) IcaoStr() string {
 	if nil == f {

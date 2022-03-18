@@ -413,7 +413,9 @@ var frameFeatures = map[byte][]featureBreakdown{
 	},
 	18: {
 		{name: "DF", start: 0, end: 5},
-		{name: "??", start: 5, end: 88},
+		{name: "CA", start: 5, end: 8},
+		{name: "AA", start: 8, end: 32},
+		{name: "ME", start: 32, end: 88, subFields: asdbFeatures},
 		{name: "CRC", start: 88, end: 112},
 	},
 	19: {
