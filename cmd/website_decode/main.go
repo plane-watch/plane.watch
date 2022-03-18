@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"html"
 	"io/fs"
 	"net/http"
 	"os"
@@ -123,11 +124,11 @@ func runHttpServer(c *cli.Context) error {
 				log.Debug().Str("frame", packet).Msg("Decoding Frame")
 				frame, err := mode_s.DecodeString(packet, time.Now())
 				if err != nil {
-					_, _ = fmt.Fprintln(w, "Failed to decode.", err)
+					_, _ = fmt.Fprintln(w, "Failed to decode.", html.EscapeString(err.Error()))
 					return
 				}
 				if nil == frame {
-					_, _ = fmt.Fprintln(w, "Not an AVR Frame", err)
+					_, _ = fmt.Fprintln(w, "Not an AVR Frame", html.EscapeString(err.Error()))
 					return
 				}
 				pt.GetPlane(frame.Icao()).HandleModeSFrame(frame, nil, nil)
