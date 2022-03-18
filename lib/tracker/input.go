@@ -1,7 +1,6 @@
 package tracker
 
 import (
-	"errors"
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
@@ -125,7 +124,7 @@ func (t *Tracker) EventListener(eventSource EventMaker, waiter *sync.WaitGroup) 
 		}
 	}
 	waiter.Done()
-	t.debugMessage("Done with Event Source %s", eventSource)
+	t.log.Debug().Msg("Done with Event Source")
 }
 
 // AddProducer wires up a Producer to start feeding data into the tracker
@@ -135,12 +134,12 @@ func (t *Tracker) AddProducer(p Producer) {
 	}
 	monitoring.AddHealthCheck(p)
 
-	t.debugMessage("Adding producer: %s", p)
+	t.log.Debug().Str("producer", p.String()).Msg("Adding producer")
 	t.producers = append(t.producers, p)
 	t.producerWaiter.Add(1)
 
 	go t.EventListener(p, &t.producerWaiter)
-	t.debugMessage("Just added a producer")
+	t.log.Debug().Msg("Just added a producer")
 }
 
 // AddMiddleware wires up a Middleware which each message will go through before being added to the tracker
@@ -148,17 +147,17 @@ func (t *Tracker) AddMiddleware(m Middleware) {
 	if nil == m {
 		return
 	}
-	t.debugMessage("Adding middleware: %s", m)
+	t.log.Debug().Str("name", m.String()).Msg("Adding middleware")
 	t.middlewares = append(t.middlewares, m)
 
 	t.middlewareWaiter.Add(1)
 	go t.EventListener(m, &t.middlewareWaiter)
-	t.debugMessage("Just added a middleware")
+	t.log.Debug().Msg("Just added a middleware")
 }
 
 // AddSink wires up a Sink in the tracker. Whenever an event happens it gets sent to each Sink
 func (t *Tracker) AddSink(s Sink) {
-	t.debugMessage("Add Sink %s", s.HealthCheckName())
+	t.log.Debug().Str("name", s.HealthCheckName()).Msg("Add Sink")
 	if nil == s {
 		return
 	}
@@ -209,12 +208,6 @@ func (t *Tracker) Wait() {
 	log.Debug().Msg("events waiter done")
 }
 
-func (t *Tracker) handleError(err error) {
-	if nil != err {
-		t.errorMessage(err.Error())
-	}
-}
-
 func (t *Tracker) decodeQueue() {
 	for f := range t.decodingQueue {
 		if nil == f {
@@ -228,7 +221,7 @@ func (t *Tracker) decodeQueue() {
 		if nil != err {
 			if mode_s.ErrNoOp != err {
 				// the decode operation failed to produce valid output, and we tell someone about it
-				t.handleError(err)
+				t.log.Error().Err(err).Str("Tag", f.Source().Tag).Send()
 			}
 			continue
 		}
@@ -255,7 +248,7 @@ func (t *Tracker) decodeQueue() {
 		case *sbs1.Frame:
 			plane.HandleSbs1Frame(frame.(*sbs1.Frame))
 		default:
-			t.handleError(errors.New("unknown frame type, cannot track"))
+			t.log.Error().Str("Tag", f.Source().Tag).Msg("unknown frame type, cannot track")
 		}
 	}
 	t.decodingQueueWaiter.Done()
