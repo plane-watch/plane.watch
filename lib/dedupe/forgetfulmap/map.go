@@ -118,3 +118,11 @@ func (f *ForgetfulSyncMap) Len() (entries int32) {
 
 	return entries
 }
+
+func (f *ForgetfulSyncMap) Range(rangeFunc func(key, value interface{}) bool) {
+	f.lookup.Range(rangeFunc)
+}
+
+func (f *ForgetfulSyncMap) Stop() {
+	f.sweeper.Stop()
+}

@@ -2,19 +2,21 @@ package tracker
 
 import (
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
-	"plane.watch/lib/tracker/mode_s"
-	"plane.watch/lib/tracker/sbs1"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"plane.watch/lib/dedupe/forgetfulmap"
+	"plane.watch/lib/tracker/mode_s"
+	"plane.watch/lib/tracker/sbs1"
 )
 
 type (
 	Tracker struct {
-		planeList sync.Map
+		planeList *forgetfulmap.ForgetfulSyncMap
 
 		// pruneTick is how long between pruning attempts
 		// pruneAfter is how long we wait from the last message before we remove it from the tracker
@@ -38,8 +40,6 @@ type (
 		events       chan Event
 		eventsWaiter sync.WaitGroup
 
-		pruneExitChan chan bool
-
 		startTime time.Time
 
 		stats struct {
@@ -62,7 +62,6 @@ func NewTracker(opts ...Option) *Tracker {
 		decodingQueue:     make(chan *FrameEvent, 1000), // a nice deep buffer
 		events:            make(chan Event, 10000),
 		eventsOpen:        true,
-		pruneExitChan:     make(chan bool),
 
 		startTime: time.Now(),
 
@@ -73,6 +72,18 @@ func NewTracker(opts ...Option) *Tracker {
 		opt(t)
 	}
 
+	t.planeList = forgetfulmap.NewForgetfulSyncMap(t.pruneTick, t.pruneAfter)
+	t.planeList.SetEvictionAction(func(key, value interface{}) {
+		if nil != t.stats.currentPlanes {
+			t.stats.currentPlanes.Dec()
+		}
+
+		if plane, ok := value.(*Plane); ok {
+			// now send an event
+			t.AddEvent(newPlaneActionEvent(plane, false, true))
+		}
+	})
+
 	// Process our event queue and send them to all the Sinks that are currently listening to us
 	go t.processEvents()
 
@@ -81,18 +92,11 @@ func NewTracker(opts ...Option) *Tracker {
 		go t.decodeQueue()
 	}
 
-	go t.prunePlanes()
-
 	return t
 }
 
 func (t *Tracker) numPlanes() int {
-	count := 0
-	t.planeList.Range(func(key, value interface{}) bool {
-		count++
-		return true
-	})
-	return count
+	return int(t.planeList.Len())
 }
 
 func (t *Tracker) GetPlane(icao uint32) *Plane {
@@ -399,32 +403,5 @@ func (p *Plane) HandleSbs1Frame(frame *sbs1.Frame) {
 
 	if hasChanged {
 		p.tracker.AddEvent(newPlaneLocationEvent(p))
-	}
-}
-
-func (t *Tracker) prunePlanes() {
-	ticker := time.NewTicker(t.pruneTick)
-	for {
-		select {
-		case <-ticker.C:
-			// prune the planes in the list if they have not been seen > 5 minutes
-			oldest := time.Now().Add(-t.pruneAfter)
-			t.EachPlane(func(p *Plane) bool {
-				if p.LastSeen().Before(oldest) {
-					t.planeList.Delete(p.icaoIdentifier)
-					if nil != t.stats.currentPlanes {
-						t.stats.currentPlanes.Dec()
-					}
-
-					// now send an event
-					t.AddEvent(newPlaneActionEvent(p, false, true))
-				}
-
-				return true
-			})
-
-		case <-t.pruneExitChan:
-			return
-		}
 	}
 }

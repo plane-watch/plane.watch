@@ -3,11 +3,12 @@ package tracker
 import (
 	"flag"
 	"fmt"
-	"github.com/rs/zerolog"
-	"plane.watch/lib/tracker/mode_s"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/rs/zerolog"
+	"plane.watch/lib/tracker/mode_s"
 )
 
 func TestMain(m *testing.M) {
@@ -362,5 +363,23 @@ func TestCorrectCprDecodeSouthAmerica(t *testing.T) {
 				t.Errorf("Got incorrect Longitude: expecting: %s != got: %0.5f", sample.lon, loc.longitude)
 			}
 		})
+	}
+}
+
+func TestPlaneListGetsEvicted(t *testing.T) {
+	const planeid = 1234
+	const squawk = 9999
+
+	// Ensure that Tracker sets up the ForgetfulSyncMap correctly to evict planes from its cache
+	tkr := NewTracker(WithPruneTiming(time.Millisecond, time.Millisecond))
+	p := tkr.GetPlane(planeid)
+
+	p.squawk = squawk
+
+	time.Sleep(100 * time.Millisecond)
+
+	p = tkr.GetPlane(planeid)
+	if p.squawk == squawk {
+		t.Errorf("Tracker's forgetfulmap did not correctly evict plane")
 	}
 }
