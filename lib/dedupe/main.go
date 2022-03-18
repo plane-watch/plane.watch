@@ -37,6 +37,7 @@ func (f *Filter) Listen() chan tracker.Event {
 
 func (f *Filter) Stop() {
 	close(f.events)
+	f.list.Stop()
 }
 
 func (f *Filter) String() string {

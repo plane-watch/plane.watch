@@ -202,6 +202,7 @@ func run(c *cli.Context) error {
 		cacheEntries.Dec()
 		log.Debug().Msgf("Evicting cache entry Icao: %s", key)
 	})
+	defer r.syncSamples.Stop()
 
 	r.incomingMessages = make(chan []byte, 300)
 
