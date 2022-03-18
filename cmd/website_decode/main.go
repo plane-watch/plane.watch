@@ -15,7 +15,6 @@ import (
 	"plane.watch/lib/monitoring"
 	"plane.watch/lib/tracker"
 	"plane.watch/lib/tracker/mode_s"
-	"runtime/debug"
 	"strings"
 	"syscall"
 	"time"
@@ -98,7 +97,10 @@ func runHttpServer(c *cli.Context) error {
 			if r := recover(); r != nil {
 				_, _ = fmt.Fprintln(w, "<pre>Failed big time...")
 				_, _ = fmt.Fprintln(w, r)
-				_, _ = w.Write(debug.Stack())
+				log.Error().
+					Stack().
+					Err(errors.New("failed to handle request")).
+					Interface("recover", r)
 			}
 		}()
 		switch r.URL.Path {
