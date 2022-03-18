@@ -2,11 +2,12 @@ package main
 
 import (
 	"errors"
+	"os"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"os"
 	"plane.watch/lib/logging"
 	"plane.watch/lib/monitoring"
 )
@@ -139,20 +140,6 @@ func run(c *cli.Context) error {
 		return c.Set("http-addr", ":443")
 	}
 
-	var hasRabbit bool
-	var hasNats bool
-	var hasRedis bool
-	for _, v := range c.FlagNames() {
-		if "rabbitmq" == v {
-			hasRabbit = true
-		}
-		if "nats" == v {
-			hasNats = true
-		}
-		if "redis" == v {
-			hasRedis = true
-		}
-	}
 	monitoring.RunWebServer(c)
 
 	rabbitmq := c.String("rabbitmq")
@@ -160,6 +147,10 @@ func run(c *cli.Context) error {
 	redis := c.String("redis")
 	lowRoute := c.String("route-key-low")
 	highRoute := c.String("route-key-high")
+
+	hasRedis := flagWasSet("redis", c.App.Flags)
+	hasNats := flagWasSet("nats", c.App.Flags)
+	hasRabbit := flagWasSet("rabbitmq", c.App.Flags)
 
 	isValid := true
 	if !hasRabbit && !hasNats && !hasRedis {
@@ -187,6 +178,9 @@ func run(c *cli.Context) error {
 	} else if hasRedis && "" != redis {
 		input, err = NewPwWsBrokerRedis(redis, lowRoute, highRoute)
 	}
+	if nil != err {
+		return err
+	}
 
 	broker, err := NewPlaneWatchWebSocketBroker(
 		input,
@@ -209,4 +203,15 @@ func run(c *cli.Context) error {
 	broker.Wait()
 
 	return nil
+}
+
+func flagWasSet(flagName string, flags []cli.Flag) bool {
+	for _, f := range flags {
+		for _, name := range f.Names() {
+			if name == flagName && f.IsSet() {
+				return true
+			}
+		}
+	}
+	return false
 }
