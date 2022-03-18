@@ -1,8 +1,12 @@
 package producer
 
 import (
+	"bufio"
+	"bytes"
+	"plane.watch/lib/tracker"
 	"reflect"
 	"testing"
+	"time"
 )
 
 var (
@@ -88,25 +92,25 @@ func TestScanBeast(t *testing.T) {
 			wantErr:     false,
 		},
 		{
-			name: "Test Overrun",
-			args: args{data: beastModeSShortBad, atEOF: true},
+			name:        "Test Overrun",
+			args:        args{data: beastModeSShortBad, atEOF: true},
 			wantAdvance: 0,
-			wantToken: nil,
-			wantErr: false,
+			wantToken:   nil,
+			wantErr:     false,
 		},
 		{
-			name: "No Beast Esc",
-			args: args{data: noBeast, atEOF: true},
+			name:        "No Beast Esc",
+			args:        args{data: noBeast, atEOF: true},
 			wantAdvance: 0,
-			wantToken: nil,
-			wantErr: false,
+			wantToken:   nil,
+			wantErr:     false,
 		},
 		{
-			name: "No Beast Esc",
-			args: args{data: noBeast, atEOF: false},
+			name:        "No Beast Esc",
+			args:        args{data: noBeast, atEOF: false},
 			wantAdvance: 0,
-			wantToken: nil,
-			wantErr: false,
+			wantToken:   nil,
+			wantErr:     false,
 		},
 	}
 	for _, tt := range tests {
@@ -123,5 +127,36 @@ func TestScanBeast(t *testing.T) {
 				t.Errorf("ScanBeast() gotToken (len %d) = %X, want (len %d) %X", len(gotToken), gotToken, len(tt.wantToken), tt.wantToken)
 			}
 		})
+	}
+}
+
+func Test_producer_beastScanner(t *testing.T) {
+	p := New(WithType(Beast))
+
+	buf := beastModeSLong
+	scanner := bufio.NewScanner(bytes.NewReader(buf))
+	expectedCounter := 0
+	unexpectedCounter := 0
+
+	go func() {
+		for m := range p.out {
+			if m.Type() == tracker.PlaneLocationEventType {
+				expectedCounter++
+			} else {
+				unexpectedCounter++
+			}
+		}
+	}()
+	err := p.beastScanner(scanner)
+	if nil != err {
+		t.Errorf("Failed to scan single message")
+	}
+	close(p.out)
+	time.Sleep(time.Millisecond * 50)
+	if expectedCounter != 1 {
+		t.Errorf("Got the wrong message count. got %d, expected 1", expectedCounter)
+	}
+	if unexpectedCounter != 0 {
+		t.Errorf("Got Unexpected Messaged. got %d, expected 1", expectedCounter)
 	}
 }
