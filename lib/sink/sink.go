@@ -68,6 +68,7 @@ func (s *Sink) Stop() {
 	close(s.events)
 	s.config.Finish()
 	s.dest.Stop()
+	s.fsm.Stop()
 }
 
 func (s *Sink) sendLocationEvent(routingKey string, le *tracker.PlaneLocationEvent) error {
