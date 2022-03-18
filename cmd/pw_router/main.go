@@ -13,7 +13,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"plane.watch/lib/dedupe"
+	"plane.watch/lib/dedupe/forgetfulmap"
 	"plane.watch/lib/monitoring"
 
 	"plane.watch/lib/logging"
@@ -37,7 +37,7 @@ type (
 	pwRouter struct {
 		mqs []mq
 
-		syncSamples *dedupe.ForgetfulSyncMap
+		syncSamples *forgetfulmap.ForgetfulSyncMap
 
 		haveSourceSinkConnection bool
 
@@ -194,7 +194,7 @@ func run(c *cli.Context) error {
 	var err error
 	// connect to rabbitmq, create ourselves 2 queues
 	r := pwRouter{
-		syncSamples: dedupe.NewForgetfulSyncMap(time.Duration(c.Int("update-age-sweep-interval"))*time.Second, time.Duration(c.Int("update-age"))*time.Second),
+		syncSamples: forgetfulmap.NewForgetfulSyncMap(time.Duration(c.Int("update-age-sweep-interval"))*time.Second, time.Duration(c.Int("update-age"))*time.Second),
 	}
 
 	r.syncSamples.SetEvictionAction(func(key interface{}, value interface{}) {

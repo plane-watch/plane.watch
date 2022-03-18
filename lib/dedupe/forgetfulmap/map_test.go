@@ -1,4 +1,4 @@
-package dedupe
+package forgetfulmap
 
 import (
 	"sync"
