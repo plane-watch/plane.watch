@@ -24,7 +24,6 @@ RUN ./pw_discord_bot --help
 FROM alpine:latest
 WORKDIR /app
 COPY --from=build /app/pw_discord_bot /app
-COPY docker/pw_discord_bot/entrypoint.sh /app
 
 # Command to run
 ENTRYPOINT [ "/app/pw_discord_bot" ]
