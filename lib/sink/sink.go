@@ -14,8 +14,6 @@ import (
 	"plane.watch/lib/tracker/sbs1"
 	"regexp"
 
-	//"regexp"
-	"strings"
 	"time"
 )
 
@@ -90,38 +88,7 @@ func (s *Sink) trackerMsgJson(le *tracker.PlaneLocationEvent) ([]byte, error) {
 		return nil, errors.New("no plane")
 	}
 
-	callSign := strings.TrimSpace(plane.FlightNumber())
-	eventStruct := export.PlaneLocation{
-		New:             le.New(),
-		Removed:         le.Removed(),
-		Icao:            plane.IcaoIdentifierStr(),
-		Lat:             plane.Lat(),
-		Lon:             plane.Lon(),
-		Heading:         plane.Heading(),
-		Altitude:        int(plane.Altitude()),
-		VerticalRate:    plane.VerticalRate(),
-		AltitudeUnits:   plane.AltitudeUnits(),
-		Velocity:        plane.Velocity(),
-		CallSign:        &callSign,
-		FlightStatus:    plane.FlightStatus(),
-		OnGround:        plane.OnGround(),
-		Airframe:        plane.AirFrame(),
-		AirframeType:    plane.AirFrameType(),
-		Squawk:          plane.SquawkIdentityStr(),
-		Special:         plane.Special(),
-		AircraftWidth:   plane.AirFrameWidth(),
-		AircraftLength:  plane.AirFrameLength(),
-		Registration:    plane.Registration(),
-		HasLocation:     plane.HasLocation(),
-		HasHeading:      plane.HasHeading(),
-		HasVerticalRate: plane.HasVerticalRate(),
-		HasVelocity:     plane.HasVelocity(),
-		SourceTag:       s.config.sourceTag,
-		TileLocation:    plane.GridTileLocation(),
-		LastMsg:         plane.LastSeen().UTC(),
-		TrackedSince:    plane.TrackedSince().UTC(),
-		SignalRssi:      plane.SignalLevel(),
-	}
+	eventStruct := export.NewPlaneLocation(plane, le.New(), le.Removed(), s.config.sourceTag)
 
 	var jsonBuf []byte
 	jsonBuf, err = json.MarshalIndent(&eventStruct, "", "  ")

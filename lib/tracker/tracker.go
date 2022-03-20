@@ -103,7 +103,7 @@ func (t *Tracker) GetPlane(icao uint32) *Plane {
 	if t.log.Trace().Enabled() {
 		t.log.Trace().
 			Str("ICAO", fmt.Sprintf("%06X", icao)).
-			Msg("Plane  has made an appearance")
+			Msg("Plane has made an appearance")
 	}
 	if nil != t.stats.currentPlanes {
 		t.stats.currentPlanes.Inc()
@@ -145,7 +145,7 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 
 	hasChanged = p.setRegistration(frame.DecodeAuIcaoRegistration()) || hasChanged
 
-	if zerolog.GlobalLevel() == zerolog.TraceLevel {
+	if log.Trace().Enabled() {
 		log.Trace().
 			Str("frame", frame.String()).
 			Str("icao", frame.IcaoStr()).
@@ -217,11 +217,10 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 		}
 		p.setLocationUpdateTime(frame.TimeStamp())
 
-	case 17, 18: // ADS-B
+	case 17, 18, 19: // ADS-B
 		//if debug {
 		//	frame.Describe(os.Stdout)
 		//}
-
 		// i am using the text version because it is easier to program with.
 		// if performance is an issue, change over to byte comparing
 		messageType := frame.MessageTypeString()

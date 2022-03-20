@@ -2,15 +2,17 @@ $(document).ready(function () {
     let packet = $('#packet');
     let inputForm =$('#input-form');
     inputForm.submit(function (event) {
-        var packet = $('#packet').val();
-        $.get("/decode", {'packet': packet})
+        event.preventDefault();
+        let packet = $('#packet').val();
+        let refLat = $('#refLat').val();
+        let refLon = $('#refLon').val();
+        $.get("/decode", {'packet': packet, 'refLat': refLat, 'refLon': refLon})
             .done(function (data) {
                 $('#result').html(data)
             })
             .fail(function () {
                 $('#result').html("Failed to get data")
             });
-        event.preventDefault();
     });
 
     let search = new URLSearchParams(window.location.search)
@@ -28,8 +30,20 @@ $(document).ready(function () {
         packet.val($(this).data('packet'));
         inputForm.submit()
     });
+
+
+    $('#getLocation').click(function(e) {
+        e.preventDefault()
+        console.log("Attempting to get location for this user")
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function (pos) {
+                $('#refLat').val(pos.coords.latitude)
+                $('#refLon').val(pos.coords.longitude)
+            });
+        }
+    })
 });
-var examplePackets = {
+let examplePackets = {
     21: [],
     17: [],
     18: [],
@@ -37,25 +51,26 @@ var examplePackets = {
     16: []
 //        28: ['*E1999863859533;']
 };
-var lastRandomNumber = -1;
+let lastRandomNumber = -1;
+
 function setExamplePacket(df) {
-    var length = examplePackets[df].length;
-    var id = parseInt(Math.random() * length, 10);
+    const length = examplePackets[df].length;
+    let id = parseInt(Math.random() * length, 10);
     if (length > 1) {
-        while (lastRandomNumber == id) {
+        while (lastRandomNumber === id) {
             id = parseInt(Math.random() * length, 10);
         }
         lastRandomNumber = id;
     } else {
         id = 0;
     }
-    var packet = examplePackets[df][id];
-    var packetField = $('#packet');
+    const packet = examplePackets[df][id];
+    const packetField = $('#packet');
     packetField.val(packet);
     packetField.submit();
 }
 
-var examples = $('#examples');
+const examples = $('#examples');
 for (let key in examplePackets) {
     if (examplePackets.hasOwnProperty(key)) {
         var link = $('<a class="button">DF' + key + '</a>');
