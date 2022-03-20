@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/olekukonko/tablewriter"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"os"
@@ -130,6 +131,17 @@ func gatherSamples(c *cli.Context) error {
 	return nil
 }
 
+func getFlagByte(c *cli.Context, flag string) *byte {
+	for _, f := range c.FlagNames() {
+		if f == flag {
+			v := c.Int(flag)
+			b := byte(v)
+			return &b
+		}
+	}
+	return nil
+}
+
 func showTypes(c *cli.Context) error {
 	incomingChan, err := incoming(c)
 	if nil != err {
@@ -137,23 +149,94 @@ func showTypes(c *cli.Context) error {
 	}
 	log.Info().Msg("Processing...")
 
+	requestedDf := getFlagByte(c, "df")
+	requestedMt := getFlagByte(c, "mt")
+	requestedSt := getFlagByte(c, "st")
+	var requestedIcao *string
+	if v := c.String("icao"); "" != v {
+		requestedIcao = &v
+	}
+	export := c.Bool("export")
+
+	tbl := tablewriter.NewWriter(os.Stdout)
+	tbl.SetHeader([]string{"DF", "MT", "ST", "ICAO", "AVR", "DF Desc", "MT Desc"})
+	tbl.SetBorder(false)
+	tbl.SetAutoWrapText(false)
+	exportedFrames := make([]string, 0, 1000)
+
 	for iframe := range incomingChan {
 		frame := modeSFrame(iframe)
 		if nil == frame {
 			continue
 		}
 
+		if nil != requestedDf && *requestedDf != frame.DownLinkType() {
+			continue
+		}
+		if nil != requestedMt && *requestedMt != frame.MessageType() {
+			continue
+		}
+		if nil != requestedSt && *requestedSt != frame.MessageSubType() {
+			continue
+		}
+		if nil != requestedIcao && *requestedIcao != frame.IcaoStr() {
+			continue
+		}
+		var fields []string
+		exportedFrames = append(exportedFrames, frame.RawString())
+
 		switch frame.DownLinkType() {
 		case 0, 4, 5, 11:
-			fmt.Printf("DF%02d\t    \t    \t%s\t%s\n", frame.DownLinkType(), frame.IcaoStr(), frame.RawString())
-		case 17, 18:
-			fmt.Printf("DF%02d\tMT%02d\tST%02d\t%s\t%s\n", frame.DownLinkType(), frame.MessageType(), frame.MessageSubType(), frame.IcaoStr(), frame.RawString())
+			fields = []string{
+				fmt.Sprintf("%02d", frame.DownLinkType()),
+				"",
+				"",
+				frame.IcaoStr(),
+				frame.RawString(),
+				frame.DownLinkFormat(),
+				frame.MessageTypeString(),
+			}
+		case 17, 18, 19:
+			fields = []string{
+				fmt.Sprintf("%02d", frame.DownLinkType()),
+				fmt.Sprintf("%02d", frame.MessageType()),
+				fmt.Sprintf("%02d", frame.MessageSubType()),
+				frame.IcaoStr(),
+				frame.RawString(),
+				frame.DownLinkFormat(),
+				frame.MessageTypeString(),
+			}
 		case 20, 21:
-			fmt.Printf("DF%02d\tBDS%s\tST%02d\t%s\t%s\n", frame.DownLinkType(), frame.BdsMessageType(), frame.MessageSubType(), frame.IcaoStr(), frame.RawString())
+			fields = []string{
+				fmt.Sprintf("%02d", frame.DownLinkType()),
+				frame.BdsMessageType(),
+				fmt.Sprintf("%02d", frame.MessageSubType()),
+				frame.IcaoStr(),
+				frame.RawString(),
+				frame.DownLinkFormat(),
+				frame.MessageTypeString(),
+			}
 		default:
-			fmt.Printf("DF%02d\tMT%02d\tST%02d\t%s\t%s\n", frame.DownLinkType(), frame.MessageType(), frame.MessageSubType(), frame.IcaoStr(), frame.RawString())
-
+			fields = []string{
+				fmt.Sprintf("%02d", frame.DownLinkType()),
+				fmt.Sprintf("%02d", frame.MessageType()),
+				fmt.Sprintf("%02d", frame.MessageSubType()),
+				frame.IcaoStr(),
+				frame.RawString(),
+				frame.DownLinkFormat(),
+				frame.MessageTypeString(),
+			}
 		}
+		if !export {
+			tbl.Append(fields)
+		}
+	}
+	if export {
+		for _, f := range exportedFrames {
+			fmt.Println(f)
+		}
+	} else {
+		tbl.Render()
 	}
 	return nil
 }
@@ -172,6 +255,28 @@ func main() {
 			Name:   "types",
 			Usage:  "Shows message info for everything in the file",
 			Action: showTypes,
+			Flags: []cli.Flag{
+				&cli.IntFlag{
+					Name:  "df",
+					Usage: "Only print frames of the specified Downlink format",
+				},
+				&cli.IntFlag{
+					Name:  "mt",
+					Usage: "Message Type (for df 17,18,19)",
+				},
+				&cli.IntFlag{
+					Name:  "st",
+					Usage: "Message Sub Type (for df 17,18,19)",
+				},
+				&cli.StringFlag{
+					Name:  "icao",
+					Usage: "only show messages from Airframe with this 24bit identifier (hex, e.g. 7C6CE8)",
+				},
+				&cli.BoolFlag{
+					Name:  "export",
+					Usage: "Output only the AVR frames, one per line",
+				},
+			},
 		},
 		{
 			Name:      "gather-samples",

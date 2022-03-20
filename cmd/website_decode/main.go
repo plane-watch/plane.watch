@@ -12,10 +12,12 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"plane.watch/lib/export"
 	"plane.watch/lib/logging"
 	"plane.watch/lib/monitoring"
 	"plane.watch/lib/tracker"
 	"plane.watch/lib/tracker/mode_s"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -85,8 +87,8 @@ func runHttpServer(c *cli.Context) error {
 			panic(err)
 		}
 	} else {
-		log.Info().Str("path", htdocsPath).Msg("Serving HTTP Docs from")
 		htdocsPath = path.Clean(c.Args().First())
+		log.Info().Str("path", htdocsPath).Msg("Serving HTTP Docs from")
 		files = os.DirFS(htdocsPath)
 	}
 	logging.SetLoggingLevel(c)
@@ -109,6 +111,9 @@ func runHttpServer(c *cli.Context) error {
 			pt := tracker.NewTracker()
 			var submittedPackets string
 			_ = r.ParseForm()
+
+			refLat := getAsFloat(r.FormValue("refLat"))
+			refLon := getAsFloat(r.FormValue("refLon"))
 			submittedPackets = r.FormValue("packet")
 			if "" == submittedPackets {
 				_, _ = fmt.Fprintln(w, "No Packet Provided")
@@ -131,7 +136,7 @@ func runHttpServer(c *cli.Context) error {
 					_, _ = fmt.Fprintln(w, "Not an AVR Frame", html.EscapeString(err.Error()))
 					return
 				}
-				pt.GetPlane(frame.Icao()).HandleModeSFrame(frame, nil, nil)
+				pt.GetPlane(frame.Icao()).HandleModeSFrame(frame, refLat, refLon)
 				icaoList[frame.Icao()] = frame.Icao()
 				frame.Describe(w)
 			}
@@ -139,8 +144,11 @@ func runHttpServer(c *cli.Context) error {
 			for _, icao := range icaoList {
 				_, _ = fmt.Fprintln(w, "")
 				plane := pt.GetPlane(icao)
-				encoded, _ := json.MarshalIndent(plane, "", "  ")
-				_, _ = fmt.Fprintf(w, "%s", string(encoded))
+				pl := export.NewPlaneLocation(plane, true, false, "")
+
+				encoded, _ := json.MarshalIndent(pl, "", "  ")
+
+				_, _ = fmt.Fprint(w, string(encoded))
 			}
 
 			pt = nil
@@ -186,4 +194,12 @@ func listenHttps(exitChan chan bool, cert, certKey, port string) {
 		}
 	}
 	exitChan <- true
+}
+
+func getAsFloat(in string) *float64 {
+	f, err := strconv.ParseFloat(in, 64)
+	if nil == err {
+		return &f
+	}
+	return nil
 }
