@@ -1,0 +1,123 @@
+# Make sure to check the documentation at https://goreleaser.com
+project_name: pw-pipeline
+gomod:
+  mod: mod
+
+before:
+  hooks:
+    - go mod tidy
+    - go vet ./...
+    - go test ./...
+    - go generate ./...
+    - docker run -it -v ${PWD}/docs:/app/docs asyncapi/generator docs/pw_ws_broker.async-api.yaml @asyncapi/html-template -o docs --force-write
+builds:
+  - main: ./cmd/pw_ingest
+    id: pw_ingest
+    binary: pw_ingest
+    env: &default_env
+      - CGO_ENABLED=0
+    goos: &default_goos
+      - linux
+      - windows
+      - darwin
+    goarch: &default_arch
+      - amd64
+      - arm64
+
+  - main: ./cmd/pw_router
+    id: pw_router
+    binary: pw_router
+    env: *default_env
+    goos: *default_goos
+    goarch: *default_arch
+
+  - main: ./cmd/pw_ws_broker
+    id: pw_ws_broker
+    binary: pw_ws_broker
+    env: *default_env
+    goos: *default_goos
+    goarch: *default_arch
+
+archives:
+  - id: pw_ingest
+    builds:
+      - pw_ingest
+    replacements: &replacements
+      darwin: Darwin
+      linux: Linux
+      windows: Windows
+    format_overrides: &archive_format_overrides
+      - goos: windows
+        format: zip
+    name_template: "{{ .ProjectName }}_pw-ingest_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+  - id: pw_router
+    builds:
+      - pw_router
+    replacements: *replacements
+    format_overrides: *archive_format_overrides
+    name_template: "{{ .ProjectName }}_pw-router_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+  - id: pw_ws_broker
+    builds:
+      - pw_router
+    replacements: *replacements
+    format_overrides: *archive_format_overrides
+    name_template: "{{ .ProjectName }}_pw-ws-broker_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+nfpms:
+  -
+    id: pw_ingest
+    package_name: pw_ingest
+    replacements: *replacements
+    vendor: &vendor plane.watch
+    homepage: &homepage https://plane.watch
+    maintainer: &maintainer plane-watch-devs <dev@plane.watch>
+    description: |-
+      Part of the plane.watch website backend to process adsb messages into understandable location updates.
+      This part takes ADSB messages in AVR/Beast/SBS1 format, decodes them and turns them into JSON location updates.
+    license: &license GPL 3
+    formats: &formats
+      - apk
+      - deb
+      - rpm
+    recommends:
+      - dump1090-fa
+  -
+    id: pw_router
+    package_name: pw_router
+    builds:
+      - pw_router
+    vendor: *vendor
+    homepage: *homepage
+    maintainer: *maintainer
+    description: |-
+      Part of the plane.watch website backend to process adsb messages into understandable location updates.
+      Handles how frequently we send updates on further down the pipeline
+    license: *license
+    formats: *formats
+
+  -
+    id: pw_ws_broker
+    package_name: pw_ws_broker
+    builds:
+      - pw_ws_broker
+    vendor: *vendor
+    homepage: *homepage
+    maintainer: *maintainer
+    description: |-
+      Part of the plane.watch website backend to process adsb messages into understandable location updates.
+      Listens for updates and handles them out to the websocket clients
+    license: *license
+    formats: *formats
+
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
