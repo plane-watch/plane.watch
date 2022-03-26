@@ -2,12 +2,11 @@ package main
 
 import (
 	"errors"
-	"os"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"os"
 	"plane.watch/lib/logging"
 	"plane.watch/lib/monitoring"
 )
@@ -48,19 +47,16 @@ func main() {
 			Name:    "rabbitmq",
 			Aliases: []string{"source"},
 			Usage:   "A place to fetch data from. amqp://user:pass@host:port/vhost?ttl=60",
-			Value:   "amqp://guest:guest@rabbitmq:5672/pw",
 			EnvVars: []string{"RABBITMQ", "SOURCE"},
 		},
 		&cli.StringFlag{
 			Name:    "nats",
-			Usage:   "Nats.io URL for fetching and publishing updates.",
-			Value:   "nats://guest:guest@nats:4222/",
+			Usage:   "Nats.io URL for fetching and publishing updates. nats://guest:guest@host:4222/",
 			EnvVars: []string{"NATS"},
 		},
 		&cli.StringFlag{
 			Name:    "redis",
-			Usage:   "redis URL for fetching updates.",
-			Value:   "redis://guest:guest@redis:6379/",
+			Usage:   "Redis URL for fetching updates. redis://guest:guest@redis:6379/",
 			EnvVars: []string{"REDIS"},
 		},
 		&cli.StringFlag{
@@ -148,13 +144,13 @@ func run(c *cli.Context) error {
 	lowRoute := c.String("route-key-low")
 	highRoute := c.String("route-key-high")
 
-	hasRedis := flagWasSet("redis", c.App.Flags)
-	hasNats := flagWasSet("nats", c.App.Flags)
-	hasRabbit := flagWasSet("rabbitmq", c.App.Flags)
+	hasRedis := "" != redis
+	hasNats := "" != nats
+	hasRabbit := "" != rabbitmq
 
 	isValid := true
 	if !hasRabbit && !hasNats && !hasRedis {
-		log.Info().Msg("Please provide rabbitmq (or nats, redis) connection details. (--rabbitmq)")
+		log.Info().Msg("Please provide rabbitmq (or nats, redis) connection details. (--rabbitmq, --nats, --redis)")
 		isValid = false
 	}
 	if "" == lowRoute {
@@ -166,7 +162,7 @@ func run(c *cli.Context) error {
 		isValid = false
 	}
 	if !isValid {
-		return errors.New("invalid configuration. You need rabbitmq, route low and, route high configured")
+		return errors.New("invalid configuration. You need one of [rabbitmq|nats|redis], route-key-low and, route-key-high configured")
 	}
 
 	var input source
@@ -203,15 +199,4 @@ func run(c *cli.Context) error {
 	broker.Wait()
 
 	return nil
-}
-
-func flagWasSet(flagName string, flags []cli.Flag) bool {
-	for _, f := range flags {
-		for _, name := range f.Names() {
-			if name == flagName && f.IsSet() {
-				return true
-			}
-		}
-	}
-	return false
 }

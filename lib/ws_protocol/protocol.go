@@ -3,10 +3,12 @@ package ws_protocol
 import "plane.watch/lib/export"
 
 const (
-	WsProtocolPlanes         = "planes"
+	WsProtocolPlanes = "planes"
+
 	RequestTypeSubscribe     = "sub"
 	RequestTypeSubscribeList = "sub-list"
 	RequestTypeUnsubscribe   = "unsub"
+	RequestTypeGridPlanes    = "grid-planes" // returns the current plane locations in grid
 
 	ResponseTypeError          = "error"
 	ResponseTypeAckSub         = "ack-sub"
