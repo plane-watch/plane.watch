@@ -308,6 +308,7 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 
 	grid := make(map[string]bool)
 	gridNames := make(map[string]bool)
+	gridNames[""] = true
 	grid["all_low"] = true
 	grid["all_high"] = true
 	for k := range tile_grid.GetGrid() {
@@ -359,15 +360,21 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 			case ws_protocol.RequestTypeGridPlanes:
 				if _, ok := gridNames[cmdMsg.what]; ok {
 					// todo: evaluate performance
+					matching := 0
+					// find all things currently in requested grid
 					c.parent.globalList.Range(func(key, value interface{}) bool {
 						loc := value.(*export.PlaneLocation)
 						if cmdMsg.what == loc.TileLocation {
 							locationMessages = append(locationMessages, loc)
+							matching++
 						}
 						return true
 					})
-					// find all things currently in requested grid
-
+					//c.log.Debug().
+					//	Str("action", cmdMsg.action).
+					//	Str("tile", cmdMsg.what).
+					//	Int("Num Planes", matching).
+					//	Msg("Sent List")
 				} else {
 					err = c.sendError(ctx, "Unknown Tile: "+cmdMsg.what)
 				}

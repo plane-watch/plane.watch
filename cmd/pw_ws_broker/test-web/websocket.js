@@ -38,6 +38,9 @@
                         case 'plane-location-list':
                             if ('locations' in payload) {
                                 console.info(payload.locations.length)
+                                if (payload.locations.length > 0) {
+                                    console.info(payload.locations[0])
+                                }
                             }
                             break;
 
@@ -115,10 +118,10 @@
         }
         return btn
     }
-    function mkRqPlanesBtn(tileName) {
+    function mkRqPlanesBtn(tileName, label) {
         let btn = document.createElement("button")
-        btn.setAttribute('id', 'rq' + tileName)
-        btn.innerText = tileName
+        btn.setAttribute('id', 'rq' + tileName + label)
+        btn.innerText = label
 
         btn.onclick = () => {
             ws.currentPlanes(tileName)
@@ -133,7 +136,7 @@
         Object.keys(data).forEach(key => {
             let btnLow = mkBtn(key + "_low")
             let btnHigh = mkBtn(key + "_high")
-            let btnRqPlanes = mkRqPlanesBtn(key)
+            let btnRqPlanes = mkRqPlanesBtn(key, key)
 
             divLow.append(btnLow)
             divHigh.append(btnHigh)
@@ -147,6 +150,8 @@
         list.setAttribute("data-state", "list")
         divAll.append(list)
 
+        const unknownTileLoc = mkRqPlanesBtn("", "RQ All No Tile")
+        divAll.append(unknownTileLoc)
     })
 
 })()
