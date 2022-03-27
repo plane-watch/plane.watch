@@ -3,12 +3,12 @@ package tracker
 import (
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"plane.watch/lib/tracker/mode_s"
 	"plane.watch/lib/tracker/sbs1"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -41,11 +41,13 @@ type (
 		pruneExitChan chan bool
 
 		startTime time.Time
-		numFrames uint64
 
 		stats struct {
 			currentPlanes prometheus.Gauge
+			decodedFrames prometheus.Counter
 		}
+
+		log zerolog.Logger
 	}
 )
 
@@ -63,6 +65,8 @@ func NewTracker(opts ...Option) *Tracker {
 		pruneExitChan:     make(chan bool),
 
 		startTime: time.Now(),
+
+		log: log.With().Str("Section", "Tracker").Logger(),
 	}
 
 	for _, opt := range opts {
@@ -82,18 +86,6 @@ func NewTracker(opts ...Option) *Tracker {
 	return t
 }
 
-func (t *Tracker) debugMessage(sfmt string, a ...interface{}) {
-	log.Debug().Str("section", "Tracker").Msgf(sfmt, a...)
-}
-
-func (t *Tracker) infoMessage(sfmt string, a ...interface{}) {
-	log.Info().Str("section", "Tracker").Msgf(sfmt, a...)
-}
-
-func (t *Tracker) errorMessage(sfmt string, a ...interface{}) {
-	log.Error().Str("section", "Tracker").Msgf(sfmt, a...)
-}
-
 func (t *Tracker) numPlanes() int {
 	count := 0
 	t.planeList.Range(func(key, value interface{}) bool {
@@ -108,7 +100,11 @@ func (t *Tracker) GetPlane(icao uint32) *Plane {
 	if ok {
 		return plane.(*Plane)
 	}
-	t.infoMessage("Plane %06X has made an appearance", icao)
+	if t.log.Trace().Enabled() {
+		t.log.Trace().
+			Str("ICAO", fmt.Sprintf("%06X", icao)).
+			Msg("Plane has made an appearance")
+	}
 	if nil != t.stats.currentPlanes {
 		t.stats.currentPlanes.Inc()
 	}
@@ -140,20 +136,25 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 	p.incMsgCount()
 
 	debugMessage := func(sfmt string, a ...interface{}) {
-		planeFormat = fmt.Sprintf("DF%02d - \033[0;97mPlane (\033[38;5;118m%s %-8s\033[0;97m)", frame.DownLinkType(), p.IcaoIdentifierStr(), p.FlightNumber())
-		p.tracker.debugMessage(planeFormat+sfmt, a...)
+		if zerolog.GlobalLevel() >= zerolog.DebugLevel {
+			planeFormat = fmt.Sprintf("DF%02d - \033[0;97mPlane (\033[38;5;118m%s %-8s\033[0;97m)", frame.DownLinkType(), p.IcaoIdentifierStr(), p.FlightNumber())
+			p.tracker.log.Debug().Msgf(planeFormat+sfmt, a...)
+
+		}
 	}
 
 	hasChanged = p.setRegistration(frame.DecodeAuIcaoRegistration()) || hasChanged
 
-	log.Trace().
-		Str("frame", frame.String()).
-		Str("icao", frame.IcaoStr()).
-		Str("Downlink Type", "DF"+strconv.Itoa(int(frame.DownLinkType()))).
-		Int("Downlink Format", int(frame.DownLinkType())).
-		Str("DF17 Msg Type", frame.MessageTypeString()).
-		Bytes("RAW", frame.Raw()).
-		Send()
+	if log.Trace().Enabled() {
+		log.Trace().
+			Str("frame", frame.String()).
+			Str("icao", frame.IcaoStr()).
+			Str("Downlink Type", "DF"+strconv.Itoa(int(frame.DownLinkType()))).
+			Int("Downlink Format", int(frame.DownLinkType())).
+			Str("DF17 Msg Type", frame.MessageTypeString()).
+			Bytes("RAW", frame.Raw()).
+			Send()
+	}
 
 	// determine what to do with our given frame
 	switch frame.DownLinkType() {
@@ -216,11 +217,10 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 		}
 		p.setLocationUpdateTime(frame.TimeStamp())
 
-	case 17, 18: // ADS-B
+	case 17, 18, 19: // ADS-B
 		//if debug {
 		//	frame.Describe(os.Stdout)
 		//}
-
 		// i am using the text version because it is easier to program with.
 		// if performance is an issue, change over to byte comparing
 		messageType := frame.MessageTypeString()
@@ -390,11 +390,11 @@ func (p *Plane) HandleSbs1Frame(frame *sbs1.Frame) {
 	p.incMsgCount()
 	if frame.HasPosition {
 		if err := p.addLatLong(frame.Lat, frame.Lon, frame.Received); nil != err {
-			p.tracker.debugMessage("%s", err)
+			p.tracker.log.Warn().Err(err).Send()
 		}
 
 		hasChanged = true
-		p.tracker.debugMessage("Plane %s is at %0.4f, %0.4f", frame.IcaoStr(), frame.Lat, frame.Lon)
+		p.tracker.log.Debug().Msgf("Plane %s is at %0.4f, %0.4f", frame.IcaoStr(), frame.Lat, frame.Lon)
 	}
 
 	if hasChanged {
@@ -423,17 +423,8 @@ func (t *Tracker) prunePlanes() {
 				return true
 			})
 
-			t.AddEvent(t.newInfoEvent())
 		case <-t.pruneExitChan:
 			return
 		}
-	}
-}
-
-func (t *Tracker) newInfoEvent() *InfoEvent {
-	return &InfoEvent{
-		receivedFrames: atomic.LoadUint64(&t.numFrames),
-		numReceivers:   len(t.producers),
-		uptime:         time.Now().Sub(t.startTime).Seconds(),
 	}
 }

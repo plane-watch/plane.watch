@@ -1,7 +1,6 @@
 package tracker
 
 import (
-	"errors"
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
@@ -12,7 +11,6 @@ import (
 	"plane.watch/lib/tracker/mode_s"
 	"plane.watch/lib/tracker/sbs1"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -35,7 +33,7 @@ type (
 	Frame interface {
 		Icao() uint32
 		IcaoStr() string
-		Decode() (bool, error)
+		Decode() error
 		TimeStamp() time.Time
 		Raw() []byte
 	}
@@ -75,9 +73,10 @@ func WithPruneTiming(pruneTick, pruneAfter time.Duration) Option {
 		t.pruneAfter = pruneAfter
 	}
 }
-func WithPrometheusCounters(currentPlanes prometheus.Gauge) Option {
+func WithPrometheusCounters(currentPlanes prometheus.Gauge, decodedFrames prometheus.Counter) Option {
 	return func(t *Tracker) {
 		t.stats.currentPlanes = currentPlanes
+		t.stats.decodedFrames = decodedFrames
 	}
 }
 
@@ -120,14 +119,12 @@ func (t *Tracker) EventListener(eventSource EventMaker, waiter *sync.WaitGroup) 
 			t.decodingQueue <- e.(*FrameEvent)
 			// send this event on!
 			t.AddEvent(e)
-		case *LogEvent:
-			t.AddEvent(e)
 		case *DedupedFrameEvent:
 			t.AddEvent(e)
 		}
 	}
 	waiter.Done()
-	t.debugMessage("Done with Event Source %s", eventSource)
+	t.log.Debug().Msg("Done with Event Source")
 }
 
 // AddProducer wires up a Producer to start feeding data into the tracker
@@ -137,12 +134,12 @@ func (t *Tracker) AddProducer(p Producer) {
 	}
 	monitoring.AddHealthCheck(p)
 
-	t.debugMessage("Adding producer: %s", p)
+	t.log.Debug().Str("producer", p.String()).Msg("Adding producer")
 	t.producers = append(t.producers, p)
 	t.producerWaiter.Add(1)
 
 	go t.EventListener(p, &t.producerWaiter)
-	t.debugMessage("Just added a producer")
+	t.log.Debug().Msg("Just added a producer")
 }
 
 // AddMiddleware wires up a Middleware which each message will go through before being added to the tracker
@@ -150,17 +147,17 @@ func (t *Tracker) AddMiddleware(m Middleware) {
 	if nil == m {
 		return
 	}
-	t.debugMessage("Adding middleware: %s", m)
+	t.log.Debug().Str("name", m.String()).Msg("Adding middleware")
 	t.middlewares = append(t.middlewares, m)
 
 	t.middlewareWaiter.Add(1)
 	go t.EventListener(m, &t.middlewareWaiter)
-	t.debugMessage("Just added a middleware")
+	t.log.Debug().Msg("Just added a middleware")
 }
 
 // AddSink wires up a Sink in the tracker. Whenever an event happens it gets sent to each Sink
 func (t *Tracker) AddSink(s Sink) {
-	t.debugMessage("Add Sink %s", s.HealthCheckName())
+	t.log.Debug().Str("name", s.HealthCheckName()).Msg("Add Sink")
 	if nil == s {
 		return
 	}
@@ -180,7 +177,7 @@ func (t *Tracker) Stop() {
 
 //StopOnCancel listens for SigInt etc and gracefully stops
 func (t *Tracker) StopOnCancel() {
-	ch := make(chan os.Signal)
+	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	isStopping := false
 	for {
@@ -211,28 +208,21 @@ func (t *Tracker) Wait() {
 	log.Debug().Msg("events waiter done")
 }
 
-func (t *Tracker) handleError(err error) {
-	if nil != err {
-		t.errorMessage("%s", err)
-	}
-}
-
 func (t *Tracker) decodeQueue() {
 	for f := range t.decodingQueue {
 		if nil == f {
 			continue
 		}
-		atomic.AddUint64(&t.numFrames, 1)
-		frame := f.Frame()
-		ok, err := frame.Decode()
-		if nil != err {
-			// the decode operation failed to produce valid output, and we tell someone about it
-			t.handleError(err)
-			continue
+		if nil != t.stats.decodedFrames {
+			t.stats.decodedFrames.Inc()
 		}
-		if !ok {
-			// the decode operation did not produce a valid frame, but this is not an error
-			// example: NoOp heartbeat
+		frame := f.Frame()
+		err := frame.Decode()
+		if nil != err {
+			if mode_s.ErrNoOp != err {
+				// the decode operation failed to produce valid output, and we tell someone about it
+				t.log.Error().Err(err).Str("Tag", f.Source().Tag).Send()
+			}
 			continue
 		}
 
@@ -258,7 +248,7 @@ func (t *Tracker) decodeQueue() {
 		case *sbs1.Frame:
 			plane.HandleSbs1Frame(frame.(*sbs1.Frame))
 		default:
-			t.handleError(errors.New("unknown frame type, cannot track"))
+			t.log.Error().Str("Tag", f.Source().Tag).Msg("unknown frame type, cannot track")
 		}
 	}
 	t.decodingQueueWaiter.Done()

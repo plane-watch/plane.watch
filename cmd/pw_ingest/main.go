@@ -11,11 +11,14 @@ import (
 	"plane.watch/lib/logging"
 	"plane.watch/lib/monitoring"
 	"plane.watch/lib/setup"
-	"plane.watch/lib/sink"
 	"plane.watch/lib/tracker"
 )
 
 var (
+	prometheusCounterFramesDecoded = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "pw_ingest_num_decoded_frames",
+		Help: "The number of AVR frames decoded",
+	})
 	prometheusGaugeCurrentPlanes = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "pw_ingest_current_tracked_planes_count",
 		Help: "The number of planes this instance is currently tracking",
@@ -90,7 +93,7 @@ func commonSetup(c *cli.Context) (*tracker.Tracker, error) {
 	// let's parse our URL forms
 
 	trackerOpts := make([]tracker.Option, 0)
-	trackerOpts = append(trackerOpts, tracker.WithPrometheusCounters(prometheusGaugeCurrentPlanes))
+	trackerOpts = append(trackerOpts, tracker.WithPrometheusCounters(prometheusGaugeCurrentPlanes, prometheusCounterFramesDecoded))
 	trk := tracker.NewTracker(trackerOpts...)
 
 	trk.AddMiddleware(dedupe.NewFilter())
@@ -121,11 +124,6 @@ func runSimple(c *cli.Context) error {
 	if nil != err {
 		return err
 	}
-	var opts []sink.Option
-	if c.Bool("quiet") {
-		opts = append(opts, sink.WithoutLoggingLocation())
-	}
-	trk.AddSink(sink.NewLoggerSink(opts...))
 
 	go trk.StopOnCancel()
 	trk.Wait()
@@ -140,12 +138,6 @@ func runDfFilter(c *cli.Context) error {
 	if nil != err {
 		return err
 	}
-	var opts []sink.Option
-	if c.Bool("quiet") {
-		opts = append(opts, sink.WithoutLoggingLocation())
-	}
-	opts = append(opts, sink.WithoutLoggingLocation())
-	trk.AddSink(sink.NewLoggerSink(opts...))
 
 	var filterOpts []example_finder.Option
 	if c.Bool("locations-only") {
@@ -173,7 +165,6 @@ func run(c *cli.Context) error {
 	if nil != err {
 		return err
 	}
-	trk.AddSink(sink.NewLoggerSink(sink.WithLogFile("app.log")))
 	trk.AddSink(app)
 
 	err = app.Run()
@@ -187,9 +178,6 @@ func runDaemon(c *cli.Context) error {
 	if nil != err {
 		return err
 	}
-	var opts []sink.Option
-	opts = append(opts, sink.WithoutLoggingLocation())
-	trk.AddSink(sink.NewLoggerSink(opts...))
 
 	go trk.StopOnCancel()
 	trk.Wait()

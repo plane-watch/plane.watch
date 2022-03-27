@@ -218,6 +218,7 @@ func (p *producer) readFromScanner(scan *bufio.Scanner) error {
 // WithReferenceLatLon sets up the reference lat/lon for decoding surface position messages
 func WithReferenceLatLon(lat, lon float64) Option {
 	return func(p *producer) {
+		log.Debug().Float64("lat", lat).Float64("lon", lon).Msg("With Reference Lat/Lon")
 		p.RefLat = &lat
 		p.RefLon = &lon
 	}
@@ -287,7 +288,7 @@ func (p *producer) readFiles(dataFiles []string, read func(io.Reader, string) er
 	var gzipFile *gzip.Reader
 	go func() {
 		for _, inFileName := range dataFiles {
-			p.addDebug("Loading lines from %s", inFileName)
+			log.Debug().Str("FileName", inFileName).Msg("Loading contents...")
 			p.FrameSource.OriginIdentifier = "file://" + inFileName
 			inFile, err = os.Open(inFileName)
 			if err != nil {
@@ -297,12 +298,17 @@ func (p *producer) readFiles(dataFiles []string, read func(io.Reader, string) er
 
 			isGzip := strings.ToLower(inFileName[len(inFileName)-2:]) == "gz"
 			isBzip2 := strings.ToLower(inFileName[len(inFileName)-3:]) == "bz2"
-			p.addDebug("Is Gzip? %t Is Bzip2? %t", isGzip, isBzip2)
+			log.Debug().
+				Str("FileName", inFileName).
+				Bool("Is Gzip", isGzip).
+				Bool("Is Bzip2", isBzip2).
+				Bool("Is Plain", !isBzip2 && !isGzip).
+				Msg("Format")
 
 			if isGzip {
 				gzipFile, err = gzip.NewReader(inFile)
 				if nil != err {
-					err = read(gzipFile, inFileName)
+					log.Error().Err(err).Str("file", inFileName).Msg("Failed to open file")
 				}
 				err = read(gzipFile, inFileName)
 			} else if isBzip2 {
@@ -315,9 +321,11 @@ func (p *producer) readFiles(dataFiles []string, read func(io.Reader, string) er
 				p.addError(err)
 			}
 			_ = inFile.Close()
-			p.addDebug("Finished with file %s", inFileName)
+			log.Debug().
+				Str("FileName", inFileName).
+				Msg("Finished with file")
 		}
-		p.addDebug("Done loading lines")
+		log.Debug().Msg("Done loading contents from files")
 		p.Cleanup()
 	}()
 

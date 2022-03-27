@@ -52,7 +52,10 @@ func (n *Server) Connect() error {
 
 // Publish is our simple message publisher
 func (n *Server) Publish(queue string, msg []byte) error {
-	return n.outgoing.Publish(queue, msg)
+	if n.outgoing.IsConnected() {
+		return n.outgoing.Publish(queue, msg)
+	}
+	return nil
 }
 
 func (n *Server) Close() {

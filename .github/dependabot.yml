@@ -1,0 +1,24 @@
+version: 2
+
+updates:
+  - package-ecosystem: "docker"
+    directory: "/docker/pw_discord_bot"
+    schedule:
+      interval: "daily"
+  - package-ecosystem: "docker"
+    directory: "/docker/pw_ingest"
+    schedule:
+      interval: "daily"
+  - package-ecosystem: "docker"
+    directory: "/docker/pw_router"
+    schedule:
+      interval: "daily"
+  - package-ecosystem: "docker"
+    directory: "/docker/pw_ws_broker"
+    schedule:
+      interval: "daily"
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "daily"
+  

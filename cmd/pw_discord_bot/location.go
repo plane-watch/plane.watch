@@ -192,7 +192,6 @@ func loadLocationsList() {
 			return
 		}
 		log.Error().Err(err).Msgf("Failed to read %s. %s", saveLoc, err)
-		panic(err)
 		return
 	}
 	err = json.Unmarshal(b, &alertLocations)

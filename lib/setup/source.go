@@ -42,17 +42,19 @@ func IncludeSourceFlags(app *cli.App) {
 		},
 		&cli.StringSliceFlag{
 			Name:    "file",
-			Usage:   "The Source in URL Form. [avr|beast|sbs1]:///path/to/file?tag=MYTAG&refLat=-31.0&refLon=115.0",
+			Usage:   "The Source in URL Form. [avr|beast|sbs1]:///path/to/file?tag=MYTAG&refLat=-31.0&refLon=115.0&delay=no",
 			EnvVars: []string{"FILE"},
 		},
 
 		&cli.Float64Flag{
-			Name:  "ref-lat",
-			Usage: "The reference latitude for decoding messages. Needs to be within 45nm of where the messages are generated.",
+			Name:    "ref-lat",
+			Usage:   "The reference latitude for decoding messages. Needs to be within 45nm of where the messages are generated.",
+			EnvVars: []string{"REF_LAT", "LAT"},
 		},
 		&cli.Float64Flag{
-			Name:  "ref-lon",
-			Usage: "The reference longitude for decoding messages. Needs to be within 45nm of where the messages are generated.",
+			Name:    "ref-lon",
+			Usage:   "The reference longitude for decoding messages. Needs to be within 45nm of where the messages are generated.",
+			EnvVars: []string{"REF_LON", "LONG"},
 		},
 
 		&cli.StringFlag{
@@ -167,6 +169,16 @@ func handleFileSource(urlFile, defaultTag string, defaultRefLat, defaultRefLon f
 		producerOpts[0] = producer.WithType(producer.Avr)
 	case "beast":
 		producerOpts[0] = producer.WithType(producer.Beast)
+		delay := false
+		if parsedUrl.Query().Has("delay") {
+			switch strings.ToLower(parsedUrl.Query().Get("delay")) {
+			case "", "no", "false", "0":
+				delay = false
+			default:
+				delay = true
+			}
+		}
+		producerOpts = append(producerOpts, producer.WithBeastDelay(delay))
 	case "sbs1":
 		producerOpts[0] = producer.WithType(producer.Sbs1)
 	default:

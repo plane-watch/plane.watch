@@ -22,6 +22,8 @@ var (
 )
 
 const SigHeadingChange = 1.0 // at least 1.0 degrees change.
+const SigVerticalRateChange = 180.0 // at least 180 fpm change (3ft in 1min)
+const SigAltitudeChange = 10.0 // at least 10 ft in altitude change.
 
 func (w *worker) isSignificant(last export.PlaneLocation, candidate export.PlaneLocation) bool {
 	// check the candidate vs last, if any of the following have changed
@@ -50,7 +52,7 @@ func (w *worker) isSignificant(last export.PlaneLocation, candidate export.Plane
 		return true
 	}
 
-	if candidate.HasVerticalRate && last.HasVerticalRate && candidate.VerticalRate != last.VerticalRate {
+	if candidate.HasVerticalRate && last.HasVerticalRate && math.Abs(float64(candidate.VerticalRate-last.VerticalRate)) > SigVerticalRateChange {
 		log.Debug().
 			Str("aircraft", candidate.Icao).
 			Int("last", last.VerticalRate).
@@ -61,7 +63,7 @@ func (w *worker) isSignificant(last export.PlaneLocation, candidate export.Plane
 		return true
 	}
 
-	if candidate.Altitude != last.Altitude {
+	if math.Abs(float64(candidate.Altitude-last.Altitude)) > SigAltitudeChange {
 		log.Debug().
 			Str("aircraft", candidate.Icao).
 			Int("last", last.Altitude).
@@ -196,7 +198,7 @@ func (w *worker) handleMsg(msg []byte) error {
 		return nil
 	}
 
-	return ErrUnhandledMessage
+	//return ErrUnhandledMessage
 }
 
 func (w *worker) handleRemovedUpdate(update export.PlaneLocation, msg []byte) {

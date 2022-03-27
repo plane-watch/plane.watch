@@ -6,7 +6,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"plane.watch/lib/dedupe"
 	"plane.watch/lib/export"
-	"plane.watch/lib/logging"
 	"plane.watch/lib/monitoring"
 	"plane.watch/lib/rabbitmq"
 	"plane.watch/lib/tracker"
@@ -15,8 +14,6 @@ import (
 	"plane.watch/lib/tracker/sbs1"
 	"regexp"
 
-	//"regexp"
-	"strings"
 	"time"
 )
 
@@ -54,18 +51,10 @@ func NewSink(conf *Config, dest Destination) tracker.Sink {
 		dest:   dest,
 		events: make(chan tracker.Event),
 	}
-	if _, ok := s.config.queue[QueueTypeLogs]; ok {
-		logging.AddLogDestination(&s)
-	}
 
 	s.sendFrameAll = s.sendFrameEvent(QueueTypeAvrAll, QueueTypeBeastAll, QueueTypeSbs1All)
 	s.sendFrameDedupe = s.sendFrameEvent(QueueTypeAvrReduce, QueueTypeBeastReduce, QueueTypeSbs1Reduce)
 	return &s
-}
-
-// Write is for the logs sending
-func (s *Sink) Write(b []byte) (int, error) {
-	return len(b), s.dest.PublishText(QueueTypeLogs, []byte(stripAnsi(string(b))))
 }
 
 func (s *Sink) Listen() chan tracker.Event {
@@ -99,38 +88,7 @@ func (s *Sink) trackerMsgJson(le *tracker.PlaneLocationEvent) ([]byte, error) {
 		return nil, errors.New("no plane")
 	}
 
-	callSign := strings.TrimSpace(plane.FlightNumber())
-	eventStruct := export.PlaneLocation{
-		New:             le.New(),
-		Removed:         le.Removed(),
-		Icao:            plane.IcaoIdentifierStr(),
-		Lat:             plane.Lat(),
-		Lon:             plane.Lon(),
-		Heading:         plane.Heading(),
-		Altitude:        int(plane.Altitude()),
-		VerticalRate:    plane.VerticalRate(),
-		AltitudeUnits:   plane.AltitudeUnits(),
-		Velocity:        plane.Velocity(),
-		CallSign:        &callSign,
-		FlightStatus:    plane.FlightStatus(),
-		OnGround:        plane.OnGround(),
-		Airframe:        plane.AirFrame(),
-		AirframeType:    plane.AirFrameType(),
-		Squawk:          plane.SquawkIdentityStr(),
-		Special:         plane.Special(),
-		AircraftWidth:   plane.AirFrameWidth(),
-		AircraftLength:  plane.AirFrameLength(),
-		Registration:    plane.Registration(),
-		HasLocation:     plane.HasLocation(),
-		HasHeading:      plane.HasHeading(),
-		HasVerticalRate: plane.HasVerticalRate(),
-		HasVelocity:     plane.HasVelocity(),
-		SourceTag:       s.config.sourceTag,
-		TileLocation:    plane.GridTileLocation(),
-		LastMsg:         plane.LastSeen().UTC(),
-		TrackedSince:    plane.TrackedSince().UTC(),
-		SignalRssi:      plane.SignalLevel(),
-	}
+	eventStruct := export.NewPlaneLocation(plane, le.New(), le.Removed(), s.config.sourceTag)
 
 	var jsonBuf []byte
 	jsonBuf, err = json.MarshalIndent(&eventStruct, "", "  ")
@@ -177,9 +135,6 @@ func (s *Sink) sendFrameEvent(queueAvr, queueBeast, queueSbs1 string) func(track
 func (s *Sink) OnEvent(e tracker.Event) {
 	var err error
 	switch e.(type) {
-	case *tracker.LogEvent:
-		err = s.dest.PublishJson(QueueTypeLogs, []byte(e.String()))
-
 	case *tracker.PlaneLocationEvent:
 		le := e.(*tracker.PlaneLocationEvent)
 		var jsonBuf []byte

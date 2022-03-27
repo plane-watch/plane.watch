@@ -61,10 +61,16 @@ func TestCprDecodeSurfacePosition(t *testing.T) {
 			cpr := CprLocation{}
 			cpr.refLat = test.refLat
 			cpr.refLon = test.refLon
-			if err = cpr.SetEvenLocation(test.evenCprLat, test.evenCprLon, time.Now()); nil != err {
+			evenTime := time.Now().Add(-time.Second)
+			oddTime := evenTime.Add(time.Second)
+			if oddTime.Before(evenTime) {
+				t.Error("something wrong with time")
+				return
+			}
+			if err = cpr.SetEvenLocation(test.evenCprLat, test.evenCprLon, evenTime); nil != err {
 				t.Error(err)
 			}
-			if err = cpr.SetOddLocation(test.oddCprLat, test.oddCprLon, time.Now()); nil != err {
+			if err = cpr.SetOddLocation(test.oddCprLat, test.oddCprLon, oddTime); nil != err {
 				t.Error(err)
 			}
 			loc, err = cpr.decode(true)
@@ -128,12 +134,12 @@ func TestCprDecodeSurfacePosition(t *testing.T) {
 
 func decodeSurfaceFrame(t *testing.T, avr string) *mode_s.Frame {
 	frame := mode_s.NewFrame(avr, time.Now())
-	ok, err := frame.Decode()
-	if !ok {
-		t.Errorf("decoding of frame %s failed", avr)
+	if nil == frame {
+		t.Errorf("Failed to decode frame %s", avr)
 	}
+	err := frame.Decode()
 	if nil != err {
-		t.Error(err)
+		t.Errorf("decoding of frame %s failed, %s", avr, err)
 	}
 	if onGround, err := frame.OnGround(); nil != err || !onGround {
 		t.Errorf("Plane should be on ground. onground: %t, err:%s", onGround, err)

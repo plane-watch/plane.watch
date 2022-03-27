@@ -3,7 +3,6 @@ package producer
 import (
 	"bufio"
 	"bytes"
-	"plane.watch/lib/tracker"
 	"plane.watch/lib/tracker/beast"
 	"time"
 )
@@ -12,8 +11,6 @@ func (p *producer) beastScanner(scan *bufio.Scanner) error {
 	lastTimeStamp := time.Duration(0)
 	for scan.Scan() {
 		msg := scan.Bytes()
-		p.addFrame(beast.NewFrame(msg, false), &p.FrameSource)
-
 		frame := beast.NewFrame(msg, false)
 		if nil == frame {
 			continue
@@ -25,8 +22,8 @@ func (p *producer) beastScanner(scan *bufio.Scanner) error {
 			}
 			lastTimeStamp = currentTs
 		}
+		p.addFrame(frame, &p.FrameSource)
 
-		p.AddEvent(tracker.NewFrameEvent(frame, &p.FrameSource))
 		if nil != p.stats.beast {
 			p.stats.beast.Inc()
 		}

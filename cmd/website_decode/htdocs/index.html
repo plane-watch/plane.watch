@@ -50,11 +50,27 @@
         <div class="col-lg-6">
             <div class="panel panel-default top-panel">
                 <div class="panel-body">
-                    <p>Either choose a packet from the menu above or input your own in the text box below.</p>
-                    <form action="#" method="POST" id="input-form" class="form-inline">
+                    <p>Choose a packet from the menu above or input your own in the text box below.</p>
+                    <form action="#" method="POST" id="input-form" class="">
                         <div class="form-group">
-                            <label class="sr-only" for="packet">Mode S Frame</label>
+                            <label for="packet">Mode S Frame</label>
                             <input class="form-control" size="34" name="packet" title="packet" type="text" id="packet"/>
+                        </div>
+                        <div class="row" style="padding-bottom: 1em">
+                            <div class="col-xs-5">
+                                <label for="refLat" title="For decoding surface position frames">Reference Lat</label>
+                                <input class="form-control input-sm" size="8" name="refLat" title="reference lat" type="text"
+                                       id="refLat"/>
+                            </div>
+                            <div class="col-xs-5">
+                                <label for="refLon" title="For decoding surface position frames">Reference Lon</label>
+                                <input class="form-control input-sm" size="8" name="refLon" title="reference lon" type="text"
+                                       id="refLon"/>
+                            </div>
+                            <div class="col-xs-2">
+                                <label for="getLocation" title="For decoding surface position frames">Location</label>
+                                <button class="btn btn-sm btn-info" id="getLocation">Get</button>
+                            </div>
                         </div>
                         <input class="btn btn-primary" type="submit" value="Decode Packet!">
                     </form>
@@ -66,6 +82,8 @@
                 <div class="panel-body">
                     <h2>Mode S Packet Decoder</h2>
                     <p>Use this page to decode all of your mode s packets</p>
+                    <p>You can specify multiple packets seperated by a semicolon <code>;</code>. </p>
+                    <p>Use the Reference Latitude and Longitude to decode Surface Position packets. Needs to be within 50 nautical miles of the position to accurately decode.</p>
                 </div>
             </div>
         </div>
