@@ -14,7 +14,13 @@ type (
 		evictionFunc  func(key interface{}, value interface{})
 	}
 
-	ForgetableItem struct {
+	// ForgettableItem allows us to determine if something can be forgotten
+	ForgettableItem interface {
+		CanBeForgotten(oldAfter time.Duration) bool
+	}
+
+	// a generic wrapper for things that can be lost
+	marble struct {
 		age   time.Time
 		value interface{}
 	}
@@ -34,28 +40,29 @@ func NewForgetfulSyncMap(interval time.Duration, oldTime time.Duration) *Forgetf
 	return &f
 }
 
+func (m *marble) CanBeForgotten(oldAfter time.Duration) bool {
+	// calc the oldest this item can be
+	oldest := time.Now().Add(-oldAfter)
+	return !m.age.After(oldest)
+}
+
 func (f *ForgetfulSyncMap) SetEvictionAction(evictFunc func(key interface{}, value interface{})) {
 	f.evictionFunc = evictFunc
 }
 
 func (f *ForgetfulSyncMap) sweep() {
-	var remove bool
-
-	oldest := time.Now().Add(-f.oldAfter)
 	f.lookup.Range(func(key, value interface{}) bool {
-		remove = true
-
-		if t, ok := value.(ForgetableItem).age, true; ok {
-			if t.After(oldest) {
-				remove = false
-			}
+		t, ok := value.(ForgettableItem)
+		if !ok {
+			// cannot forget something which cannot be forgotten
+			return true
 		}
 
-		if remove {
+		if t.CanBeForgotten(f.oldAfter) {
 			if f.evictionFunc != nil {
 				f.evictionFunc(key, value)
 			}
-			f.lookup.Delete(key)
+			f.Delete(key)
 		}
 
 		return true
@@ -84,26 +91,35 @@ func (f *ForgetfulSyncMap) AddKey(key interface{}) {
 			return
 		}
 	}
-	f.lookup.Store(key, ForgetableItem{
+	f.Store(key, &marble{
 		age: time.Now(),
 	})
 }
 
-func (f *ForgetfulSyncMap) Load(key interface{}) (value interface{}, ok bool) {
+func (f *ForgetfulSyncMap) Load(key interface{}) (interface{}, bool) {
 	retVal, retBool := f.lookup.Load(key)
 
-	if retVal != nil {
-		return retVal.(ForgetableItem).value, retBool
+	if retBool {
+		t, tok := retVal.(*marble)
+		if tok {
+			return t.value, retBool
+		} else {
+			return t, retBool
+		}
 	} else {
 		return retVal, retBool
 	}
 }
 
 func (f *ForgetfulSyncMap) Store(key, value interface{}) {
-	f.lookup.Store(key, ForgetableItem{
-		age:   time.Now(),
-		value: value,
-	})
+	if _, ok := value.(ForgettableItem); ok {
+		f.lookup.Store(key, value)
+	} else {
+		f.lookup.Store(key, &marble{
+			age:   time.Now(),
+			value: value,
+		})
+	}
 }
 
 func (f *ForgetfulSyncMap) Delete(key interface{}) {
@@ -120,7 +136,14 @@ func (f *ForgetfulSyncMap) Len() (entries int32) {
 }
 
 func (f *ForgetfulSyncMap) Range(rangeFunc func(key, value interface{}) bool) {
-	f.lookup.Range(rangeFunc)
+	f.lookup.Range(func(key, value interface{}) bool {
+		if m, ok := value.(*marble); ok {
+			return rangeFunc(key, m.value)
+		} else {
+			return rangeFunc(key, value)
+		}
+
+	})
 }
 
 func (f *ForgetfulSyncMap) Stop() {
