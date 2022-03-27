@@ -55,23 +55,37 @@ func TestForgetfulSyncMap_SweepOldPlane(t *testing.T) {
 		Icao:  "VH67SH",
 		Index: 1,
 	}
+	planeTwo := testPlaneLocation{
+		Icao:  "VH666",
+		Index: 2,
+	}
 
 	// store a test plane, 61 seconds ago.
-	testMap.lookup.Store(planeOne.Icao, ForgetableItem{
+	testMap.Store(planeOne.Icao, &marble{
 		age:   time.Now().Add(-61 * time.Second),
 		value: planeOne,
 	})
+	testMap.Store(planeTwo.Icao, planeTwo) // normal item, will be wrapped in a marble struct
 
-	if testMap.Len() != 1 {
-		t.Error("Not enough planes for this test.")
+	if testMap.Len() != 2 {
+		t.Error("Failed to correctly store our items in the map")
 	}
 
 	// sweep up the old plane
 	testMap.sweep()
 
-	if testMap.Len() != 0 {
+	if testMap.Len() != 1 {
 		t.Error("Sweeper didn't sweep an old plane.")
 	}
+
+	if _, ok := testMap.Load(planeOne.Icao); ok {
+		t.Error("Failed to remove our old item")
+	}
+
+	if _, ok := testMap.Load(planeTwo.Icao); !ok {
+		t.Error("Accidentally removed the wrong item, expected planeTwo to still be there")
+	}
+
 }
 
 func TestForgetfulSyncMap_DontSweepNewPlane(t *testing.T) {
@@ -183,5 +197,52 @@ func TestForgetfulSyncMap_Delete(t *testing.T) {
 
 	if testMap.HasKey(testKey) {
 		t.Error("Key still exists after being deleted.")
+	}
+}
+
+func TestForgetfulSyncMap_Range(t *testing.T) {
+	testMap := NewForgetfulSyncMap(1*time.Second, 60*time.Second)
+
+	type testItem struct {
+		value string
+	}
+
+	item := testItem{value: "item 222"}
+	testMap.Store("test", item)
+
+	if 1 != testMap.Len() {
+		t.Error("Failed to store test item")
+	}
+
+	// make sure we can get our item out
+	loadedItem, found := testMap.Load("test")
+	if !found || nil == loadedItem {
+		t.Error("Failed load our item")
+	}
+
+	typedLoadedItem, tOk := loadedItem.(testItem)
+	if !tOk {
+		t.Error("Failed to get our test item out unmolested")
+	}
+	if "item 222" != typedLoadedItem.value {
+		t.Errorf("item came out changed?! - %+v", item)
+	}
+
+	counter := 0
+	testMap.Range(func(key, value interface{}) bool {
+		counter++
+		typedLoadedItem, tOk = loadedItem.(testItem)
+		if !tOk {
+			t.Error("Failed to get our test item out unmolested")
+		}
+		if "item 222" != typedLoadedItem.value {
+			t.Errorf("item came out changed?! - %+v", item)
+		}
+
+		return true
+	})
+
+	if 1 != counter {
+		t.Error("Failed to range correctly through the map")
 	}
 }
