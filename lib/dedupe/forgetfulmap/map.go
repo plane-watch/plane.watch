@@ -40,12 +40,6 @@ func NewForgetfulSyncMap(interval time.Duration, oldTime time.Duration) *Forgetf
 	return &f
 }
 
-func (m *marble) CanBeForgotten(oldAfter time.Duration) bool {
-	// calc the oldest this item can be
-	oldest := time.Now().Add(-oldAfter)
-	return !m.age.After(oldest)
-}
-
 func (f *ForgetfulSyncMap) SetEvictionAction(evictFunc func(key interface{}, value interface{})) {
 	f.evictionFunc = evictFunc
 }
@@ -91,35 +85,16 @@ func (f *ForgetfulSyncMap) AddKey(key interface{}) {
 			return
 		}
 	}
-	f.Store(key, &marble{
-		age: time.Now(),
-	})
+	// TODO: this line is wrong. What does it mean to Add a key without a value?
+	f.Store(key, ForgetableItem{})
 }
 
 func (f *ForgetfulSyncMap) Load(key interface{}) (interface{}, bool) {
-	retVal, retBool := f.lookup.Load(key)
-
-	if retBool {
-		t, tok := retVal.(*marble)
-		if tok {
-			return t.value, retBool
-		} else {
-			return t, retBool
-		}
-	} else {
-		return retVal, retBool
-	}
+	return f.lookup.Load(key)
 }
 
-func (f *ForgetfulSyncMap) Store(key, value interface{}) {
-	if _, ok := value.(ForgettableItem); ok {
-		f.lookup.Store(key, value)
-	} else {
-		f.lookup.Store(key, &marble{
-			age:   time.Now(),
-			value: value,
-		})
-	}
+func (f *ForgetfulSyncMap) Store(key interface{}, value ForgetableItem) {
+	f.lookup.Store(key, value)
 }
 
 func (f *ForgetfulSyncMap) Delete(key interface{}) {
@@ -136,14 +111,7 @@ func (f *ForgetfulSyncMap) Len() (entries int32) {
 }
 
 func (f *ForgetfulSyncMap) Range(rangeFunc func(key, value interface{}) bool) {
-	f.lookup.Range(func(key, value interface{}) bool {
-		if m, ok := value.(*marble); ok {
-			return rangeFunc(key, m.value)
-		} else {
-			return rangeFunc(key, value)
-		}
-
-	})
+	f.lookup.Range(rangeFunc)
 }
 
 func (f *ForgetfulSyncMap) Stop() {
