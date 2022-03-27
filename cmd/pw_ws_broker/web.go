@@ -99,8 +99,10 @@ func (bw *PwWsBrokerWeb) configureWeb() error {
 		bw.domainsToServe = []string{
 			"localhost",
 			"localhost:3000",
+			"localhost:30001",
 			"*plane.watch",
 			"*plane.watch:3000",
+			"*plane.watch:3001",
 		}
 	}
 	for _, d := range bw.domainsToServe {
@@ -358,14 +360,19 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 				})
 
 			case ws_protocol.RequestTypeGridPlanes:
-				if _, ok := gridNames[cmdMsg.what]; ok {
+				if _, gridOk := gridNames[cmdMsg.what]; gridOk {
 					// todo: evaluate performance
 					matching := 0
 					// find all things currently in requested grid
 					c.parent.globalList.Range(func(key, value interface{}) bool {
 						loc := value.(*export.PlaneLocation)
 						if cmdMsg.what == loc.TileLocation {
-							locationMessages = append(locationMessages, loc)
+							if id, ok := icaoIdLookup[loc.Icao]; ok {
+								locationMessages[id] = loc
+							} else {
+								locationMessages = append(locationMessages, loc)
+								icaoIdLookup[loc.Icao] = len(locationMessages) - 1
+							}
 							matching++
 						}
 						return true
@@ -418,7 +425,6 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 			return err
 		}
 	}
-
 }
 
 func (c *WsClient) sendAck(ctx context.Context, ackType, tile string) error {
