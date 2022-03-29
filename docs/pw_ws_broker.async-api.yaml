@@ -32,6 +32,11 @@ channels:
       description: asks the ws broker to stop sending us updated for this tile
       message:
         $ref: '#/components/messages/CmdUnSubTile'
+  grid-planes:
+    subscribe:
+      description: asks the ws broker to send its complete list of planes on the requested tile
+      message:
+        $ref: '#/components/messages/CmdTilePlaneList'
 
   location-update:
     description: Plane information that comes from a subscription
@@ -63,6 +68,23 @@ components:
           payload:
             type: sub-list
 
+    CmdTilePlaneList:
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          type:
+            type: string
+            description: grid-planes
+          gridTile:
+            type: string
+            description: the tile to subscribe to
+      examples:
+        - name: subscribe to tile updates
+          payload:
+            type: grid-planes
+            gridTile: tile38
+
     CmdSubTile:
       contentType: application/json
       payload:
@@ -90,7 +112,7 @@ components:
           type:
             type: string
             description: unsub
-          tile:
+          gridTile:
             type: string
             description: the tile to unsubscribe to
       examples:

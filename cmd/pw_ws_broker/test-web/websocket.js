@@ -11,7 +11,7 @@
                 console.error(`WebSocket Disconnected code: ${ev.code}, reason: ${ev.reason}`)
                 if (ev.code !== 1001) {
                     console.info("Reconnecting in 1s")
-                    setTimeout(dial, 1000)
+                    setTimeout(ws.dial, 1000)
                 }
             })
             this.conn.addEventListener("open", ev => {
@@ -29,13 +29,18 @@
 
                 if ('type' in payload) {
                     console.info(payload.type)
-                    console.debug(payload)
                     switch (payload.type) {
+                        case 'error':
+                            console.error("API Error, message=", payload.message)
+                            break;
                         case 'plane-location':
                             break;
                         case 'plane-location-list':
                             if ('locations' in payload) {
                                 console.info(payload.locations.length)
+                                if (payload.locations.length > 0) {
+                                    console.info(payload.locations[0])
+                                }
                             }
                             break;
 
@@ -58,6 +63,12 @@
             this.send({
                 type: "unsub",
                 gridTile: tile,
+            })
+        },
+        currentPlanes: function (tile) {
+            this.send({
+                type: "grid-planes",
+                gridTile: tile
             })
         },
         send: function(msg) {
@@ -107,16 +118,29 @@
         }
         return btn
     }
+    function mkRqPlanesBtn(tileName, label) {
+        let btn = document.createElement("button")
+        btn.setAttribute('id', 'rq' + tileName + label)
+        btn.innerText = label
+
+        btn.onclick = () => {
+            ws.currentPlanes(tileName)
+        }
+        return btn
+    }
 
     getJSON("/grid", function (data) {
         const divLow = document.getElementById('grid-btns-low')
         const divHigh = document.getElementById('grid-btns-high')
+        const divRqPlanes = document.getElementById('grid-btns-rq-planes')
         Object.keys(data).forEach(key => {
             let btnLow = mkBtn(key + "_low")
             let btnHigh = mkBtn(key + "_high")
+            let btnRqPlanes = mkRqPlanesBtn(key, key)
 
             divLow.append(btnLow)
             divHigh.append(btnHigh)
+            divRqPlanes.append(btnRqPlanes)
         })
 
         const divAll = document.getElementById("grid-btns-all")
@@ -126,6 +150,8 @@
         list.setAttribute("data-state", "list")
         divAll.append(list)
 
+        const unknownTileLoc = mkRqPlanesBtn("", "RQ All No Tile")
+        divAll.append(unknownTileLoc)
     })
 
 })()
