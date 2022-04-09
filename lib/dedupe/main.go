@@ -2,8 +2,6 @@ package dedupe
 
 import (
 	"fmt"
-	"time"
-
 	"plane.watch/lib/dedupe/forgetfulmap"
 	"plane.watch/lib/tracker"
 	"plane.watch/lib/tracker/beast"
@@ -26,7 +24,7 @@ type (
 
 func NewFilter() *Filter {
 	return &Filter{
-		list:   forgetfulmap.NewForgetfulSyncMap(10*time.Second, 60*time.Second),
+		list:   forgetfulmap.NewForgetfulSyncMap(),
 		events: make(chan tracker.Event),
 	}
 }

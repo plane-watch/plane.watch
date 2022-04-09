@@ -14,8 +14,6 @@ import (
 	"plane.watch/lib/tracker/beast"
 	"plane.watch/lib/tracker/mode_s"
 	"plane.watch/lib/tracker/sbs1"
-
-	"time"
 )
 
 type (
@@ -47,7 +45,7 @@ func stripAnsi(str string) string {
 
 func NewSink(conf *Config, dest Destination) tracker.Sink {
 	s := Sink{
-		fsm:    forgetfulmap.NewForgetfulSyncMap(10*time.Second, 60*time.Second),
+		fsm:    forgetfulmap.NewForgetfulSyncMap(),
 		config: conf,
 		dest:   dest,
 		events: make(chan tracker.Event),

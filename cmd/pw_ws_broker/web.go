@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 	"io"
 	"net/http"
+	"plane.watch/lib/dedupe/forgetfulmap"
 	"sync"
 	"time"
 
@@ -34,7 +35,7 @@ type (
 
 		domainsToServe []string
 
-		clients   ClientList
+		clients   *ClientList
 		listening bool
 
 		sendTickDuration time.Duration
@@ -64,12 +65,14 @@ type (
 		clients sync.Map
 
 		// naive approach
-		globalList sync.Map
+		//globalList sync.Map
+		globalList *forgetfulmap.ForgetfulSyncMap
 	}
 )
 
 func (bw *PwWsBrokerWeb) configureWeb() error {
-	bw.clients = ClientList{}
+	bw.clients = newClientList()
+
 	bw.serveMux.HandleFunc("/", bw.indexPage)
 	bw.serveMux.HandleFunc("/grid", bw.jsonGrid)
 	bw.serveMux.HandleFunc("/planes", bw.servePlanes)
@@ -483,6 +486,35 @@ func (c *WsClient) writeTimeout(ctx context.Context, timeout time.Duration, msg 
 	return c.conn.Write(ctxW, websocket.MessageText, msg)
 }
 
+func newClientList() *ClientList {
+	cl := ClientList{}
+	cl.globalList = forgetfulmap.NewForgetfulSyncMap(
+		forgetfulmap.WithPreEvictionAction(func(key, value any) {
+			log.Debug().Str("ICAO", key.(string)).Msg("Removing Aircraft due to inactivity")
+		}),
+		forgetfulmap.WithForgettableAction(func(key, value any, added time.Time) bool {
+			result := true
+			if loc, ok := value.(*export.PlaneLocation); ok {
+				oldest := time.Now().Add(-10 * time.Minute)
+				if loc.OnGround {
+					// if a plane is on the ground, remove it 2 minutes after we last saw it
+					oldest = time.Now().Add(-2 * time.Minute)
+				}
+				// TODO: determine if plane is ADS-C more robustly
+				if loc.SourceTag == "ADS-C" {
+					oldest = time.Now().Add(-time.Hour)
+				}
+				// remove  the plane from the list if it is older than our oldest allowable
+				result = loc.LastMsg.Before(oldest)
+			}
+			// remove anything that is not a *export.PlaneLocation
+			return result
+		}),
+	)
+
+	return &cl
+}
+
 func (cl *ClientList) addClient(c *WsClient) {
 	c.log.Debug().Msg("Add Client")
 	c.parent = cl
@@ -503,12 +535,7 @@ func (cl *ClientList) globalListUpdate(loc *export.PlaneLocation) {
 	if nil == loc {
 		return
 	}
-	_, isNew := cl.globalList.LoadOrStore(loc.Icao, loc)
-	if isNew {
-		// todo: have a func() dedicated to this icao handle any eviction
-		// or sparodic updates required
-		// go func() {}
-	}
+	cl.globalList.Store(loc.Icao, loc)
 }
 
 // SendLocationUpdate sends an update to each listening client

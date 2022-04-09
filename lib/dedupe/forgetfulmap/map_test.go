@@ -16,13 +16,14 @@ func setupNonSweepingForgetfulSyncMap(sweepInterval time.Duration, oldAfter time
 		lookup:        &sync.Map{},
 		sweepInterval: sweepInterval,
 		oldAfter:      oldAfter,
+		forgettable:   OldAfterForgettableAction(oldAfter),
 	}
 
 	return testMap
 }
 
 func TestForgetfulSyncMap_Len(t *testing.T) {
-	testMap := NewForgetfulSyncMap(1*time.Second, 10*time.Second)
+	testMap := NewForgetfulSyncMap(WithSweepInterval(time.Second), WithOldAgeAfterSeconds(10))
 
 	planeOne := testPlaneLocation{
 		Icao:  "VH67SH",
@@ -61,8 +62,8 @@ func TestForgetfulSyncMap_SweepOldPlane(t *testing.T) {
 	}
 
 	// store a test plane, 61 seconds ago.
-	testMap.Store(planeOne.Icao, &marble{
-		age:   time.Now().Add(-61 * time.Second),
+	testMap.lookup.Store(planeOne.Icao, &marble{
+		added: time.Now().Add(-61 * time.Second),
 		value: planeOne,
 	})
 	testMap.Store(planeTwo.Icao, planeTwo) // normal item, will be wrapped in a marble struct
@@ -111,7 +112,7 @@ func TestForgetfulSyncMap_DontSweepNewPlane(t *testing.T) {
 }
 
 func TestForgetfulSyncMap_LoadFound(t *testing.T) {
-	testMap := NewForgetfulSyncMap(1*time.Second, 60*time.Second)
+	testMap := NewForgetfulSyncMap(WithSweepInterval(time.Second), WithOldAgeAfterSeconds(60))
 
 	testPlane := testPlaneLocation{
 		"VH7832AH",
@@ -132,7 +133,7 @@ func TestForgetfulSyncMap_LoadFound(t *testing.T) {
 }
 
 func TestForgetfulSyncMap_LoadNotFound(t *testing.T) {
-	testMap := NewForgetfulSyncMap(1*time.Second, 60*time.Second)
+	testMap := NewForgetfulSyncMap(WithSweepInterval(time.Second), WithOldAgeAfterSeconds(60))
 	testVal, testBool := testMap.Load("VH123GH")
 	if testVal != nil {
 		t.Error("A not-found value didn't return nil")
@@ -143,7 +144,7 @@ func TestForgetfulSyncMap_LoadNotFound(t *testing.T) {
 }
 
 func TestForgetfulSyncMap_AddKey(t *testing.T) {
-	testMap := NewForgetfulSyncMap(1*time.Second, 60*time.Second)
+	testMap := NewForgetfulSyncMap(WithSweepInterval(time.Second), WithOldAgeAfterSeconds(60))
 	testKey := "VH123CH"
 	testMap.AddKey(testKey)
 
@@ -154,12 +155,12 @@ func TestForgetfulSyncMap_AddKey(t *testing.T) {
 	}
 
 	if value != nil {
-		t.Error("Something other than a nil value was found.")
+		t.Errorf("Something other (%+v) than a nil value was found.", value)
 	}
 }
 
 func TestForgetfulSyncMap_HasKeyFound(t *testing.T) {
-	testMap := NewForgetfulSyncMap(1*time.Second, 60*time.Second)
+	testMap := NewForgetfulSyncMap(WithSweepInterval(time.Second), WithOldAgeAfterSeconds(60))
 	testKey := "VH1234CT"
 
 	testMap.AddKey(testKey)
@@ -172,7 +173,7 @@ func TestForgetfulSyncMap_HasKeyFound(t *testing.T) {
 }
 
 func TestForgetfulSyncMap_HasKeyNotFound(t *testing.T) {
-	testMap := NewForgetfulSyncMap(1*time.Second, 60*time.Second)
+	testMap := NewForgetfulSyncMap(WithSweepInterval(time.Second), WithOldAgeAfterSeconds(60))
 
 	testMap.AddKey("VH1234CT")
 
@@ -184,7 +185,7 @@ func TestForgetfulSyncMap_HasKeyNotFound(t *testing.T) {
 }
 
 func TestForgetfulSyncMap_Delete(t *testing.T) {
-	testMap := NewForgetfulSyncMap(1*time.Second, 60*time.Second)
+	testMap := NewForgetfulSyncMap(WithSweepInterval(time.Second), WithOldAgeAfterSeconds(60))
 	testKey := "VH123CG"
 
 	testMap.AddKey(testKey)
@@ -201,7 +202,7 @@ func TestForgetfulSyncMap_Delete(t *testing.T) {
 }
 
 func TestForgetfulSyncMap_Range(t *testing.T) {
-	testMap := NewForgetfulSyncMap(1*time.Second, 60*time.Second)
+	testMap := NewForgetfulSyncMap(WithSweepInterval(time.Second), WithOldAgeAfterSeconds(60))
 
 	type testItem struct {
 		value string
