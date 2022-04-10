@@ -2,19 +2,17 @@ package main
 
 import (
 	"context"
-	"os"
-	"os/signal"
-	"sync"
-	"syscall"
-	"time"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"plane.watch/lib/dedupe"
+	"os"
+	"os/signal"
+	"plane.watch/lib/dedupe/forgetfulmap"
 	"plane.watch/lib/monitoring"
+	"sync"
+	"syscall"
 
 	"plane.watch/lib/logging"
 )
@@ -37,7 +35,7 @@ type (
 	pwRouter struct {
 		mqs []mq
 
-		syncSamples *dedupe.ForgetfulSyncMap
+		syncSamples *forgetfulmap.ForgetfulSyncMap
 
 		haveSourceSinkConnection bool
 
@@ -194,14 +192,18 @@ func run(c *cli.Context) error {
 	var err error
 	// connect to rabbitmq, create ourselves 2 queues
 	r := pwRouter{
-		syncSamples: dedupe.NewForgetfulSyncMap(time.Duration(c.Int("update-age-sweep-interval"))*time.Second, time.Duration(c.Int("update-age"))*time.Second),
+		syncSamples: forgetfulmap.NewForgetfulSyncMap(
+			forgetfulmap.WithSweepIntervalSeconds(c.Int("update-age-sweep-interval")),
+			forgetfulmap.WithOldAgeAfterSeconds(c.Int("update-age")),
+			forgetfulmap.WithPreEvictionAction(func(key, value any) {
+				cacheEvictions.Inc()
+				cacheEntries.Dec()
+				log.Debug().Msgf("Evicting cache entry Icao: %s", key)
+			}),
+		),
 	}
 
-	r.syncSamples.SetEvictionAction(func(key interface{}, value interface{}) {
-		cacheEvictions.Inc()
-		cacheEntries.Dec()
-		log.Debug().Msgf("Evicting cache entry Icao: %s", key)
-	})
+	defer r.syncSamples.Stop()
 
 	r.incomingMessages = make(chan []byte, 300)
 

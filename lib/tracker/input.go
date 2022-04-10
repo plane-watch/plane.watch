@@ -2,17 +2,18 @@ package tracker
 
 import (
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rs/zerolog/log"
 	"os"
 	"os/signal"
+	"sync"
+	"syscall"
+	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rs/zerolog/log"
 	"plane.watch/lib/monitoring"
 	"plane.watch/lib/tracker/beast"
 	"plane.watch/lib/tracker/mode_s"
 	"plane.watch/lib/tracker/sbs1"
-	"sync"
-	"syscall"
-	"time"
 )
 
 type (
@@ -97,7 +98,7 @@ func (t *Tracker) Finish() {
 	}
 	log.Debug().Msg("Closing Decoding Queue")
 	close(t.decodingQueue)
-	t.pruneExitChan <- true
+	t.planeList.Stop()
 	log.Debug().Msg("Stopping Events")
 	t.eventSync.Lock()
 	t.eventsOpen = false

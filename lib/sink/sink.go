@@ -3,8 +3,10 @@ package sink
 import (
 	"encoding/json"
 	"errors"
+	"regexp"
+
 	"github.com/rs/zerolog/log"
-	"plane.watch/lib/dedupe"
+	"plane.watch/lib/dedupe/forgetfulmap"
 	"plane.watch/lib/export"
 	"plane.watch/lib/monitoring"
 	"plane.watch/lib/rabbitmq"
@@ -12,9 +14,6 @@ import (
 	"plane.watch/lib/tracker/beast"
 	"plane.watch/lib/tracker/mode_s"
 	"plane.watch/lib/tracker/sbs1"
-	"regexp"
-
-	"time"
 )
 
 type (
@@ -26,7 +25,7 @@ type (
 	}
 
 	Sink struct {
-		fsm    *dedupe.ForgetfulSyncMap
+		fsm    *forgetfulmap.ForgetfulSyncMap
 		config *Config
 		dest   Destination
 		events chan tracker.Event
@@ -46,7 +45,7 @@ func stripAnsi(str string) string {
 
 func NewSink(conf *Config, dest Destination) tracker.Sink {
 	s := Sink{
-		fsm:    dedupe.NewForgetfulSyncMap(10*time.Second, 60*time.Second),
+		fsm:    forgetfulmap.NewForgetfulSyncMap(),
 		config: conf,
 		dest:   dest,
 		events: make(chan tracker.Event),
@@ -65,6 +64,7 @@ func (s *Sink) Stop() {
 	close(s.events)
 	s.config.Finish()
 	s.dest.Stop()
+	s.fsm.Stop()
 }
 
 func (s *Sink) sendLocationEvent(routingKey string, le *tracker.PlaneLocationEvent) error {
