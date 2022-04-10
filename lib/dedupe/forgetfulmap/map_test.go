@@ -1,6 +1,7 @@
 package forgetfulmap
 
 import (
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -245,5 +246,40 @@ func TestForgetfulSyncMap_Range(t *testing.T) {
 
 	if 1 != counter {
 		t.Error("Failed to range correctly through the map")
+	}
+}
+
+func TestForgetfulSyncMap_SweepWithCustomExpiryFunc(t *testing.T) {
+	type testItem struct {
+		value  string
+		remove bool
+	}
+	testMap := NewForgetfulSyncMap(WithForgettableAction(func(key, value any, added time.Time) bool {
+		v, ok := value.(testItem)
+		if !ok {
+			t.Error("Incorrect type returned, expected testItem{}, got", reflect.TypeOf(value))
+			return true
+		}
+		return v.remove
+	}))
+
+	item1 := testItem{value: "item 111", remove: false}
+	testMap.Store("item1", item1)
+	item2 := testItem{value: "item 222", remove: true}
+	testMap.Store("item2", item2)
+
+	if 2 != testMap.Len() {
+		t.Error("Failed to store test items")
+	}
+
+	testMap.sweep()
+	if 1 != testMap.Len() {
+		t.Error("Failed to remove our test2 item on sweep")
+	}
+
+	// make sure we can get our item out
+	loadedItem, found := testMap.Load("item1")
+	if !found || nil == loadedItem {
+		t.Error("Failed load our item1")
 	}
 }

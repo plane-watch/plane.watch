@@ -1,6 +1,7 @@
 package forgetfulmap
 
 import (
+	"github.com/rs/zerolog/log"
 	"sync"
 	"time"
 )
@@ -11,7 +12,6 @@ type (
 
 	ForgetfulSyncMap struct {
 		lookup        *sync.Map
-		len           int
 		sweeper       *time.Timer
 		sweepInterval time.Duration
 		oldAfter      time.Duration
@@ -31,7 +31,6 @@ type (
 func NewForgetfulSyncMap(opts ...Option) *ForgetfulSyncMap {
 	f := &ForgetfulSyncMap{
 		lookup:        &sync.Map{},
-		len:           0,
 		sweepInterval: 10 * time.Second,
 		oldAfter:      60 * time.Second,
 	}
@@ -99,6 +98,9 @@ func WithForgettableAction(forgettable ForgettableFunc) Option {
 
 // sweep periodically goes through the underlying sync.Map and removes things that should be forgotten
 func (f *ForgetfulSyncMap) sweep() {
+	if log.Trace().Enabled() {
+		log.Trace().Str("section", "forgetfulmap").Int32("num items", f.Len()).Msg("Before Sweep")
+	}
 	f.lookup.Range(func(key, value interface{}) bool {
 		m, ok := value.(*marble)
 		if !ok {
@@ -106,7 +108,7 @@ func (f *ForgetfulSyncMap) sweep() {
 			return true
 		}
 
-		if f.forgettable(key, value, m.added) {
+		if f.forgettable(key, m.value, m.added) {
 			if f.evictionFunc != nil {
 				f.evictionFunc(key, value)
 			}
@@ -115,6 +117,9 @@ func (f *ForgetfulSyncMap) sweep() {
 
 		return true
 	})
+	if log.Trace().Enabled() {
+		log.Trace().Str("section", "forgetfulmap").Int32("num items", f.Len()).Msg("After Sweep")
+	}
 }
 
 // HasKey determines if we can Recall an item
