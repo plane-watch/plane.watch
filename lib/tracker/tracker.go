@@ -72,17 +72,40 @@ func NewTracker(opts ...Option) *Tracker {
 		opt(t)
 	}
 
-	t.planeList = forgetfulmap.NewForgetfulSyncMap(t.pruneTick, t.pruneAfter)
-	t.planeList.SetEvictionAction(func(key, value interface{}) {
-		if nil != t.stats.currentPlanes {
-			t.stats.currentPlanes.Dec()
-		}
+	t.planeList = forgetfulmap.NewForgetfulSyncMap(
+		forgetfulmap.WithSweepInterval(t.pruneTick),
+		forgetfulmap.WithPreEvictionAction(func(key, value interface{}) {
+			if nil != t.stats.currentPlanes {
+				t.stats.currentPlanes.Dec()
+			}
 
-		if plane, ok := value.(*Plane); ok {
-			// now send an event
-			t.AddEvent(newPlaneActionEvent(plane, false, true))
-		}
-	})
+			if plane, ok := value.(*Plane); ok {
+				// now send an event
+				t.AddEvent(newPlaneActionEvent(plane, false, true))
+			}
+			if t.log.Trace().Enabled() {
+				t.log.Trace().
+					Str("ICAO", fmt.Sprintf("%06X", key)).
+					Msg("Plane is being evicted")
+			}
+		}),
+		forgetfulmap.WithForgettableAction(func(key, value any, added time.Time) bool {
+			result := true
+			if plane, ok := value.(*Plane); ok {
+				oldest := time.Now().Add(-t.pruneAfter)
+				// remove the plane from the list if it is older than our oldest allowable
+				result = plane.LastSeen().Before(oldest)
+			}
+			if t.log.Trace().Enabled() {
+				t.log.Trace().
+					Bool("Removing?", result).
+					Str("ICAO", fmt.Sprintf("%06X", key)).
+					Msg("Should plane be forgotten?")
+			}
+			// remove anything that is not a *export.PlaneLocation
+			return result
+		}),
+	)
 
 	// Process our event queue and send them to all the Sinks that are currently listening to us
 	go t.processEvents()
