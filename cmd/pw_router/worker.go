@@ -7,6 +7,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"math"
 	"plane.watch/lib/export"
+	"plane.watch/lib/tracker/calc"
 )
 
 type (
@@ -21,9 +22,9 @@ var (
 	ErrUnhandledMessage = errors.New("a message wasn't handled at all")
 )
 
-const SigHeadingChange = 1.0 // at least 1.0 degrees change.
+const SigHeadingChange = 1.0        // at least 1.0 degrees change.
 const SigVerticalRateChange = 180.0 // at least 180 fpm change (3ft in 1min)
-const SigAltitudeChange = 10.0 // at least 10 ft in altitude change.
+const SigAltitudeChange = 10.0      // at least 10 ft in altitude change.
 
 func (w *worker) isSignificant(last export.PlaneLocation, candidate export.PlaneLocation) bool {
 	// check the candidate vs last, if any of the following have changed
@@ -190,6 +191,12 @@ func (w *worker) handleMsg(msg []byte) error {
 
 	// is this update significant versus the previous one
 	lastRecord := item.(export.PlaneLocation)
+
+	if !w.ValidFlightCone(&lastRecord, &update) {
+		// we should ignore this update
+		return nil
+	}
+
 	if w.isSignificant(lastRecord, update) {
 		w.handleSignificantUpdate(update, msg)
 		return nil
@@ -275,4 +282,32 @@ func (w *worker) publishLocationUpdate(routingKey string, msg []byte) {
 		log.Trace().Str("routingKey", routingKey).Msg("Sent msg")
 		updatesPublished.Inc()
 	}
+}
+
+func (w *worker) ValidFlightCone(prev, current *export.PlaneLocation) bool {
+	prevOk := nil != prev && prev.HasLocation && prev.HasVelocity && prev.HasHeading
+	currentOk := nil != current && current.HasLocation && current.HasVelocity && current.HasHeading
+	if !prevOk && currentOk {
+		// we do not have enough info to determine a valid flight cone, fail open
+		return true
+	}
+
+	// basic calc first, let's see if this location is unreasonably far from our previous
+	distance := calc.Distance(prev.Lat, prev.Lon, current.Lat, current.Lon)
+	interval := current.LastMsg.Sub(prev.LastMsg)
+	maxAllowed := calc.MaxAllowableDistance(interval, math.Max(prev.Velocity, current.Velocity))
+	if distance > maxAllowed {
+		if log.Trace().Enabled() {
+			log.Trace().
+				Float64("distance", distance).
+				Dur("duration", interval).
+				Float64("m/s", interval.Seconds()*distance).
+				Msg("Plane has travelled too far")
+		}
+		return false
+	}
+
+	// second calc, is this location in front of or behind the previous one
+	
+	return true
 }

@@ -455,8 +455,3 @@ func (pl *PlaneLocation) SetDirection(heading float64, speed int32) {
 	pl.heading = heading
 	pl.velocity = float64(speed)
 }
-
-// haversin(θ) function
-func hsin(theta float64) float64 {
-	return math.Pow(math.Sin(theta/2), 2)
-}

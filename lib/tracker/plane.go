@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"plane.watch/lib/tile_grid"
+	"plane.watch/lib/tracker/calc"
 	"strings"
 	"sync"
 	"time"
@@ -675,12 +676,12 @@ func (p *Plane) addLatLong(lat, lon float64, ts time.Time) (warn error) {
 			if 0.0 == durationTravelled {
 				durationTravelled = 1
 			}
-			acceptableMaxDistance := durationTravelled * 343 // mach1 in metres/second seems fast enough...
+			acceptableMaxDistance := durationTravelled * calc.Mach1
 			if acceptableMaxDistance > 50000 {
 				acceptableMaxDistance = 50000
 			}
 
-			travelledDistance = distance(lat, lon, p.location.latitude, p.location.longitude)
+			travelledDistance = calc.Distance(lat, lon, p.location.latitude, p.location.longitude)
 
 			//log.Printf("%s travelled %0.2fm in %0.2f seconds (%s -> %s)", p.icaoStr, DistanceTravelled, durationTravelled, referenceTime.Format(time.RFC3339Nano), ts.Format(time.RFC3339Nano))
 
@@ -750,32 +751,6 @@ func (p *Plane) LocationHistory() []*PlaneLocation {
 	p.rwLock.RLock()
 	defer p.rwLock.RUnlock()
 	return p.locationHistory
-}
-
-// Distance function returns the distance (in meters) between two points of
-//     a given longitude and latitude relatively accurately (using a spherical
-//     approximation of the Earth) through the Haversin Distance Formula for
-//     great arc distance on a sphere with accuracy for small distances
-//
-// point coordinates are supplied in degrees and converted into rad. in the func
-//
-// distance returned is METERS!!!!!!
-// http://en.wikipedia.org/wiki/Haversine_formula
-func distance(lat1, lon1, lat2, lon2 float64) float64 {
-	// convert to radians
-	// must cast radius as float to multiply later
-	var la1, lo1, la2, lo2, r float64
-	la1 = lat1 * math.Pi / 180
-	lo1 = lon1 * math.Pi / 180
-	la2 = lat2 * math.Pi / 180
-	lo2 = lon2 * math.Pi / 180
-
-	r = 6378100 // Earth radius in METERS
-
-	// calculate
-	h := hsin(la2-la1) + math.Cos(la1)*math.Cos(la2)*hsin(lo2-lo1)
-
-	return 2 * r * math.Asin(math.Sqrt(h))
 }
 
 // Valid let's us know if we have some data
