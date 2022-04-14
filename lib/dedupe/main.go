@@ -2,8 +2,7 @@ package dedupe
 
 import (
 	"fmt"
-	"time"
-
+	"plane.watch/lib/dedupe/forgetfulmap"
 	"plane.watch/lib/tracker"
 	"plane.watch/lib/tracker/beast"
 	"plane.watch/lib/tracker/mode_s"
@@ -19,13 +18,13 @@ Consider a message a duplicate if we have seen it in the last minute
 type (
 	Filter struct {
 		events chan tracker.Event
-		list   *ForgetfulSyncMap
+		list   *forgetfulmap.ForgetfulSyncMap
 	}
 )
 
 func NewFilter() *Filter {
 	return &Filter{
-		list:   NewForgetfulSyncMap(10*time.Second, 60*time.Second),
+		list:   forgetfulmap.NewForgetfulSyncMap(),
 		events: make(chan tracker.Event),
 	}
 }
@@ -36,6 +35,7 @@ func (f *Filter) Listen() chan tracker.Event {
 
 func (f *Filter) Stop() {
 	close(f.events)
+	f.list.Stop()
 }
 
 func (f *Filter) String() string {
