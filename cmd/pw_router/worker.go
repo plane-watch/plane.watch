@@ -192,9 +192,21 @@ func (w *worker) handleMsg(msg []byte) error {
 	// is this update significant versus the previous one
 	lastRecord := item.(export.PlaneLocation)
 
-	if !w.ValidFlightCone(&lastRecord, &update) {
-		// we should ignore this update
-		return nil
+	if lastRecord.HasLocation && lastRecord.HasVelocity && update.HasLocation {
+		valid := calc.FlightLocationValid(
+			// these time values are controlled by us, we timestamp when we get the message
+			lastRecord.LastMsg,
+			update.LastMsg,
+			lastRecord.Velocity, // plane's reported previous velocity
+			lastRecord.Lat,
+			lastRecord.Lon,
+			update.Lat,
+			update.Lon,
+		)
+		if !valid {
+			// we should ignore this update
+			return nil
+		}
 	}
 
 	if w.isSignificant(lastRecord, update) {
@@ -282,32 +294,4 @@ func (w *worker) publishLocationUpdate(routingKey string, msg []byte) {
 		log.Trace().Str("routingKey", routingKey).Msg("Sent msg")
 		updatesPublished.Inc()
 	}
-}
-
-func (w *worker) ValidFlightCone(prev, current *export.PlaneLocation) bool {
-	prevOk := nil != prev && prev.HasLocation && prev.HasVelocity && prev.HasHeading
-	currentOk := nil != current && current.HasLocation && current.HasVelocity && current.HasHeading
-	if !prevOk && currentOk {
-		// we do not have enough info to determine a valid flight cone, fail open
-		return true
-	}
-
-	// basic calc first, let's see if this location is unreasonably far from our previous
-	distance := calc.Distance(prev.Lat, prev.Lon, current.Lat, current.Lon)
-	interval := current.LastMsg.Sub(prev.LastMsg)
-	maxAllowed := calc.MaxAllowableDistance(interval, math.Max(prev.Velocity, current.Velocity))
-	if distance > maxAllowed {
-		if log.Trace().Enabled() {
-			log.Trace().
-				Float64("distance", distance).
-				Dur("duration", interval).
-				Float64("m/s", interval.Seconds()*distance).
-				Msg("Plane has travelled too far")
-		}
-		return false
-	}
-
-	// second calc, is this location in front of or behind the previous one
-	
-	return true
 }

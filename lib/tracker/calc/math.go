@@ -1,6 +1,8 @@
 package calc
 
 import (
+	"fmt"
+	"github.com/rs/zerolog/log"
 	"math"
 	"time"
 )
@@ -14,6 +16,12 @@ const (
 	Mach3 = 1029
 	// Mach4 in Metres/Second
 	Mach4 = 1372
+
+	Geforce1 = 9.8
+	Geforce2 = 9.8 * 2
+	Geforce3 = 9.8 * 3
+	Geforce4 = 9.8 * 4
+	Geforce5 = 9.8 * 5
 )
 
 // Distance function returns the distance (in meters) between two points of
@@ -42,7 +50,7 @@ func Distance(lat1, lon1, lat2, lon2 float64) float64 {
 	return 2 * r * math.Asin(math.Sqrt(h))
 }
 
-// haversin(θ) function
+// hsin is the haversin(θ) function
 func hsin(theta float64) float64 {
 	return math.Pow(math.Sin(theta/2), 2)
 }
@@ -53,11 +61,11 @@ func MaxAllowableDistance(interval time.Duration, velocity float64) float64 {
 	if interval.Seconds() <= 0.001 { // this is a really quick report
 		interval = 1
 	}
-	if velocity > Mach4 {
-		velocity = Mach4 // clamp to Mach4
-	}
 
-	// SR71A's official was Mach 3.3, not much else gets that fast
+	// SR71A's official was Mach 3.3, not much else gets that fast in atmosphere
+	// make sure Velocity is between 1m/s and Mach4
+	velocity = math.Max(1, math.Min(Mach4, velocity))
+
 	upperRangeLimit := interval.Seconds() * Mach4
 
 	maxSpeed := velocity * 1.5
@@ -74,4 +82,49 @@ func MaxAllowableDistance(interval time.Duration, velocity float64) float64 {
 	}
 
 	return expectedMaxDistance
+}
+
+func FlightLocationValid(prevTime, currentTime time.Time, prevVelocityKnots, prevLat, prevLon, currentLat, currentLon float64) bool {
+	deltaT := currentTime.Sub(prevTime)
+	// if these frames are heaps far apart we should probably trust them
+	if deltaT.Seconds() > 300 {
+		return true
+	}
+	prevVelocityMS := prevVelocityKnots * 0.514444
+
+	// basic distance calc first, let's see if this location is unreasonably far from our previous
+	distance := Distance(prevLat, prevLon, currentLat, currentLon)
+	//fmt.Printf("calc distance %0.4f\n", distance)
+	currentVelocityMS := distance / deltaT.Seconds()
+	//fmt.Printf("calc current velocity %0.4f m/s\n", currentVelocityMS)
+	maxAllowedDistance := MaxAllowableDistance(deltaT, math.Max(prevVelocityMS, currentVelocityMS))
+	if distance > maxAllowedDistance {
+		if log.Trace().Enabled() {
+			log.Trace().
+				Str("Coordinates", fmt.Sprintf("(%0.4f,%0.4f) => (%0.4f,%0.4f)", prevLat, prevLon, currentLat, currentLon)).
+				Float64("distance", distance).
+				Dur("duration", deltaT).
+				Float64("m/s", deltaT.Seconds()*distance).
+				Msg("Plane has travelled too far")
+		}
+		return false
+	}
+
+	// let's check the acceleration and make sure it is ~sane
+	deltaVMS := math.Abs(prevVelocityMS - currentVelocityMS)
+	//fmt.Printf("Delta V %0.4f m/s\n\n", deltaVMS)
+	accel := deltaVMS / deltaT.Seconds()
+	if accel > Geforce5 {
+		if log.Trace().Enabled() {
+			log.Trace().
+				Str("Coordinates", fmt.Sprintf("(%0.4f,%0.4f) => (%0.4f,%0.4f)", prevLat, prevLon, currentLat, currentLon)).
+				Float64("Acceleration", accel).
+				Float64("distance", distance).
+				Dur("duration", deltaT).
+				Msg("Plane has accelerated too hard")
+		}
+		return false
+	}
+
+	return true
 }
