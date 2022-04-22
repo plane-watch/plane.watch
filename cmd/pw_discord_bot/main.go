@@ -17,6 +17,8 @@ var version = "dev"
 func main() {
 	app := cli.NewApp()
 
+	app.Version = version
+
 	app.Name = "PlaneWatch Discord Bot"
 
 	app.Commands = cli.Commands{
