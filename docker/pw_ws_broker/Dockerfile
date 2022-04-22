@@ -1,4 +1,4 @@
-FROM golang:1.18-alpine AS build
+FROM golang:1.18 AS build
 
 # Set necessary environmet variables needed for our image
 ENV GO111MODULE=on \
@@ -15,8 +15,10 @@ RUN go mod verify && go mod download
 # Copy the code into the container
 COPY . /app
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # Build the application
-RUN go build -buildvcs=false plane.watch/cmd/pw_ws_broker
+RUN go build -buildvcs=false -ldflags="-X 'package_path.variable_name=${VERSION:-dev}'" plane.watch/cmd/pw_ws_broker
 
 # test binary (make sure it will run on this arch)
 RUN ./pw_ws_broker --help
