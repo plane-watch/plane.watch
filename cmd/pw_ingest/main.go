@@ -35,7 +35,7 @@ func main() {
 	app.Usage = "Reads from dump1090 and sends it to https://plane.watch/"
 
 	app.Description = `This program takes a stream of plane tracking info (beast/avr/sbs1), tracks the planes and ` +
-		`outputs all sorts if interesting information to the configured sink, including decoded and tracked planes in JSON format.` +
+		`outputs all sorts of interesting information to the configured sink, including decoded and tracked planes in JSON format.` +
 		"\n\n" +
 		`example: pw_ingest --fetch=beast://crawled.mapwithlove.com:3004 --sink=amqp://guest:guest@localhost:5672/pw?queues=location-updates --tag="cool-stuff" --quiet simple`
 
