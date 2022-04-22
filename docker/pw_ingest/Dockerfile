@@ -15,8 +15,10 @@ RUN go mod verify && go mod download
 # Copy the code into the container
 COPY . /app/
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # Build the application
-RUN go build -buildvcs=false plane.watch/cmd/pw_ingest
+RUN go build -buildvcs=false -ldflags="-X 'package_path.variable_name=${VERSION:-dev}'" plane.watch/cmd/pw_ingest
 
 # test binary (make sure it will run on this arch)
 RUN ./pw_ingest --help

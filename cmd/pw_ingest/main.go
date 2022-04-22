@@ -1,11 +1,12 @@
 package main
 
 import (
+	"os"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"os"
 	"plane.watch/lib/dedupe"
 	"plane.watch/lib/example_finder"
 	"plane.watch/lib/logging"
@@ -15,6 +16,7 @@ import (
 )
 
 var (
+	version                        = "dev"
 	prometheusCounterFramesDecoded = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "pw_ingest_num_decoded_frames",
 		Help: "The number of AVR frames decoded",
@@ -28,7 +30,7 @@ var (
 func main() {
 	app := cli.NewApp()
 
-	app.Version = "1.0.0"
+	app.Version = version
 	app.Name = "Plane Watch Client"
 	app.Usage = "Reads from dump1090 and sends it to https://plane.watch/"
 
