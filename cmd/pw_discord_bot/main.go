@@ -2,14 +2,17 @@ package main
 
 import (
 	"errors"
+	"os"
+
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"os"
 	"plane.watch/cmd/pw_discord_bot/config"
 	"plane.watch/lib/logging"
 	"plane.watch/lib/mapping"
 	"plane.watch/lib/monitoring"
 )
+
+var version = "dev"
 
 func main() {
 	app := cli.NewApp()

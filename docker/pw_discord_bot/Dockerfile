@@ -1,9 +1,11 @@
-FROM golang:1.18-alpine AS build
+FROM golang:1.18 AS build
 
 # Set necessary environmet variables needed for our image
 ENV GO111MODULE=on \
     CGO_ENABLED=0 \
     GOAMD64=v3
+
+
 
 WORKDIR /app
 
@@ -15,8 +17,10 @@ RUN go mod verify && go mod download
 # Copy the code into the container
 COPY . /app/
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # Build the application
-RUN go build -buildvcs=false plane.watch/cmd/pw_discord_bot
+RUN go build -buildvcs=false -ldflags="-X 'package_path.variable_name=${VERSION:-dev}'" plane.watch/cmd/pw_discord_bot
 
 # test binary (make sure it will run on this arch)
 RUN ./pw_discord_bot --help
