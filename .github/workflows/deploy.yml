@@ -3,22 +3,18 @@ name: Deploy
 
 on:
   workflow_dispatch:
-    # inputs:
-    #   reason:
-    #     required: true
-    #     description: 'Reason for running this workflow'
-  # push:
-  #   branches:
-  #     - main
-  #   # Don't trigger if it's just a documentation update
-  #   paths-ignore:
-  #     - '**.md'
-  #     - '**.MD'
-  #     - '**.yml'
-  #     - 'LICENSE'
-  #     - '.gitattributes'
-  #     - '.gitignore'
-  #     - '.dockerignore'
+  push:
+    branches:
+      - main
+    # Don't trigger if it's just a documentation update
+    paths-ignore:
+      - '**.md'
+      - '**.MD'
+      - '**.yml'
+      - 'LICENSE'
+      - '.gitattributes'
+      - '.gitignore'
+      - '.dockerignore'
 
 # Set workflow-wide environment variables
 env:
