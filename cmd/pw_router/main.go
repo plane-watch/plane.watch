@@ -2,17 +2,18 @@ package main
 
 import (
 	"context"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"os"
-	"os/signal"
 	"plane.watch/lib/dedupe/forgetfulmap"
 	"plane.watch/lib/monitoring"
-	"sync"
-	"syscall"
 
 	"plane.watch/lib/logging"
 )
@@ -44,6 +45,7 @@ type (
 )
 
 var (
+	version          = "dev"
 	updatesProcessed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "pw_router_updates_processed_total",
 		Help: "The total number of messages processed.",
@@ -82,7 +84,7 @@ func main() {
 	app := cli.NewApp()
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
-	app.Version = "1.0.0"
+	app.Version = version
 	app.Name = "Plane Watch Router (pw_router)"
 	app.Usage = "Reads location updates from AMQP and publishes only significant updates."
 
