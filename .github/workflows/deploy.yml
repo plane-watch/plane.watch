@@ -46,6 +46,25 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Generate version
+      - uses: paulhatch/semantic-version@v4.0.2
+        with:
+          # The prefix to use to identify tags
+          tag_prefix: "v"
+          # A string which, if present in a git commit, indicates that a change represents a
+          # major (breaking) change, supports regular expressions wrapped with '/'
+          major_pattern: "(MAJOR)"
+          # Same as above except indicating a minor change, supports regular expressions wrapped with '/'
+          minor_pattern: "(MINOR)"
+          # A string to determine the format of the version output
+          format: "${major}.${minor}.${patch}-${increment}"
+          # If this is set to true, *every* commit will be treated as a new version.
+          bump_each_commit: false
+          # If true, the body of commits will also be searched for major/minor patterns to determine the version type.
+          search_commit_body: false
+          # The output method used to generate list of users, 'csv' or 'json'.
+          user_format_type: "csv"
+
       # Log into ghcr (so we can push images)
       - name: Login to ghcr.io
         uses: docker/login-action@v1
@@ -72,6 +91,8 @@ jobs:
 
       # Build
       - name: Build & Push - ${{ matrix.image }}
+        # only build & push docker image on push to main
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: docker/build-push-action@v2
         with:
           context: .
