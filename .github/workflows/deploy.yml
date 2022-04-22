@@ -85,6 +85,8 @@ jobs:
         uses: docker/metadata-action@v3
         with:
           images: ${{ env.GHCR_REGISTRY }}/${{ env.IMAGE_NAME }}
+          labels: |
+            org.opencontainers.image.version=${{ steps.semantic-gitcommit.output.version }}
 
       # Set up QEMU for multi-arch builds
       - name: Set up QEMU
@@ -100,7 +102,7 @@ jobs:
         if: ${{ github.event_name != 'push' && github.ref != 'refs/heads/main' }}
         uses: docker/build-push-action@v2
         with:
-          build-args: VERSION="${{ steps.semantic-gitcommit.vars.version }}"
+          build-args: VERSION="${{ steps.semantic-gitcommit.output.version }}"
           context: .
           file: docker/${{ matrix.image }}/Dockerfile
           platforms: linux/amd64,linux/arm64
