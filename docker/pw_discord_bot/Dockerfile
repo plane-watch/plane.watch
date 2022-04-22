@@ -5,7 +5,7 @@ ENV GO111MODULE=on \
     CGO_ENABLED=0 \
     GOAMD64=v3
 
-
+ARG IMAGE_VERSION=dev
 
 WORKDIR /app
 
@@ -20,7 +20,7 @@ COPY . /app/
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Build the application
-RUN set -x && go build -buildvcs=false -ldflags="-X 'package_path.variable_name=${VERSION:-dev}'" plane.watch/cmd/pw_discord_bot
+RUN set -x && go build -buildvcs=false -ldflags="-X 'package_path.variable_name=${IMAGE_VERSION}'" plane.watch/cmd/pw_discord_bot
 
 # test binary (make sure it will run on this arch)
 RUN ./pw_discord_bot --help
