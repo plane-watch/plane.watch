@@ -18,7 +18,7 @@ COPY . /app
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Build the application
-RUN go build -buildvcs=false -ldflags="-X 'package_path.variable_name=${VERSION:-dev}'" plane.watch/cmd/pw_ws_broker
+RUN set -x && go build -buildvcs=false -ldflags="-X 'package_path.variable_name=${VERSION:-dev}'" plane.watch/cmd/pw_ws_broker
 
 # test binary (make sure it will run on this arch)
 RUN ./pw_ws_broker --help
