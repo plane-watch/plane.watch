@@ -2,16 +2,18 @@ package main
 
 import (
 	"errors"
+	"os"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"os"
 	"plane.watch/lib/logging"
 	"plane.watch/lib/monitoring"
 )
 
 var (
+	version              = "dev"
 	prometheusNumClients = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "pw_ws_broker_num_clients",
 		Help: "The current number of websocket clients we are currently serving",
@@ -20,6 +22,7 @@ var (
 
 func main() {
 	app := cli.NewApp()
+	app.Version = version
 	app.Name = "Plane.Watch WebSocket Broker (pw_ws_broker)"
 	app.Usage = "Websocket Broker"
 	app.Description = "Acts as a go between external display elements our the data pipeline"
