@@ -107,7 +107,7 @@ jobs:
           file: docker/${{ matrix.image }}/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: false
-          tags: ghcr.io/${{ env.GHCR_IMAGE }}:${{ matrix.image }}
+          tags: ghcr.io/${{ env.GHCR_IMAGE }}:${{ matrix.image }},ghcr.io/${{ env.GHCR_IMAGE }}:${{ matrix.image }}_${{ steps.semantic-gitcommit.outputs.version }}
           labels: ${{ steps.meta.outputs.labels }}
 
       # Build & Push (if push to main branch)
@@ -120,5 +120,5 @@ jobs:
           file: docker/${{ matrix.image }}/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ghcr.io/${{ env.GHCR_IMAGE }}:${{ matrix.image }}
+          tags: ghcr.io/${{ env.GHCR_IMAGE }}:${{ matrix.image }},ghcr.io/${{ env.GHCR_IMAGE }}:${{ matrix.image }}_${{ steps.semantic-gitcommit.outputs.version }}
           labels: ${{ steps.meta.outputs.labels }}
