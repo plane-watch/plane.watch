@@ -11,6 +11,8 @@ type Server struct {
 	url      string
 	incoming *nats.Conn
 	outgoing *nats.Conn
+
+	channels []chan *nats.Msg
 }
 
 func NewServer(serverUrl string) (*Server, error) {
@@ -68,9 +70,12 @@ func (n *Server) Close() {
 }
 
 func (n *Server) Subscribe(subject string) (chan *nats.Msg, error) {
-	ch := make(chan *nats.Msg, 128)
-	_, err := n.incoming.ChanSubscribe(subject, ch)
+	ch := make(chan *nats.Msg, 512)
+	sub, err := n.incoming.ChanSubscribe(subject, ch)
 	if nil != err {
+		return nil, err
+	}
+	if err = sub.SetPendingLimits(512, 5*1024*1024); nil != err {
 		return nil, err
 	}
 	return ch, nil
