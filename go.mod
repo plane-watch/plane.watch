@@ -16,7 +16,7 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/spf13/viper v1.11.0
 	github.com/streadway/amqp v1.0.0
-	github.com/urfave/cli/v2 v2.4.4
+	github.com/urfave/cli/v2 v2.5.0
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
 	nhooyr.io/websocket v1.8.7
 )
