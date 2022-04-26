@@ -23,6 +23,7 @@ func NewNatsIoRouter(url string) *natsIoRouter {
 	nr.SetUrl(url)
 	return nr
 }
+
 func (nr *natsIoRouter) connect() error {
 	var err error
 
