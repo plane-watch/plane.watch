@@ -183,7 +183,7 @@ func (ds *dataStream) handleQueue(q chan *export.PlaneLocation, table string) {
 			}
 			updateId = 0
 		case loc := <-q:
-			squawk, _ := strconv.Atoi(loc.Squawk)
+			squawk, _ := strconv.ParseUint(loc.Squawk, 10, 32)
 			updates[updateId] = &chRow{
 				New:             bool2int(loc.New),
 				Removed:         bool2int(loc.Removed),
