@@ -2,16 +2,19 @@ package nats_io
 
 import (
 	"github.com/nats-io/nats.go"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"net"
 	"net/url"
 )
 
+const DefaultQueueDepth = 2048
+
 type (
 	healthItem struct {
-		name string
-		ch   chan *nats.Msg
+		name, subject string
+		ch            chan *nats.Msg
 	}
 
 	Server struct {
@@ -22,12 +25,17 @@ type (
 		channels []healthItem
 
 		log zerolog.Logger
+
+		QueueDepth int
+
+		droppedMessageCounter prometheus.Counter
 	}
 )
 
 func NewServer(serverUrl string) (*Server, error) {
 	n := &Server{
-		log: log.With().Str("section", "nats.io").Logger(),
+		log:        log.With().Str("section", "nats.io").Logger(),
+		QueueDepth: DefaultQueueDepth,
 	}
 	n.SetUrl(serverUrl)
 	if err := n.Connect(); nil != err {
@@ -47,11 +55,35 @@ func (n *Server) SetUrl(serverUrl string) {
 	}
 	n.url = serverUrlParts.String()
 }
+func (n *Server) DroppedCounter(counter prometheus.Counter) {
+	n.droppedMessageCounter = counter
+}
+func (n *Server) NatsErrHandler(conn *nats.Conn, sub *nats.Subscription, err error) {
+	l := n.log.Error().Err(err)
+
+	for _, c := range n.channels {
+		if c.subject == sub.Subject {
+			l.Int(c.name+" len", len(c.ch)).
+				Int(c.name+" capacity", cap(c.ch))
+		}
+	}
+	if nil != conn {
+		l.Str("addr", conn.ConnectedUrl())
+	}
+	if nil != sub {
+		l.Str("subscription", sub.Subject+"["+sub.Queue+"]")
+	}
+	l.Send()
+
+	if nil != n.droppedMessageCounter && err == nats.ErrSlowConsumer {
+		n.droppedMessageCounter.Inc()
+	}
+}
 
 func (n *Server) Connect() error {
 	var err error
 	n.log.Debug().Str("url", n.url).Msg("connecting to server...")
-	n.incoming, err = nats.Connect(n.url)
+	n.incoming, err = nats.Connect(n.url, nats.ErrorHandler(n.NatsErrHandler))
 	if nil != err {
 		n.log.Error().Err(err).Str("dir", "incoming").Msg("Unable to connect to NATS server")
 		return err
@@ -61,15 +93,19 @@ func (n *Server) Connect() error {
 		n.log.Error().Err(err).Str("dir", "outgoing").Msg("Unable to connect to NATS server")
 		return err
 	}
+	n.log.Debug().Str("url", n.url).Msg("Connected")
 	return nil
 }
 
 // Publish is our simple message publisher
 func (n *Server) Publish(queue string, msg []byte) error {
-	if n.outgoing.IsConnected() {
-		return n.outgoing.Publish(queue, msg)
+	err := n.outgoing.Publish(queue, msg)
+	if nil != err {
+		if nats.ErrInvalidConnection == err || nats.ErrConnectionClosed == err || nats.ErrConnectionDraining == err {
+			n.log.Error().Err(err).Msg("Connection not in a valid state")
+		}
 	}
-	return nil
+	return err
 }
 
 func (n *Server) Close() {
@@ -82,15 +118,33 @@ func (n *Server) Close() {
 }
 
 func (n *Server) Subscribe(subject string) (chan *nats.Msg, error) {
-	ch := make(chan *nats.Msg, 512)
+	ch := make(chan *nats.Msg, n.QueueDepth)
 	n.channels = append(n.channels, healthItem{
-		name: "subscription-" + subject,
-		ch:   ch,
+		name:    "sub-" + subject,
+		subject: subject,
+		ch:      ch,
 	})
 	_, err := n.incoming.ChanSubscribe(subject, ch)
 	if nil != err {
 		return nil, err
 	}
+	n.log.Info().Str("subject", subject).Msg("subscribed")
+	return ch, nil
+}
+
+// SubscribeQueueGroup allows many workers to feed of a single queue
+func (n *Server) SubscribeQueueGroup(subject, queueGroup string) (chan *nats.Msg, error) {
+	ch := make(chan *nats.Msg, n.QueueDepth)
+	n.channels = append(n.channels, healthItem{
+		name:    "sub-queue-" + subject,
+		subject: subject,
+		ch:      ch,
+	})
+	_, err := n.incoming.ChanQueueSubscribe(subject, queueGroup, ch)
+	if nil != err {
+		return nil, err
+	}
+	n.log.Info().Str("subject", subject).Str("queue-group", queueGroup).Msg("subscribed")
 	return ch, nil
 }
 

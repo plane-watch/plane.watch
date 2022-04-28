@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
 	"plane.watch/lib/export"
 	"plane.watch/lib/nats_io"
@@ -20,7 +22,10 @@ func NewPwWsBrokerNats(url, routeLow, routeHigh string) (*PwWsBrokerNats, error)
 	if nil != err {
 		return nil, err
 	}
-
+	svr.DroppedCounter(promauto.NewCounter(prometheus.CounterOpts{
+		Name: "pw_ws_broker_nats_dropped_message_err_count",
+		Help: "The total number slow consumer dropped message errors.",
+	}))
 	return &PwWsBrokerNats{
 		routeLow:  routeLow,
 		routeHigh: routeHigh,

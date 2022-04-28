@@ -147,6 +147,7 @@ func (w *worker) run(ctx context.Context, ch <-chan []byte) {
 				log.Error().Err(gErr).Send()
 			}
 		case <-ctx.Done():
+			log.Debug().Msg("Ending Worker")
 			return
 		}
 	}

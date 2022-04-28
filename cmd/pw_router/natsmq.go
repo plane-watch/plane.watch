@@ -1,44 +1,51 @@
 package main
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
 	"plane.watch/lib/nats_io"
 )
 
 type (
 	natsIoRouter struct {
-		nats_io.Server
+		natsUrl  string
+		n        *nats_io.Server
 		doneChan chan bool
 	}
 )
 
-func NewNatsIoRouter(url string) *natsIoRouter {
-	if "" == url {
+func NewNatsIoRouter(natsUrl string) *natsIoRouter {
+	if "" == natsUrl {
 		return nil
 	}
 	nr := &natsIoRouter{
+		natsUrl:  natsUrl,
 		doneChan: make(chan bool),
 	}
 
-	nr.SetUrl(url)
 	return nr
 }
 
 func (nr *natsIoRouter) connect() error {
 	var err error
 
-	err = nr.Connect()
+	nr.n, err = nats_io.NewServer(nr.natsUrl)
 	if nil != err {
 		log.Error().
 			Err(err).
 			Str("MQ", "nats.io").
 			Msg("Unable to determine configuration from URL")
 	}
+	nr.n.DroppedCounter(promauto.NewCounter(prometheus.CounterOpts{
+		Name: "pw_router_nats_dropped_message_err_count",
+		Help: "The total number slow consumer dropped message errors.",
+	}))
 	return err
 }
 
 func (nr *natsIoRouter) listen(subject string, incomingMessages chan []byte) error {
-	ch, err := nr.Subscribe(subject)
+	ch, err := nr.n.Subscribe(subject)
 	if nil != err {
 		return err
 	}
@@ -54,7 +61,10 @@ func (nr *natsIoRouter) listen(subject string, incomingMessages chan []byte) err
 
 				incomingMessages <- msg.Data
 			case <-nr.doneChan:
-				close(ch)
+				go func() {
+					nr.n.Close()
+					log.Debug().Msg("MQ Drained")
+				}()
 				return
 			}
 		}
@@ -63,9 +73,9 @@ func (nr *natsIoRouter) listen(subject string, incomingMessages chan []byte) err
 }
 
 func (nr *natsIoRouter) publish(subject string, msg []byte) error {
-	err := nr.Publish(subject, msg)
+	err := nr.n.Publish(subject, msg)
 	if nil != err {
-		log.Warn().Err(err).Str("mq", "redis").Msg("Failed to send update")
+		log.Warn().Err(err).Str("mq", "nats").Msg("Failed to send update")
 		return err
 	}
 	return nil
@@ -73,4 +83,14 @@ func (nr *natsIoRouter) publish(subject string, msg []byte) error {
 
 func (nr *natsIoRouter) close() {
 	nr.doneChan <- true
+}
+func (nr *natsIoRouter) HealthCheckName() string {
+	return "Nats"
+}
+
+func (nr *natsIoRouter) HealthCheck() bool {
+	if nil == nr.n {
+		return false
+	}
+	return nr.n.HealthCheck()
 }
