@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"encoding/json"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/rs/zerolog/log"
 	"math"
 	"plane.watch/lib/export"
@@ -156,6 +156,7 @@ func (w *worker) run(ctx context.Context, ch <-chan []byte) {
 func (w *worker) handleMsg(msg []byte) error {
 	var err error
 
+	var json = jsoniter.ConfigFastest
 	// unmarshal the JSON and ensure it's valid.
 	// report the error if not and skip this message.
 	update := export.PlaneLocation{}

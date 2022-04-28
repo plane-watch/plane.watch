@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"os"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -102,7 +103,7 @@ func main() {
 			Name:    "send-tick",
 			Usage:   "When > 0, how long to collect messages before sending them in one batch",
 			EnvVars: []string{"SEND_TICK"},
-			Value:   0,
+			Value:   500 * time.Millisecond,
 		},
 	}
 

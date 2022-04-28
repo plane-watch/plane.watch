@@ -5,8 +5,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"embed"
-	"encoding/json"
 	"errors"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/rs/zerolog"
 	"io"
 	"net/http"
@@ -167,6 +167,7 @@ func (bw *PwWsBrokerWeb) jsonGrid(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cross-Origin-Resource-Policy", "cross-origin")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
+	json := jsoniter.ConfigFastest
 	buf, err := json.MarshalIndent(grid, "", "  ")
 	if nil != err {
 		w.WriteHeader(500)
@@ -269,6 +270,7 @@ func (c *WsClient) SendTilePlanes(tileName string) {
 
 func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Conn, sendTickDuration time.Duration) error {
 	// read from the connection for commands
+	json := jsoniter.ConfigFastest
 	go func() {
 		for {
 			mt, frame, err := conn.Read(ctx)
@@ -448,6 +450,7 @@ func (c *WsClient) sendError(ctx context.Context, msg string) error {
 }
 
 func (c *WsClient) sendPlaneMessage(ctx context.Context, planeMsg *ws_protocol.WsResponse) error {
+	json := jsoniter.ConfigFastest
 	buf, err := json.MarshalIndent(planeMsg, "", "  ")
 	if nil != err {
 		c.log.Debug().Err(err).Str("type", planeMsg.Type).Msg("Failed to marshal plane msg to send to client")
@@ -464,6 +467,7 @@ func (c *WsClient) sendPlaneMessage(ctx context.Context, planeMsg *ws_protocol.W
 	return nil
 }
 func (c *WsClient) sendPlaneMessageList(ctx context.Context, planeMsg *ws_protocol.WsResponse) error {
+	json := jsoniter.ConfigFastest
 	buf, err := json.MarshalIndent(planeMsg, "", "  ")
 	if nil != err {
 		c.log.Debug().Err(err).Str("type", planeMsg.Type).Msg("Failed to marshal plane msg to send to client")

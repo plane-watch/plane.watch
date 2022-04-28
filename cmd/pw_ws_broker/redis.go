@@ -1,7 +1,7 @@
 package main
 
 import (
-	"encoding/json"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/rs/zerolog/log"
 	"plane.watch/lib/export"
 	"plane.watch/lib/redismq"
@@ -50,6 +50,7 @@ func (r *PwWsBrokerRedis) consume(exitChan chan bool, subject, what string) {
 	for msg := range ch {
 		log.Trace().Str("payload", msg.Payload).Send()
 		planeData := export.PlaneLocation{}
+		json := jsoniter.ConfigFastest
 		errJson := json.Unmarshal([]byte(msg.Payload), &planeData)
 		if nil != errJson {
 			log.Debug().Err(err).Msg("did not understand msg")
