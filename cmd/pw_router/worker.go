@@ -271,7 +271,9 @@ func (w *worker) handleInsignificantUpdate(update *export.PlaneLocation, msg []b
 }
 
 func (w *worker) publishLocationUpdate(routingKey string, msg []byte) {
-	log.Trace().Str("routing-key", routingKey).Bytes("Location", msg).Msg("Publish")
+	if log.Trace().Enabled() {
+		log.Trace().Str("routing-key", routingKey).Bytes("Location", msg).Msg("Publish")
+	}
 	var sent bool
 
 	for _, theMq := range w.router.mqs {
@@ -283,7 +285,9 @@ func (w *worker) publishLocationUpdate(routingKey string, msg []byte) {
 	}
 
 	if sent {
-		log.Trace().Str("routingKey", routingKey).Msg("Sent msg")
+		if log.Trace().Enabled() {
+			log.Trace().Str("routingKey", routingKey).Msg("Sent msg")
+		}
 		updatesPublished.Inc()
 	}
 }

@@ -48,7 +48,9 @@ func (r *PwWsBrokerRedis) consume(exitChan chan bool, subject, what string) {
 	}
 
 	for msg := range ch {
-		log.Trace().Str("payload", msg.Payload).Send()
+		if log.Trace().Enabled() {
+			log.Trace().Str("payload", msg.Payload).Send()
+		}
 		planeData := export.PlaneLocation{}
 		json := jsoniter.ConfigFastest
 		errJson := json.Unmarshal([]byte(msg.Payload), &planeData)
