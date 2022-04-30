@@ -18,7 +18,10 @@ type (
 	}
 
 	Server struct {
-		url      string
+		url            string
+		connectionName string
+		QueueDepth     int
+
 		incoming *nats.Conn
 		outgoing *nats.Conn
 
@@ -26,16 +29,15 @@ type (
 
 		log zerolog.Logger
 
-		QueueDepth int
-
 		droppedMessageCounter prometheus.Counter
 	}
 )
 
-func NewServer(serverUrl string) (*Server, error) {
+func NewServer(serverUrl, connectionName string) (*Server, error) {
 	n := &Server{
-		log:        log.With().Str("section", "nats.io").Logger(),
-		QueueDepth: DefaultQueueDepth,
+		log:            log.With().Str("section", "nats.io").Logger(),
+		QueueDepth:     DefaultQueueDepth,
+		connectionName: connectionName,
 	}
 	n.SetUrl(serverUrl)
 	if err := n.Connect(); nil != err {
@@ -83,12 +85,20 @@ func (n *Server) NatsErrHandler(conn *nats.Conn, sub *nats.Subscription, err err
 func (n *Server) Connect() error {
 	var err error
 	n.log.Debug().Str("url", n.url).Msg("connecting to server...")
-	n.incoming, err = nats.Connect(n.url, nats.ErrorHandler(n.NatsErrHandler))
+	n.incoming, err = nats.Connect(
+		n.url,
+		nats.ErrorHandler(n.NatsErrHandler),
+		nats.Name(n.connectionName+"+incoming"),
+	)
 	if nil != err {
 		n.log.Error().Err(err).Str("dir", "incoming").Msg("Unable to connect to NATS server")
 		return err
 	}
-	n.outgoing, err = nats.Connect(n.url)
+	n.outgoing, err = nats.Connect(
+		n.url,
+		nats.ErrorHandler(n.NatsErrHandler),
+		nats.Name(n.connectionName+"+outgoing"),
+	)
 	if nil != err {
 		n.log.Error().Err(err).Str("dir", "outgoing").Msg("Unable to connect to NATS server")
 		return err

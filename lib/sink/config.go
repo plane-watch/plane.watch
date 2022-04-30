@@ -40,6 +40,7 @@ type (
 		waiter sync.WaitGroup
 
 		sourceTag         string
+		connectionName    string
 		messageTtlSeconds int
 
 		createTestQueues bool
@@ -61,6 +62,11 @@ func (c *Config) setupConfig(opts []Option) {
 	}
 }
 
+func WithConnectionName(name string) Option {
+	return func(conf *Config) {
+		conf.connectionName = name
+	}
+}
 func WithHost(host, port string) Option {
 	return func(conf *Config) {
 		conf.host = host

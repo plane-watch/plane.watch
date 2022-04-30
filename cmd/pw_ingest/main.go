@@ -99,7 +99,7 @@ func commonSetup(c *cli.Context) (*tracker.Tracker, error) {
 	trk := tracker.NewTracker(trackerOpts...)
 
 	trk.AddMiddleware(dedupe.NewFilter())
-	sinks, err := setup.HandleSinkFlags(c)
+	sinks, err := setup.HandleSinkFlags(c, "pw_ingest")
 	if nil != err {
 		return nil, err
 	}

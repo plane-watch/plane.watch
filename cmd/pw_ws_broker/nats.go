@@ -19,7 +19,7 @@ type (
 )
 
 func NewPwWsBrokerNats(url, routeLow, routeHigh string) (*PwWsBrokerNats, error) {
-	svr, err := nats_io.NewServer(url)
+	svr, err := nats_io.NewServer(url, "pw_ws_broker")
 	if nil != err {
 		return nil, err
 	}

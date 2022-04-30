@@ -51,6 +51,7 @@ func (b *PwWsBroker) Setup() error {
 	}
 
 	b.input.setProcessMessage(func(highLow string, loc *export.PlaneLocation) {
+		prometheusIncomingMessages.WithLabelValues(highLow).Inc()
 		tile := loc.TileLocation + highLow
 		b.clients.SendLocationUpdate(highLow, tile, loc)
 	})
