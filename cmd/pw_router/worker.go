@@ -200,6 +200,7 @@ func (w *worker) handleMsg(msg []byte) error {
 			lastRecord.Velocity, // plane's reported previous velocity
 			lastRecord.Lat,
 			lastRecord.Lon,
+			lastRecord.Heading,
 			update.Lat,
 			update.Lon,
 		)

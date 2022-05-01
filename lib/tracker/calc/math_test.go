@@ -30,6 +30,7 @@ func TestFlightLocationValid_Valid(t *testing.T) {
 				prevVelocity: 300, // 154.333 m/s
 				prevLat:      -32,
 				prevLon:      116,
+				prevHeading:  180,
 				currentLat:   -32,
 				currentLon:   116.00164, // an extra ~ 155m,
 			},
@@ -44,6 +45,7 @@ func TestFlightLocationValid_Valid(t *testing.T) {
 				prevVelocity: 300, // 154.333 m/s
 				prevLat:      -32,
 				prevLon:      116,
+				prevHeading:  180,
 
 				currentLat: -32,
 				currentLon: 116.001685, // an extra ~ 155m,
@@ -59,6 +61,7 @@ func TestFlightLocationValid_Valid(t *testing.T) {
 				prevVelocity: 300, // 154.333 m/s
 				prevLat:      -32,
 				prevLon:      116,
+				prevHeading:  180,
 
 				currentLat: -32,
 				currentLon: 116.019149, // an extra ~ 1800m,
@@ -74,6 +77,7 @@ func TestFlightLocationValid_Valid(t *testing.T) {
 				prevVelocity: 300, // 154.333 m/s
 				prevLat:      -32,
 				prevLon:      116,
+				prevHeading:  180,
 
 				currentLat: -32,
 				currentLon: 116.019149, // an extra ~ 1800m,
@@ -83,7 +87,7 @@ func TestFlightLocationValid_Valid(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := FlightLocationValid(tt.args.prevTime, tt.args.currentTime, tt.args.prevVelocity, tt.args.prevLat, tt.args.prevLon, tt.args.currentLat, tt.args.currentLon); got != tt.want {
+			if got := FlightLocationValid(tt.args.prevTime, tt.args.currentTime, tt.args.prevVelocity, tt.args.prevLat, tt.args.prevLon, tt.args.prevHeading, tt.args.currentLat, tt.args.currentLon); got != tt.want {
 				t.Errorf("FlightLocationValid() = %v, want %v", got, tt.want)
 			}
 		})

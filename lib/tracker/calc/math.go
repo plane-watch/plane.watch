@@ -50,6 +50,42 @@ func Distance(lat1, lon1, lat2, lon2 float64) float64 {
 	return 2 * r * math.Asin(math.Sqrt(h))
 }
 
+// Better way of getting accelleration between two points
+// Respects the direction of flight to determine the accelleration.
+// Returns the accelleration in m/s^2
+func AccellerationBetween(time1, time2 time.Time, la1, lo1, heading1, velocity1, la2, lo2 float64) float64 {
+	r := 6378100.0 // Earth radius in metres
+	ktsToMs := 0.514444 // knots to m/s
+	
+	// convert the velocity from kts to m/s.
+	// split into it's 2d components - this allows us to take the heading into consideration
+	// when calculating the accelleration.
+	vXref := velocity1 * ktsToMs * math.Sin(heading1 * math.Pi / 180)
+	vYref := velocity1 * ktsToMs * math.Cos(heading1 * math.Pi / 180)
+	
+	// determine the displacement between the two points in it's 2d components.
+	// assumes the earth is flat given how smaller distances we're using 
+	// should be within 1%
+	deltaX := (2 * math.Pi * r)/360 * (lo2 - lo1) * math.Cos(la1 * math.Pi/180)
+	deltaY := (2 * math.Pi * r)/360 * (la2 - la1)
+
+	// difference in time between the two frames
+	deltaT := time2.Sub(time1)
+
+	// calculated component velocities
+	vX := deltaX / deltaT.Seconds()
+	vY := deltaY / deltaT.Seconds()
+
+	// calculated component accellerations
+	aX := (vX - vXref) / deltaT.Seconds()
+	aY := (vY - vYref) / deltaT.Seconds()
+
+	// combined accelleration
+	a := math.Sqrt(math.Pow(aX, 2) + math.Pow(aY, 2))
+
+	return a
+}
+
 // hsin is the haversin(θ) function
 func hsin(theta float64) float64 {
 	return math.Pow(math.Sin(theta/2), 2)
@@ -84,7 +120,7 @@ func MaxAllowableDistance(interval time.Duration, velocity float64) float64 {
 	return expectedMaxDistance
 }
 
-func FlightLocationValid(prevTime, currentTime time.Time, prevVelocityKnots, prevLat, prevLon, currentLat, currentLon float64) bool {
+func FlightLocationValid(prevTime, currentTime time.Time, prevVelocityKnots, prevLat, prevLon, prevHeading, currentLat, currentLon float64) bool {
 	deltaT := currentTime.Sub(prevTime)
 	// if these frames are heaps far apart we should probably trust them
 	if deltaT.Seconds() > 300 {
@@ -110,11 +146,9 @@ func FlightLocationValid(prevTime, currentTime time.Time, prevVelocityKnots, pre
 		return false
 	}
 
-	// let's check the acceleration and make sure it is ~sane
-	deltaVMS := math.Abs(prevVelocityMS - currentVelocityMS)
-	//fmt.Printf("Delta V %0.4f m/s\n\n", deltaVMS)
-	accel := deltaVMS / deltaT.Seconds()
-	if accel > Geforce5 {
+	accel := AccellerationBetween(prevTime, currentTime, prevLat, prevLon, prevHeading, prevVelocityKnots, currentLat, currentLon)
+
+	if accel > Geforce5 { 
 		if log.Trace().Enabled() {
 			log.Trace().
 				Str("Coordinates", fmt.Sprintf("(%0.4f,%0.4f) => (%0.4f,%0.4f)", prevLat, prevLon, currentLat, currentLon)).
