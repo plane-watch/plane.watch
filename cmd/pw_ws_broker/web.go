@@ -59,6 +59,7 @@ type (
 	WsCmd struct {
 		action string
 		what   string
+		extra  string
 	}
 	ClientList struct {
 		//clients     map[*WsClient]chan ws_protocol.WsResponse
@@ -268,6 +269,15 @@ func (c *WsClient) SendTilePlanes(tileName string) {
 	}
 }
 
+func (c *WsClient) SendPlaneLocationHistory(icao, callSign string) {
+	c.log.Debug().Str("icao", icao).Str("callSign", callSign).Msg("Request Flight Path")
+	c.cmdChan <- WsCmd{
+		action: ws_protocol.RequestTypeGridPlanes,
+		what:   icao,
+		extra:  callSign,
+	}
+}
+
 func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Conn, sendTickDuration time.Duration) error {
 	// read from the connection for commands
 	json := jsoniter.ConfigFastest
@@ -300,6 +310,8 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 					c.UnSub(rq.GridTile)
 				case ws_protocol.RequestTypeGridPlanes:
 					c.SendTilePlanes(rq.GridTile)
+				case ws_protocol.RequestTypePlaneLocHistory:
+					c.SendPlaneLocationHistory(rq.Icao, rq.CallSign)
 				default:
 					_ = c.sendError(ctx, "Unknown request type")
 				}
@@ -396,6 +408,8 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 				} else {
 					err = c.sendError(ctx, "Unknown Tile: "+cmdMsg.what)
 				}
+			case ws_protocol.RequestTypePlaneLocHistory:
+				// let's get our planes location history
 			default:
 				err = c.sendError(ctx, "Unknown Command")
 			}
