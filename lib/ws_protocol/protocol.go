@@ -37,7 +37,7 @@ type (
 		Message   string                  `json:"message,omitempty"`
 		Tiles     []string                `json:"tiles,omitempty"`
 		Location  *export.PlaneLocation   `json:"location,omitempty"`
-		Locations *[]export.PlaneLocation `json:"locations,omitempty"`
-		History   *[]LocationHistory      `json:"history,omitempty"`
+		Locations []*export.PlaneLocation `json:"locations,omitempty"`
+		History   []*LocationHistory      `json:"history,omitempty"`
 	}
 )

@@ -1,32 +1,18 @@
 package main
 
 import (
-	"context"
-	"net/url"
-	"strconv"
-	"time"
-
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"plane.watch/lib/clickhouse"
 	"plane.watch/lib/export"
+	"strconv"
+	"time"
 )
 
 type (
-	ClickHouseServer struct {
-		// expecting something like clickhouse://user:pass@127.0.0.1:9000
-		connUrl string
-		conn    driver.Conn
-
-		connected bool
-
-		log zerolog.Logger
-	}
-
 	dataStream struct {
 		low, high chan *export.PlaneLocation
-		chs       *ClickHouseServer
+		chs       *clickhouse.Server
 		log       zerolog.Logger
 	}
 
@@ -66,84 +52,7 @@ type (
 	}
 )
 
-func NewClickHouse(url string) (*ClickHouseServer, error) {
-	chs := &ClickHouseServer{
-		connUrl: url,
-		log:     log.With().Str("section", "clickhouse").Logger(),
-	}
-	var err error
-	for i := 0; i < 5; i++ {
-		err = chs.Connect()
-
-		if nil == err {
-			log.Info().Str("ClickHouse", url).Msg("Connected")
-			return chs, nil
-		}
-	}
-	log.Error().Err(err).Str("ClickHouse", url).Msg("Failed to Connect")
-	return nil, err
-}
-
-func (chs *ClickHouseServer) Connect() error {
-	var err error
-
-	urlParts, err := url.Parse(chs.connUrl)
-	if nil != err {
-		return err
-	}
-	username := urlParts.User.Username()
-	password, _ := urlParts.User.Password()
-	database := "plane_watch"
-	if "" != urlParts.Path && "/" != urlParts.Path {
-		database = urlParts.Path
-	}
-	urlParts.User = nil
-	urlParts.Path = ""
-
-	chs.log.Info().Str("URL", urlParts.String()).Msg("Attempting to connect to")
-
-	chs.conn, err = clickhouse.Open(&clickhouse.Options{
-		Addr: []string{urlParts.Host},
-		Auth: clickhouse.Auth{
-			Database: database,
-			Username: username,
-			Password: password,
-		},
-	})
-	if nil != err {
-		return err
-	}
-
-	chs.connected = true
-	return nil
-}
-
-func (chs *ClickHouseServer) Inserts(table string, d []any, max int) error {
-	if chs.log.Trace().Enabled() {
-		chs.log.Trace().Str("table", table).Interface("data", d).Msg("insert")
-	}
-	t := time.Now()
-	ctx := context.Background()
-	batch, err := chs.conn.PrepareBatch(ctx, "INSERT INTO "+table)
-	if nil != err {
-		return err
-	}
-	for i := 0; i < max; i++ {
-		err = batch.AppendStruct(d[i])
-		if nil != err {
-			chs.log.Error().Err(err).Msg("Did not insert data")
-			return err
-		}
-	}
-	chs.log.Debug().
-		TimeDiff("Time Taken", time.Now(), t).
-		Str("table", table).
-		Int("Num Rows", max).
-		Msg("Insert Batch")
-	return batch.Send()
-}
-
-func NewDataStreams(chs *ClickHouseServer) *dataStream {
+func NewDataStreams(chs *clickhouse.Server) *dataStream {
 	ds := &dataStream{
 		low:  make(chan *export.PlaneLocation, 1000),
 		high: make(chan *export.PlaneLocation, 2000),

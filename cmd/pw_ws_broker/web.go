@@ -253,6 +253,8 @@ func (c *WsClient) UnSub(tileName string) {
 	}
 	log.Debug().Msg("Unsub done")
 }
+
+// SendSubscribedTiles sends the list of tiles that we are currently subscribed to
 func (c *WsClient) SendSubscribedTiles() {
 	log.Debug().Msg("Unsub")
 	c.cmdChan <- WsCmd{
@@ -261,6 +263,8 @@ func (c *WsClient) SendSubscribedTiles() {
 	}
 	log.Debug().Msg("Unsub done")
 }
+
+// SendTilePlanes sends to the client the list of planes on the requested tile
 func (c *WsClient) SendTilePlanes(tileName string) {
 	c.log.Debug().Str("tile", tileName).Msg("Planes on Tile")
 	c.cmdChan <- WsCmd{
@@ -269,17 +273,22 @@ func (c *WsClient) SendTilePlanes(tileName string) {
 	}
 }
 
+// SendPlaneLocationHistory sends the location history (from clickhouse) of the requested flight
 func (c *WsClient) SendPlaneLocationHistory(icao, callSign string) {
 	c.log.Debug().Str("icao", icao).Str("callSign", callSign).Msg("Request Flight Path")
-	c.cmdChan <- WsCmd{
-		action: ws_protocol.RequestTypeGridPlanes,
-		what:   icao,
-		extra:  callSign,
-	}
+	go func() {
+
+		c.cmdChan <- WsCmd{
+			action: ws_protocol.RequestTypeGridPlanes,
+			what:   icao,
+			extra:  callSign,
+		}
+	}()
 }
 
 func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Conn, sendTickDuration time.Duration) error {
-	// read from the connection for commands
+	// read from the connection for commands to perform
+	// these get added to the queue to process
 	json := jsoniter.ConfigFastest
 	go func() {
 		for {
@@ -303,9 +312,6 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 					c.AddSub(rq.GridTile)
 				case ws_protocol.RequestTypeSubscribeList:
 					c.SendSubscribedTiles()
-					if nil != err {
-						return
-					}
 				case ws_protocol.RequestTypeUnsubscribe:
 					c.UnSub(rq.GridTile)
 				case ws_protocol.RequestTypeGridPlanes:
@@ -347,6 +353,7 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 	sendTick := time.NewTicker(d)
 	defer sendTick.Stop()
 
+	// this is the command processing main loop
 	var err error
 	for {
 		select {
