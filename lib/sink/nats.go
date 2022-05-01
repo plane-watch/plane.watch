@@ -53,9 +53,9 @@ func (n *NatsSink) Stop() {
 }
 
 func (n *NatsSink) HealthCheck() bool {
-	return false
+	return n.server.HealthCheck()
 }
 
 func (n *NatsSink) HealthCheckName() string {
-	return "nats.io"
+	return n.server.HealthCheckName()
 }

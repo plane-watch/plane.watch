@@ -163,6 +163,11 @@ func (n *Server) HealthCheckName() string {
 }
 
 func (n *Server) HealthCheck() bool {
+	n.log.Info().
+		Int("Num Channels", len(n.channels)).
+		Bool("Incoming Connected", n.incoming.IsConnected()).
+		Bool("Outgoing Connected", n.outgoing.IsConnected()).
+		Send()
 	for _, item := range n.channels {
 		l := len(item.ch)
 		c := cap(item.ch)
@@ -174,5 +179,6 @@ func (n *Server) HealthCheck() bool {
 			Str("channel", item.name).
 			Msg("Channel Check")
 	}
+
 	return n.incoming.IsConnected() && n.outgoing.IsConnected()
 }
