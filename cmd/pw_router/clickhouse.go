@@ -121,6 +121,7 @@ func (chs *ClickHouseServer) Inserts(table string, d []any, max int) error {
 	if chs.log.Trace().Enabled() {
 		chs.log.Trace().Str("table", table).Interface("data", d).Msg("insert")
 	}
+	t := time.Now()
 	ctx := context.Background()
 	batch, err := chs.conn.PrepareBatch(ctx, "INSERT INTO "+table)
 	if nil != err {
@@ -133,6 +134,11 @@ func (chs *ClickHouseServer) Inserts(table string, d []any, max int) error {
 			return err
 		}
 	}
+	chs.log.Debug().
+		TimeDiff("Time Taken", time.Now(), t).
+		Str("table", table).
+		Int("Num Rows", max).
+		Msg("Insert Batch")
 	return batch.Send()
 }
 
@@ -174,14 +180,17 @@ func (ds *dataStream) handleQueue(q chan *export.PlaneLocation, table string) {
 		}
 		return *s
 	}
+	send := func() {
+		ds.log.Debug().Int("num", updateId).Msg("Sending Batch To Clickhouse")
+		if err := ds.chs.Inserts(table, updates, updateId); nil != err {
+			ds.log.Err(err).Msg("Did not save location update to clickhouse")
+		}
+		updateId = 0
+	}
 	for {
 		select {
 		case <-ticker.C:
-			ds.log.Debug().Int("num", updateId).Msg("Sending Batch To Clickhouse")
-			if err := ds.chs.Inserts(table, updates, updateId); nil != err {
-				ds.log.Err(err).Msg("Did not save location update to clickhouse")
-			}
-			updateId = 0
+			send()
 		case loc := <-q:
 			squawk, _ := strconv.ParseUint(loc.Squawk, 10, 32)
 			updates[updateId] = &chRow{
@@ -207,8 +216,8 @@ func (ds *dataStream) handleQueue(q chan *export.PlaneLocation, table string) {
 				SourceTag:       loc.SourceTag,
 				Squawk:          uint32(squawk),
 				Special:         loc.Special,
-				TrackedSince:    loc.TrackedSince.UTC().Unix(),
-				LastMsg:         loc.LastMsg.UTC().Unix(),
+				TrackedSince:    loc.TrackedSince.UTC().UnixNano(),
+				LastMsg:         loc.LastMsg.UTC().UnixNano(),
 				FlagCode:        unPtr(loc.FlagCode),
 				Operator:        unPtr(loc.Operator),
 				RegisteredOwner: unPtr(loc.RegisteredOwner),
@@ -218,19 +227,11 @@ func (ds *dataStream) handleQueue(q chan *export.PlaneLocation, table string) {
 				TileLocation:    loc.TileLocation,
 				TypeCode:        unPtr(loc.TypeCode),
 			}
+
 			updateId++
 			if updateId >= max-1 {
-				ds.log.Info().Msg("Max Updates Buffer Depth Reached, sending")
-				if err := ds.chs.Inserts(table, updates, updateId); nil != err {
-					ds.log.Err(err).Msg("Did not save location update to clickhouse")
-				}
-				updateId = 0
+				send()
 			}
 		}
 	}
-	//for loc := range q {
-	//	if err := ds.chs.Insert(table, loc); nil != err {
-	//		ds.log.Err(err).Msg("Did not save location update to clickhouse")
-	//	}
-	//}
 }
