@@ -126,6 +126,12 @@ func main() {
 			EnvVars: []string{"REDIS"},
 		},
 		&cli.StringFlag{
+			Name:  "clickhouse",
+			Usage: "Save our location updates to clickhouse, clickhouse://user:pass@host:port/database",
+			//Value:   "clickhouse://user:pass@host:port/database",
+			EnvVars: []string{"CLICKHOUSE"},
+		},
+		&cli.StringFlag{
 			Name:    "source-route-key",
 			Usage:   "Name of the routing key to read location updates from.",
 			Value:   "location-updates-enriched",
@@ -207,7 +213,7 @@ func run(c *cli.Context) error {
 
 	defer r.syncSamples.Stop()
 
-	r.incomingMessages = make(chan []byte, 300)
+	r.incomingMessages = make(chan []byte, 1000)
 
 	if rr := NewRabbitMqRouter(c.String("rabbitmq")); nil != rr {
 		if c.Bool("register-test-queues") {
@@ -232,6 +238,7 @@ func run(c *cli.Context) error {
 			continue
 		}
 		if err = theMq.listen(incomingSubject, r.incomingMessages); nil != err {
+			log.Error().Err(err).Str("mq", theMq.HealthCheckName()).Send()
 			continue
 		}
 		monitoring.AddHealthCheck(theMq)
@@ -241,6 +248,15 @@ func run(c *cli.Context) error {
 
 	if !r.haveSourceSinkConnection {
 		cli.ShowAppHelpAndExit(c, 1)
+	}
+
+	var ds *dataStream
+	if chUrl := c.String("clickhouse"); "" != chUrl {
+		chs, err := NewClickHouse(chUrl)
+		if nil != err {
+			return err
+		}
+		ds = NewDataStreams(chs)
 	}
 
 	var wg sync.WaitGroup
@@ -259,6 +275,7 @@ func run(c *cli.Context) error {
 		// and then close all the things
 		cancel()
 	}()
+	monitoring.AddHealthCheck(r)
 
 	numWorkers := c.Int("num-workers")
 	destRouteKey := c.String("destination-route-key")
@@ -270,6 +287,7 @@ func run(c *cli.Context) error {
 			router:         &r,
 			destRoutingKey: destRouteKey,
 			spreadUpdates:  spreadUpdates,
+			ds:             ds,
 		}
 		wg.Add(1)
 		go func() {
@@ -281,4 +299,23 @@ func run(c *cli.Context) error {
 	wg.Wait()
 
 	return nil
+}
+
+func (p pwRouter) HealthCheckName() string {
+	return "pw_router"
+}
+
+func (p pwRouter) HealthCheck() bool {
+	// let's do a chan checks
+
+	l := len(p.incomingMessages)
+	c := cap(p.incomingMessages)
+	percent := (float32(l) / float32(c)) * 100
+	log.Info().
+		Int("Num Messages Waiting", l).
+		Int("Queue Capacity", c).
+		Float32("Percent Used", percent).
+		Msg("Incoming Message Queue")
+
+	return percent < 80
 }

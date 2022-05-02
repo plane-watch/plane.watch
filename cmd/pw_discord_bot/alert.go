@@ -80,13 +80,15 @@ func (a *pwAlertBot) handleUpdate(update *export.PlaneLocation) {
 		if !ac.Enabled {
 			return
 		}
-		log.Trace().
-			Floats64("alert-location", []float64{alert.Lat, alert.Lon}).
-			Floats64("plane-location", []float64{update.Lat, update.Lon}).
-			Int("Distance (m)", distance).
-			Int("Alert Radius", ac.AlertRadiusMtr).
-			Bool("In Air Space", distance <= ac.AlertRadiusMtr).
-			Msg("Distance Calc")
+		if log.Trace().Enabled() {
+			log.Trace().
+				Floats64("alert-location", []float64{alert.Lat, alert.Lon}).
+				Floats64("plane-location", []float64{update.Lat, update.Lon}).
+				Int("Distance (m)", distance).
+				Int("Alert Radius", ac.AlertRadiusMtr).
+				Bool("In Air Space", distance <= ac.AlertRadiusMtr).
+				Msg("Distance Calc")
+		}
 
 		if distance <= ac.AlertRadiusMtr {
 			// do alert

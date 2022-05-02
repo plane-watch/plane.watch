@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"plane.watch/lib/tracker"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 )
@@ -137,13 +138,18 @@ func Test_producer_beastScanner(t *testing.T) {
 	scanner := bufio.NewScanner(bytes.NewReader(buf))
 	expectedCounter := 0
 	unexpectedCounter := 0
+	var lock sync.Mutex
 
 	go func() {
 		for m := range p.out {
 			if m.Type() == tracker.PlaneLocationEventType {
+				lock.Lock()
 				expectedCounter++
+				lock.Unlock()
 			} else {
+				lock.Lock()
 				unexpectedCounter++
+				lock.Unlock()
 			}
 		}
 	}()
@@ -153,6 +159,8 @@ func Test_producer_beastScanner(t *testing.T) {
 	}
 	close(p.out)
 	time.Sleep(time.Millisecond * 50)
+	lock.Lock()
+	defer lock.Unlock()
 	if expectedCounter != 1 {
 		t.Errorf("Got the wrong message count. got %d, expected 1", expectedCounter)
 	}

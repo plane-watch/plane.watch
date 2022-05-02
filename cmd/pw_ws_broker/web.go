@@ -5,8 +5,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"embed"
-	"encoding/json"
 	"errors"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/rs/zerolog"
 	"io"
 	"net/http"
@@ -167,6 +167,7 @@ func (bw *PwWsBrokerWeb) jsonGrid(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cross-Origin-Resource-Policy", "cross-origin")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
+	json := jsoniter.ConfigFastest
 	buf, err := json.MarshalIndent(grid, "", "  ")
 	if nil != err {
 		w.WriteHeader(500)
@@ -269,6 +270,7 @@ func (c *WsClient) SendTilePlanes(tileName string) {
 
 func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Conn, sendTickDuration time.Duration) error {
 	// read from the connection for commands
+	json := jsoniter.ConfigFastest
 	go func() {
 		for {
 			mt, frame, err := conn.Read(ctx)
@@ -333,8 +335,8 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 	sendTick := time.NewTicker(d)
 	defer sendTick.Stop()
 
+	var err error
 	for {
-		var err error
 		select {
 		case cmdMsg := <-c.cmdChan:
 			switch cmdMsg.action {
@@ -344,12 +346,18 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 				if _, ok := grid[cmdMsg.what]; ok {
 					subs[cmdMsg.what] = true
 					err = c.sendAck(ctx, ws_protocol.ResponseTypeAckSub, cmdMsg.what)
+					prometheusSubscriptions.WithLabelValues(cmdMsg.what).Inc()
 				} else {
 					err = c.sendError(ctx, "Unknown Tile: "+cmdMsg.what)
 				}
 			case ws_protocol.RequestTypeUnsubscribe:
+				if _, ok := subs[cmdMsg.what]; ok {
+					prometheusSubscriptions.WithLabelValues(cmdMsg.what).Dec()
+					err = c.sendAck(ctx, ws_protocol.ResponseTypeAckUnsub, cmdMsg.what)
+				} else {
+					err = c.sendError(ctx, "Not Subbed to: "+cmdMsg.what)
+				}
 				delete(subs, cmdMsg.what)
-				err = c.sendAck(ctx, ws_protocol.ResponseTypeAckUnsub, cmdMsg.what)
 			case ws_protocol.RequestTypeSubscribeList:
 				tiles := make([]string, 0, len(subs))
 				for k, v := range subs {
@@ -425,9 +433,14 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 		}
 
 		if nil != err {
-			return err
+			break
 		}
 	}
+	for k := range subs {
+		prometheusSubscriptions.WithLabelValues(k).Dec()
+
+	}
+	return err
 }
 
 func (c *WsClient) sendAck(ctx context.Context, ackType, tile string) error {
@@ -448,7 +461,8 @@ func (c *WsClient) sendError(ctx context.Context, msg string) error {
 }
 
 func (c *WsClient) sendPlaneMessage(ctx context.Context, planeMsg *ws_protocol.WsResponse) error {
-	buf, err := json.MarshalIndent(planeMsg, "", "  ")
+	json := jsoniter.ConfigFastest
+	buf, err := json.Marshal(planeMsg)
 	if nil != err {
 		c.log.Debug().Err(err).Str("type", planeMsg.Type).Msg("Failed to marshal plane msg to send to client")
 		return err
@@ -464,7 +478,8 @@ func (c *WsClient) sendPlaneMessage(ctx context.Context, planeMsg *ws_protocol.W
 	return nil
 }
 func (c *WsClient) sendPlaneMessageList(ctx context.Context, planeMsg *ws_protocol.WsResponse) error {
-	buf, err := json.MarshalIndent(planeMsg, "", "  ")
+	json := jsoniter.ConfigFastest
+	buf, err := json.Marshal(planeMsg)
 	if nil != err {
 		c.log.Debug().Err(err).Str("type", planeMsg.Type).Msg("Failed to marshal plane msg to send to client")
 		return err
@@ -483,12 +498,15 @@ func (c *WsClient) writeTimeout(ctx context.Context, timeout time.Duration, msg 
 	ctxW, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
+	prometheusMessagesSent.Inc()
+	prometheusMessagesSize.Add(float64(len(msg)))
 	return c.conn.Write(ctxW, websocket.MessageText, msg)
 }
 
 func newClientList() *ClientList {
 	cl := ClientList{}
 	cl.globalList = forgetfulmap.NewForgetfulSyncMap(
+		forgetfulmap.WithPrometheusCounters(prometheusKnownPlanes),
 		forgetfulmap.WithPreEvictionAction(func(key, value any) {
 			log.Debug().Str("ICAO", key.(string)).Msg("Removing Aircraft due to inactivity")
 		}),

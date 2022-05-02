@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/rs/zerolog/log"
 	"math/rand"
 	"plane.watch/lib/export"
@@ -93,6 +93,7 @@ func (br *PwWsBrokerRabbit) consume(exitChan chan bool, queue, what string) {
 
 	for msg := range ch {
 		planeData := export.PlaneLocation{}
+		json := jsoniter.ConfigFastest
 		errJson := json.Unmarshal(msg.Body, &planeData)
 		if nil != errJson {
 			log.Debug().Err(err).Msg("did not understand msg")
