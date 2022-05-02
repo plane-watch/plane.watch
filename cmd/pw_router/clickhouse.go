@@ -2,14 +2,15 @@ package main
 
 import (
 	"context"
+	"net/url"
+	"strconv"
+	"time"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"net/url"
 	"plane.watch/lib/export"
-	"strconv"
-	"time"
 )
 
 type (
@@ -42,6 +43,7 @@ type (
 		AltitudeUnits   string
 		CallSign        string
 		FlightStatus    string
+		FlightNumber    string
 		OnGround        uint8
 		Airframe        string
 		AirframeType    string
