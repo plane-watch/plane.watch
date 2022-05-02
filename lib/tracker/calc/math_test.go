@@ -14,6 +14,7 @@ func TestFlightLocationValid_Valid(t *testing.T) {
 		prevLon      float64
 		currentLat   float64
 		currentLon   float64
+		prevHeading  float64
 	}
 
 	tests := []struct {
