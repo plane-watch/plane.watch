@@ -43,7 +43,6 @@ type (
 		AltitudeUnits   string
 		CallSign        string
 		FlightStatus    string
-		FlightNumber    string
 		OnGround        uint8
 		Airframe        string
 		AirframeType    string
