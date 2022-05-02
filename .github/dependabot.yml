@@ -1,3 +1,4 @@
+---
 version: 2
 
 updates:
@@ -21,4 +22,3 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
-  

@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"plane.watch/lib/nats_io"
 	"plane.watch/lib/tracker"
+	"regexp"
 )
 
 type (
@@ -34,7 +35,9 @@ func (n *NatsSink) connect() error {
 		Path:    "",
 		RawPath: "",
 	}
-	n.server, err = nats_io.NewServer(serverUrl.String())
+	re := regexp.MustCompile("/\\s/")
+	st := re.ReplaceAllString(n.sourceTag, "_")
+	n.server, err = nats_io.NewServer(serverUrl.String(), n.connectionName+"+source="+st)
 	return err
 }
 
@@ -50,9 +53,9 @@ func (n *NatsSink) Stop() {
 }
 
 func (n *NatsSink) HealthCheck() bool {
-	return false
+	return n.server.HealthCheck()
 }
 
 func (n *NatsSink) HealthCheckName() string {
-	return "nats.io"
+	return n.server.HealthCheckName()
 }
