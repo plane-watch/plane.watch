@@ -71,6 +71,13 @@
                 gridTile: tile
             })
         },
+        planeHistory(icao, callSign) {
+            this.send({
+                type: 'plane-location-history',
+                icao: icao,
+                callSign: callSign,
+            })
+        },
         send: function(msg) {
             this.conn.send(JSON.stringify(msg))
         }
@@ -153,5 +160,27 @@
         const unknownTileLoc = mkRqPlanesBtn("", "RQ All No Tile")
         divAll.append(unknownTileLoc)
     })
+
+    function handleForm(id) {
+        let f = document.getElementById(id)
+        f.addEventListener("submit", function (e) {
+            e.preventDefault()
+            let elements = document.getElementById(id)
+
+            let icao = ""
+            let callSign = ""
+            for (let i=0; i<elements.length; i++) {
+                if ("icao" === elements[i].name) {
+                    icao = elements[i].value;
+                }
+                if ("callsign" === elements[i].name) {
+                    callSign = elements[i].value;
+                }
+            }
+
+            ws.planeHistory(icao, callSign)
+        })
+    }
+    handleForm('loc-hist')
 
 })()

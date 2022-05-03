@@ -97,6 +97,12 @@ func main() {
 			EnvVars: []string{"REDIS"},
 		},
 		&cli.StringFlag{
+			Name:  "clickhouse",
+			Usage: "Save our location updates to clickhouse, clickhouse://user:pass@host:port/database",
+			//Value:   "clickhouse://user:pass@host:port/database",
+			EnvVars: []string{"CLICKHOUSE"},
+		},
+		&cli.StringFlag{
 			Name:    "route-key-low",
 			Usage:   "The routing key that has only the significant flight update events",
 			Value:   "location-updates-enriched-reduced",
@@ -202,8 +208,18 @@ func run(c *cli.Context) error {
 		return errors.New("invalid configuration. You need one of [rabbitmq|nats|redis], route-key-low and, route-key-high configured")
 	}
 
-	var input source
+	clickHouseUrl := c.String("clickhouse")
+	if "" == clickHouseUrl {
+		return errors.New("clickhouse URL must be specified")
+	}
+
 	var err error
+	GlobalClickHouseData, err = NewClickHouseData(clickHouseUrl)
+	if nil != err {
+		return err
+	}
+
+	var input source
 	if hasRabbit && "" != rabbitmq {
 		input, err = NewPwWsBrokerRabbit(rabbitmq, lowRoute, highRoute)
 	} else if hasNats && "" != nats {

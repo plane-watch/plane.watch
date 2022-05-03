@@ -101,3 +101,11 @@ func (chs *Server) Inserts(table string, d []any, max int) error {
 		Msg("Insert Batch")
 	return batch.Send()
 }
+
+func (chs *Server) Select(ctx context.Context, dest any, query string, args ...any) error {
+	if chs.log.Trace().Enabled() {
+		chs.log.Trace().Str("query", query).Msg("query")
+	}
+
+	return chs.conn.Select(ctx, dest, query, args...)
+}
