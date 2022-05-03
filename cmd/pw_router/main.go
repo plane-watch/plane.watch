@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"plane.watch/lib/clickhouse"
 	"sync"
 	"syscall"
 
@@ -252,7 +253,7 @@ func run(c *cli.Context) error {
 
 	var ds *dataStream
 	if chUrl := c.String("clickhouse"); "" != chUrl {
-		chs, err := NewClickHouse(chUrl)
+		chs, err := clickhouse.New(chUrl)
 		if nil != err {
 			return err
 		}
