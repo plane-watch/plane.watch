@@ -43,6 +43,8 @@
                                 }
                             }
                             break;
+                        default:
+                            console.log("Payload type", payload.type, payload.history)
 
                     }
                 }

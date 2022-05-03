@@ -30,7 +30,7 @@ type (
 	LocationHistory struct {
 		Lat, Lon          float64
 		Heading, Velocity float64
-		Altitude          int
+		Altitude          *int32
 	}
 	WsResponse struct {
 		Type      string                  `json:"type"`
@@ -38,6 +38,6 @@ type (
 		Tiles     []string                `json:"tiles,omitempty"`
 		Location  *export.PlaneLocation   `json:"location,omitempty"`
 		Locations []*export.PlaneLocation `json:"locations,omitempty"`
-		History   []*LocationHistory      `json:"history,omitempty"`
+		History   []LocationHistory       `json:"history,omitempty"`
 	}
 )

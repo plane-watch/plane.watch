@@ -60,7 +60,7 @@ type (
 		action     string
 		what       string
 		extra      string
-		locHistory []*ws_protocol.LocationHistory
+		locHistory []ws_protocol.LocationHistory
 	}
 	ClientList struct {
 		//clients     map[*WsClient]chan ws_protocol.WsResponse
