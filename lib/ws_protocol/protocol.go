@@ -38,6 +38,9 @@ type (
 		Tiles     []string                `json:"tiles,omitempty"`
 		Location  *export.PlaneLocation   `json:"location,omitempty"`
 		Locations []*export.PlaneLocation `json:"locations,omitempty"`
-		History   []LocationHistory       `json:"history,omitempty"`
+
+		Icao     string            `json:"icao,omitempty"`
+		CallSign string            `json:"callSign,omitempty"`
+		History  []LocationHistory `json:"history,omitempty"`
 	}
 )

@@ -1,8 +1,8 @@
-asyncapi: 2.3.0
+asyncapi: 2.4.0
 info:
   title: PlaneWatch Websocket Protocol
   version: 0.1.0
-  description: Get a stream of aircraft from planewatch
+  description: Get a stream of aircraft from plane.watch
 servers:
   plane.watch:
     description: The production plane.watch websocket broker
@@ -11,46 +11,48 @@ servers:
     bindings:
       ws:
         method: GET
-
 channels:
   sub-list:
-    subscribe:
+    publish:
       description: Requests the list of currently subscribed tiles
       message:
         $ref: '#/components/messages/CmdSubList'
-    publish:
+    subscribe:
       description: The list of currently subscribed tiles
       message:
         $ref: '#/components/messages/TileListResponse'
   sub:
-    subscribe:
+    publish:
       description: Subscribes our client to the requested tile feed
       message:
         $ref: '#/components/messages/CmdSubTile'
   unsub:
-    subscribe:
+    publish:
       description: asks the ws broker to stop sending us updated for this tile
       message:
         $ref: '#/components/messages/CmdUnSubTile'
-  grid-planes:
-    subscribe:
-      description: asks the ws broker to send its complete list of planes on the requested tile
+  plane-location-history:
+    publish:
+      description: request the flight path history for the given plane
       message:
-        $ref: '#/components/messages/CmdTilePlaneList'
+        $ref: "#/components/messages/CmdPlaneLocationHistory"
+    subscribe:
+      description: The aircraft location history
+      message:
+        $ref: "#/components/messages/PlaneLocationHistoryResponse"
 
   location-update:
     description: Plane information that comes from a subscription
-    publish:
+    subscribe:
       description: a single plane location update
       message:
         $ref: '#/components/messages/PlaneLocation'
   location-update-list:
     description: Plane information that comes from a subscription
-    publish:
+    subscribe:
       description: a list of plane location updates
       message:
         $ref: '#/components/messages/PlaneLocationList'
-
 components:
   messages:
     CmdSubList:
@@ -67,24 +69,6 @@ components:
         - name: List of subscribed Tiles
           payload:
             type: sub-list
-
-    CmdTilePlaneList:
-      contentType: application/json
-      payload:
-        type: object
-        properties:
-          type:
-            type: string
-            description: grid-planes
-          gridTile:
-            type: string
-            description: the tile to subscribe to
-      examples:
-        - name: subscribe to tile updates
-          payload:
-            type: grid-planes
-            gridTile: tile38
-
     CmdSubTile:
       contentType: application/json
       payload:
@@ -101,7 +85,6 @@ components:
           payload:
             type: sub
             gridTile: tile38_low
-
     CmdUnSubTile:
       contentType: application/json
       payload:
@@ -112,7 +95,7 @@ components:
           type:
             type: string
             description: unsub
-          gridTile:
+          tile:
             type: string
             description: the tile to unsubscribe to
       examples:
@@ -120,7 +103,26 @@ components:
           payload:
             type: unsub
             gridTile: tile38_low
-
+    CmdPlaneLocationHistory:
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          type:
+            type: string
+            description: plane-location-history
+          icao:
+            type: string
+            description: The aircraft's ICAO that we are interested in
+          callSign:
+            type: string
+            description: The flights callsign that we want to track
+      examples:
+        - name: Example
+          payload:
+            type: plane-location-history
+            icao: 7C2E2E
+            callSign: JEO
     TileListResponse:
       contentType: application/json
       description: The response type
@@ -131,10 +133,12 @@ components:
         properties:
           type:
             type: string
-            description: sub-list, sub-ack, unsub-ack
+            description: 'sub-list, sub-ack, unsub-ack'
           tiles:
             description: the list of tile names
             type: array
+            items:
+              type: string
       examples:
         - name: sub-list
           payload:
@@ -153,11 +157,9 @@ components:
             type: sub-ack
             tiles:
               - tile38_low
-
-
     PlaneLocationList:
       contentType: application/json
-      description: a list of PlaneLocations, sent in bulk to save on postage
+      description: 'a list of PlaneLocations, sent in bulk to save on postage'
       payload:
         type: object
         required:
@@ -171,7 +173,6 @@ components:
             type: array
             items:
               $ref: '#/components/messages/PlaneLocation'
-
     PlaneLocation:
       contentType: application/json
       description: A single location event
@@ -235,28 +236,91 @@ components:
           payload:
             New: false
             Removed: false
-            Icao: "48415F"
+            Icao: 48415F
             Lat: 48.02207817465572
             Lon: 9.765648475060095
             Heading: 151.57095116691386
             Velocity: 455.0703242357163
             Altitude: 39000
             VerticalRate: -64
-            AltitudeUnits: ""
-            FlightStatus: "ALERT, special Position Identification. Airborne or Ground"
+            AltitudeUnits: ''
+            FlightStatus: 'ALERT, special Position Identification. Airborne or Ground'
             OnGround: false
-            Airframe: "No ADS-B Emitter Category Information"
-            AirframeType: "0/0"
+            Airframe: No ADS-B Emitter Category Information
+            AirframeType: 0/0
             HasLocation: true
             HasHeading: true
             HasVerticalRate: true
             HasVelocity: true
-            SourceTag: "boxie"
-            Squawk: "6523"
-            Special: "Alert"
-            TileLocation: "tile3"
-            TrackedSince: "2022-03-12T09:01:02.069707133Z"
-            LastMsg: "2022-03-12T09:47:22.141293262Z"
+            SourceTag: boxie
+            Squawk: '6523'
+            Special: Alert
+            TileLocation: tile3
+            TrackedSince: '2022-03-12T09:01:02.069707133Z'
+            LastMsg: '2022-03-12T09:47:22.141293262Z'
             SignalRssi: 7.781512503836437
-            CallSign: "KLM81K"
+            CallSign: KLM81K
 
+    PlaneLocationHistoryResponse:
+      contentType: application/json
+      description: The response type for a plane location history request
+      payload:
+        type: object
+        required:
+          - type
+        properties:
+          type:
+            type: string
+            description: plane-location-history
+          icao:
+            type: string
+            description: the ICAO of the requested history
+          callSign:
+            type: string
+            description: the callsign of the requested history
+          history:
+            type: array
+            description: A series of places a flight has been
+            items:
+              $ref: "#/components/messages/LocationHistory"
+              minimum: 0
+      examples:
+        - name: JEO History Example
+          payload:
+            type: plane-location-history
+            icao: 7C2E2E
+            callSign: JEO
+            history:
+              - Lat: -30.753571
+                Lon: 121.483854
+                Heading: 3.704627
+                Velocity: 140.356688
+                Altitude: 5700
+              - Lat: -30.753571
+                Lon: 121.483854
+                Heading: 3.704627
+                Velocity: 140.356688
+                Altitude: 5750
+
+    LocationHistory:
+      contentType: application/json
+      description: A place a flight has been
+      payload:
+        type: object
+        required:
+          - Lat
+          - Lon
+          - Heading
+          - Velocity
+          - Altitude
+        properties:
+          Lat:
+            type: number
+          Lon:
+            type: number
+          Heading:
+            type: number
+          Velocity:
+            type: number
+          Altitude:
+            type: number

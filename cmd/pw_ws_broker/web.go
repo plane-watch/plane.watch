@@ -417,8 +417,10 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 				}
 			case ws_protocol.RequestTypePlaneLocHistory:
 				err = c.sendPlaneMessage(ctx, &ws_protocol.WsResponse{
-					Type:    ws_protocol.ResponseTypePlaneLocHistory,
-					History: cmdMsg.locHistory,
+					Type:     ws_protocol.ResponseTypePlaneLocHistory,
+					History:  cmdMsg.locHistory,
+					Icao:     cmdMsg.what,
+					CallSign: cmdMsg.extra,
 				})
 			default:
 				err = c.sendError(ctx, "Unknown Command")
