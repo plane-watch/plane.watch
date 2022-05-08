@@ -28,7 +28,7 @@ RUN ./pw_ws_broker --help
 FROM alpine:latest
 WORKDIR /app
 COPY --from=build /app/pw_ws_broker /app
-EXPOSE 80
+EXPOSE 80 443
 
 HEALTHCHECK --interval=15s --timeout=3s CMD wget --spider http://localhost:9603/status
 

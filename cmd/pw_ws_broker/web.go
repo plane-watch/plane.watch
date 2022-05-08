@@ -6,13 +6,14 @@ import (
 	"crypto/x509"
 	"embed"
 	"errors"
-	jsoniter "github.com/json-iterator/go"
-	"github.com/rs/zerolog"
 	"io"
 	"net/http"
-	"plane.watch/lib/dedupe/forgetfulmap"
 	"sync"
 	"time"
+
+	jsoniter "github.com/json-iterator/go"
+	"github.com/rs/zerolog"
+	"plane.watch/lib/dedupe/forgetfulmap"
 
 	"github.com/rs/zerolog/log"
 	"nhooyr.io/websocket"
@@ -99,6 +100,7 @@ func (bw *PwWsBrokerWeb) configureWeb() error {
 		}
 		for _, d := range x509Cert.DNSNames {
 			bw.domainsToServe = append(bw.domainsToServe, d)
+			bw.domainsToServe = append(bw.domainsToServe, d+":*")
 		}
 	} else {
 		bw.domainsToServe = []string{
@@ -179,11 +181,19 @@ func (bw *PwWsBrokerWeb) jsonGrid(w http.ResponseWriter, r *http.Request) {
 
 func (bw *PwWsBrokerWeb) servePlanes(w http.ResponseWriter, r *http.Request) {
 	log.Debug().Str("New Connection", r.RemoteAddr).Msg("New /planes WS")
+
+	compress := r.URL.Query().Get("compress")
+	ws_compression := websocket.CompressionContextTakeover
+
+	if "false" == compress || "False" == compress {
+		ws_compression = websocket.CompressionDisabled
+	}
+
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		Subprotocols:       []string{ws_protocol.WsProtocolPlanes},
 		InsecureSkipVerify: false,
 		OriginPatterns:     bw.domainsToServe,
-		CompressionMode:    websocket.CompressionContextTakeover,
+		CompressionMode:    ws_compression,
 	})
 	if nil != err {
 		log.Error().Err(err).Msg("Failed to setup websocket connection")
