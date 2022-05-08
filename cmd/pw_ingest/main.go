@@ -1,11 +1,12 @@
 package main
 
 import (
+	"os"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"os"
 	"plane.watch/lib/dedupe"
 	"plane.watch/lib/example_finder"
 	"plane.watch/lib/logging"
@@ -15,6 +16,7 @@ import (
 )
 
 var (
+	version                        = "dev"
 	prometheusCounterFramesDecoded = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "pw_ingest_num_decoded_frames",
 		Help: "The number of AVR frames decoded",
@@ -28,12 +30,12 @@ var (
 func main() {
 	app := cli.NewApp()
 
-	app.Version = "1.0.0"
+	app.Version = version
 	app.Name = "Plane Watch Client"
 	app.Usage = "Reads from dump1090 and sends it to https://plane.watch/"
 
 	app.Description = `This program takes a stream of plane tracking info (beast/avr/sbs1), tracks the planes and ` +
-		`outputs all sorts if interesting information to the configured sink, including decoded and tracked planes in JSON format.` +
+		`outputs all sorts of interesting information to the configured sink, including decoded and tracked planes in JSON format.` +
 		"\n\n" +
 		`example: pw_ingest --fetch=beast://crawled.mapwithlove.com:3004 --sink=amqp://guest:guest@localhost:5672/pw?queues=location-updates --tag="cool-stuff" --quiet simple`
 
@@ -97,7 +99,7 @@ func commonSetup(c *cli.Context) (*tracker.Tracker, error) {
 	trk := tracker.NewTracker(trackerOpts...)
 
 	trk.AddMiddleware(dedupe.NewFilter())
-	sinks, err := setup.HandleSinkFlags(c)
+	sinks, err := setup.HandleSinkFlags(c, "pw_ingest")
 	if nil != err {
 		return nil, err
 	}

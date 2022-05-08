@@ -54,7 +54,7 @@ func IncludeSinkFlags(app *cli.App) {
 	}...)
 }
 
-func HandleSinkFlags(c *cli.Context) ([]tracker.Sink, error) {
+func HandleSinkFlags(c *cli.Context, connName string) ([]tracker.Sink, error) {
 	defaultTTl := c.Int("sink-message-ttl")
 	defaultTag := c.String("tag")
 	defaultQueues := c.StringSlice("publish-types")
@@ -62,7 +62,7 @@ func HandleSinkFlags(c *cli.Context) ([]tracker.Sink, error) {
 
 	for _, sinkUrl := range c.StringSlice("sink") {
 		log.Debug().Str("sink-url", sinkUrl).Msg("With Sink")
-		s, err := handleSink(sinkUrl, defaultTag, defaultTTl, defaultQueues, c.Bool("rabbitmq-test-queues"))
+		s, err := handleSink(connName, sinkUrl, defaultTag, defaultTTl, defaultQueues, c.Bool("rabbitmq-test-queues"))
 		if nil != err {
 			log.Error().Err(err).Str("url", sinkUrl).Str("what", "sink").Msg("Failed setup sink")
 			return nil, err
@@ -73,7 +73,7 @@ func HandleSinkFlags(c *cli.Context) ([]tracker.Sink, error) {
 	return sinks, nil
 }
 
-func handleSink(urlSink, defaultTag string, defaultTtl int, defaultQueues []string, rabbitmqTestQueues bool) (tracker.Sink, error) {
+func handleSink(connName, urlSink, defaultTag string, defaultTtl int, defaultQueues []string, rabbitmqTestQueues bool) (tracker.Sink, error) {
 	parsedUrl, err := url.Parse(urlSink)
 	if nil != err {
 		return nil, err
@@ -90,6 +90,7 @@ func handleSink(urlSink, defaultTag string, defaultTtl int, defaultQueues []stri
 	}
 
 	commonOpts := []sink.Option{
+		sink.WithConnectionName(connName),
 		sink.WithHost(parsedUrl.Hostname(), parsedUrl.Port()),
 		sink.WithUserPass(parsedUrl.User.Username(), urlPass),
 		sink.WithSourceTag(getTag(parsedUrl, defaultTag)),

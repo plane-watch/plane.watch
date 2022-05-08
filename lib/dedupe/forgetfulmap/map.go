@@ -1,6 +1,7 @@
 package forgetfulmap
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
 	"sync"
 	"time"
@@ -17,6 +18,8 @@ type (
 		oldAfter      time.Duration
 		evictionFunc  EvictionFunc
 		forgettable   ForgettableFunc
+
+		itemCounter prometheus.Gauge
 	}
 
 	// a generic wrapper for things that can be lost
@@ -46,6 +49,12 @@ func NewForgetfulSyncMap(opts ...Option) *ForgetfulSyncMap {
 	}
 
 	return f
+}
+
+func WithPrometheusCounters(numItems prometheus.Gauge) Option {
+	return func(syncMap *ForgetfulSyncMap) {
+		syncMap.itemCounter = numItems
+	}
 }
 
 // WithSweepIntervalSeconds is a helper function that Sets the Sweep Interval, so you don't have to cast as much
@@ -101,6 +110,7 @@ func (f *ForgetfulSyncMap) sweep() {
 	if log.Trace().Enabled() {
 		log.Trace().Str("section", "forgetfulmap").Int32("num items", f.Len()).Msg("Before Sweep")
 	}
+	counter := 0
 	f.lookup.Range(func(key, value interface{}) bool {
 		m, ok := value.(*marble)
 		if !ok {
@@ -113,10 +123,15 @@ func (f *ForgetfulSyncMap) sweep() {
 				f.evictionFunc(key, value)
 			}
 			f.Delete(key)
+		} else {
+			counter++
 		}
 
 		return true
 	})
+	if nil != f.itemCounter {
+		f.itemCounter.Set(float64(counter))
+	}
 	if log.Trace().Enabled() {
 		log.Trace().Str("section", "forgetfulmap").Int32("num items", f.Len()).Msg("After Sweep")
 	}
