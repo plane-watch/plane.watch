@@ -1,12 +1,6 @@
 # Plane.Watch Pipeline
 
-<<<<<<< HEAD
-Development is now continued over at https://github.com/plane-watch/pw-pipeline/
-
-This repo has a few of the things I have done around plane.watch.
-=======
 This repo contains several tools used to decode, understand and process ADSB information.
->>>>>>> 3581c34592d3b204d2437af529a6d74b3c54daa9
 
 We typically develop against the latest version of Golang.
 
@@ -98,11 +92,6 @@ or you can run it with
 
 ### Building Docker Containers
 
-<<<<<<< HEAD
-### pw_ws_broker
-This is our plane.watch websocket broker. Connect to it and speak its language to get your location information
-=======
     docker build -t plane.watch/pw_ws_broker:latest -f docker/pw_ws_broker/Dockerfile .
     docker build -t plane.watch/pw_router:latest -f docker/pw_router/Dockerfile .
     docker build -t plane.watch/pw_ingest:latest -f docker/pw_ingest/Dockerfile .
->>>>>>> 3581c34592d3b204d2437af529a6d74b3c54daa9
