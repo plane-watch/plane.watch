@@ -10,7 +10,7 @@ require (
 	github.com/kpawlik/geojson v0.0.0-20171201195549-1a4f120c6b41
 	github.com/nats-io/nats.go v1.13.1-0.20220308171302-2f2f6968e98d
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/prometheus/client_golang v1.12.1
+	github.com/prometheus/client_golang v1.12.2
 	github.com/rivo/tview v0.0.0-20210312174852-ae9464cc3598
 	github.com/rs/zerolog v1.26.1
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
