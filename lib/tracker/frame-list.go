@@ -58,6 +58,10 @@ func (fl *lossyFrameList) Unshift() *mode_s.Frame {
 		fl.head = nil
 	}
 
+	defer func() {
+		t = nil
+	}()
+
 	return t.item
 }
 
@@ -74,6 +78,10 @@ func (fl *lossyFrameList) Pop() *mode_s.Frame {
 		fl.tail = nil
 		fl.head = nil
 	}
+
+	defer func() {
+		t = nil
+	}()
 
 	return t.item
 }
