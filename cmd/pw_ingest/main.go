@@ -78,6 +78,12 @@ func main() {
 		},
 	}
 
+	app.Flags = append(app.Flags, &cli.BoolFlag{
+		Name:    "dedupe",
+		Usage:   "For feeds that contain multiple feeders, we will want to 'dedupe' the feed so that we only process each frame once",
+		EnvVars: []string{"DEDUPE"},
+	})
+
 	app.Before = func(c *cli.Context) error {
 		logging.SetLoggingLevel(c)
 		return nil
@@ -98,7 +104,9 @@ func commonSetup(c *cli.Context) (*tracker.Tracker, error) {
 	trackerOpts = append(trackerOpts, tracker.WithPrometheusCounters(prometheusGaugeCurrentPlanes, prometheusCounterFramesDecoded))
 	trk := tracker.NewTracker(trackerOpts...)
 
-	trk.AddMiddleware(dedupe.NewFilter())
+	if c.Bool("dedupe") {
+		trk.AddMiddleware(dedupe.NewFilter())
+	}
 	sinks, err := setup.HandleSinkFlags(c, "pw_ingest")
 	if nil != err {
 		return nil, err
