@@ -90,6 +90,7 @@ func (bw *PwWsBrokerWeb) configureWeb() error {
 	}
 
 	if "" != bw.certKey {
+		log.Info().Str("cert", bw.cert).Msg("Using Certificate")
 		tlsCert, err := tls.LoadX509KeyPair(bw.cert, bw.certKey)
 		if nil != err {
 			return err
@@ -102,6 +103,9 @@ func (bw *PwWsBrokerWeb) configureWeb() error {
 			bw.domainsToServe = append(bw.domainsToServe, d)
 			bw.domainsToServe = append(bw.domainsToServe, d+":*")
 		}
+		if "" != x509Cert.Subject.CommonName {
+			bw.domainsToServe = append(bw.domainsToServe, x509Cert.Subject.CommonName)
+		}
 	} else {
 		bw.domainsToServe = []string{
 			"localhost",
@@ -112,6 +116,10 @@ func (bw *PwWsBrokerWeb) configureWeb() error {
 			"*plane.watch:3001",
 		}
 	}
+	log.Info().
+		Int("# Domains", len(bw.domainsToServe)).
+		Str("On Address", bw.Addr).
+		Msg("Serving Domain Count")
 	for _, d := range bw.domainsToServe {
 		log.Info().Str("domain", d).Msg("Serving For Domain")
 	}
