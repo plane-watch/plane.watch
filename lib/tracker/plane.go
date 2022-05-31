@@ -32,7 +32,7 @@ type (
 		verticalRate         int
 		altitudeUnits        string
 		heading, velocity    float64
-		timeStamp            time.Time
+		timeStamp, decodedTs time.Time
 		onGround, hasHeading bool
 		hasLatLon            bool
 		distanceTravelled    float64
@@ -675,20 +675,18 @@ func (p *Plane) addLatLong(lat, lon float64, ts time.Time) (warn error) {
 	numHistoryItems := len(p.locationHistory)
 	// determine speed?
 	if numHistoryItems > 0 && p.location.latitude != 0 && p.location.longitude != 0 {
-		referenceTime := p.locationHistory[numHistoryItems-1].timeStamp
+		referenceTime := p.locationHistory[numHistoryItems-1].decodedTs
 		if !referenceTime.IsZero() {
 			durationTravelled = float64(ts.Sub(referenceTime)) / float64(time.Second)
 			if 0.0 == durationTravelled {
 				durationTravelled = 1
 			}
-			acceptableMaxDistance := durationTravelled * 343 // mach1 in metres/second seems fast enough...
+			acceptableMaxDistance := durationTravelled * 686 // mach2 in metres/second seems fast enough...
 			if acceptableMaxDistance > 50000 {
 				acceptableMaxDistance = 50000
 			}
 
 			travelledDistance = distance(lat, lon, p.location.latitude, p.location.longitude)
-
-			//log.Printf("%s travelled %0.2fm in %0.2f seconds (%s -> %s)", p.icaoStr, DistanceTravelled, durationTravelled, referenceTime.Format(time.RFC3339Nano), ts.Format(time.RFC3339Nano))
 
 			if travelledDistance > acceptableMaxDistance {
 				warn = fmt.Errorf(" the distance (%0.2fm) between {%0.4f,%0.4f} and {%0.4f,%0.4f} is too great for %s to travel in %0.2f seconds. New Track", travelledDistance, lat, lon, p.location.latitude, p.location.longitude, p.icao, durationTravelled)
@@ -696,6 +694,7 @@ func (p *Plane) addLatLong(lat, lon float64, ts time.Time) (warn error) {
 
 				// debug log the recently received list of frames
 				p.tracker.log.Error().
+					Str("ICAO", p.icao).
 					Float64("Distance", travelledDistance).
 					Float64("Duration", durationTravelled).
 					Float64("Max Acceptable Distance", acceptableMaxDistance).
@@ -704,7 +703,9 @@ func (p *Plane) addLatLong(lat, lon float64, ts time.Time) (warn error) {
 					Msg("A Frame Too Far")
 				p.recentFrames.Range(func(f *mode_s.Frame) bool {
 					p.tracker.log.Error().
+						Str("ICAO", f.IcaoStr()).
 						Time("received", f.TimeStamp()).
+						Int64("unix nano", f.TimeStamp().UnixNano()).
 						Str("Frame", f.RawString()).
 						Msg("Frames Leading to Broken Track")
 					return true
@@ -839,6 +840,7 @@ func (pl *PlaneLocation) Copy() *PlaneLocation {
 		heading:           pl.heading,
 		velocity:          pl.velocity,
 		timeStamp:         pl.timeStamp,
+		decodedTs:         pl.decodedTs,
 		onGround:          pl.onGround,
 		hasHeading:        pl.hasHeading,
 		hasLatLon:         pl.hasLatLon,

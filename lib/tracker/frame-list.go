@@ -50,7 +50,9 @@ func (fl *lossyFrameList) Unshift() *mode_s.Frame {
 	t := fl.tail
 	fl.numItems--
 	fl.tail = t.prev
-	fl.tail.next = nil
+	if nil != t.prev {
+		fl.tail.next = nil
+	}
 	t.prev = nil
 	t.next = nil
 	if 0 == fl.numItems {

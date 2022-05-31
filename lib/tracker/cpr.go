@@ -200,7 +200,7 @@ func (cpr *CprLocation) computeLongitudeZone() error {
 }
 
 func (cpr *CprLocation) checkFrameTiming() error {
-	if cpr.time1.After(cpr.time0.Add(10 * time.Second)) {
+	if cpr.time1.After(cpr.time0.Add(3 * time.Second)) {
 		return fmt.Errorf("Unable to decode this CPR Pair. they are too far apart in time (%s, %s)", cpr.time0.Format(time.RFC822Z), cpr.time1.Format(time.RFC822Z))
 	}
 	return nil
@@ -221,6 +221,7 @@ func (cpr *CprLocation) computeLatLon() (*PlaneLocation, error) {
 
 		loc.longitude = cpr.dlonFunction(cpr.rlat1, 1) * (cprModFunction(int32(m), ni) + (cpr.oddLon / 131072))
 		loc.latitude = cpr.rlat1
+		loc.decodedTs = cpr.time1
 	} else {
 		// do even decode
 		cpr.oddDecode = false
@@ -232,6 +233,7 @@ func (cpr *CprLocation) computeLatLon() (*PlaneLocation, error) {
 		//log.Printf("	m = %0.2f", m)
 		loc.longitude = cpr.dlonFunction(cpr.rlat0, 0) * (cprModFunction(int32(m), ni) + cpr.evenLon/131072)
 		loc.latitude = cpr.rlat0
+		loc.decodedTs = cpr.time0
 	}
 	//log.Printf("\tlat = %0.6f, lon = %0.6f\n", loc.latitude, loc.longitude)
 	return &loc, nil
