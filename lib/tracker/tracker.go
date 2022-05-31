@@ -161,6 +161,7 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 
 	p.setLastSeen(frame.TimeStamp())
 	p.incMsgCount()
+	p.addFrame(frame)
 
 	debugMessage := func(sfmt string, a ...interface{}) {
 		if zerolog.GlobalLevel() >= zerolog.DebugLevel {
@@ -269,6 +270,9 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 				if frame.VelocityValid() {
 					hasChanged = p.setVelocity(frame.MustVelocity()) || hasChanged
 				}
+				if !p.OnGround() {
+					p.zeroCpr()
+				}
 				if frame.VerticalStatusValid() {
 					hasChanged = p.setGroundStatus(frame.MustOnGround()) || hasChanged
 				}
@@ -290,6 +294,9 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 			}
 		case mode_s.DF17FrameAirPositionBarometric, mode_s.DF17FrameAirPositionGnss: // "Airborne Position (with Barometric altitude)"
 			{
+				if p.OnGround() {
+					p.zeroCpr()
+				}
 				if frame.VerticalStatusValid() {
 					hasChanged = p.setGroundStatus(frame.MustOnGround()) || hasChanged
 				}

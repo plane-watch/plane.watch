@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"plane.watch/lib/tile_grid"
+	"plane.watch/lib/tracker/mode_s"
 	"strings"
 	"sync"
 	"time"
@@ -23,8 +24,7 @@ type (
 	// PlaneLocation stores where we think a plane is currently at. It is am amalgamation of all the tracking info
 	// we receive.
 	PlaneLocation struct {
-		rwlock sync.RWMutex
-
+		rwlock               sync.RWMutex
 		latitude, longitude  float64
 		altitude             int32
 		hasVerticalRate      bool
@@ -57,21 +57,22 @@ type (
 	}
 
 	Plane struct {
-		tracker          *Tracker
-		trackedSince     time.Time
-		lastSeen         time.Time
-		icaoIdentifier   uint32
-		icao             string
-		squawk           uint32
-		flight           flight
-		locationHistory  []*PlaneLocation
-		location         *PlaneLocation
-		cprLocation      CprLocation
-		special          map[string]string
-		frameTimes       []time.Time
-		recentFrameCount int
-		msgCount         uint64
-		airframe         airframe
+		recentFrames *lossyFrameList
+
+		tracker         *Tracker
+		trackedSince    time.Time
+		lastSeen        time.Time
+		icaoIdentifier  uint32
+		icao            string
+		squawk          uint32
+		flight          flight
+		locationHistory []*PlaneLocation
+		location        *PlaneLocation
+		cprLocation     CprLocation
+		special         map[string]string
+		frameTimes      []time.Time
+		msgCount        uint64
+		airframe        airframe
 
 		signalLevel *float64 // RSSI dBFS
 
@@ -118,8 +119,15 @@ func newPlane(icao uint32) *Plane {
 	p.setIcaoIdentifier(icao)
 	p.resetLocationHistory()
 	p.zeroCpr()
+	p.recentFrames = newLossyFrameList(20)
 	p.trackedSince = time.Now()
 	return p
+}
+
+func (p *Plane) addFrame(f *mode_s.Frame) {
+	p.rwLock.RLock()
+	defer p.rwLock.RUnlock()
+	p.recentFrames.Push(f)
 }
 
 // TrackedSince tells us when we started tracking this plane (on this run, not historical)
@@ -299,8 +307,6 @@ func (p *Plane) String() string {
 			direction += fmt.Sprintf(" heading %0.2f, speed %0.2f knots", p.Heading(), p.Velocity())
 		}
 	}
-
-	//strength = fmt.Sprintf(" %0.2f pps", float64(p.recentFrameCount)/10.0)
 
 	if "" != p.Special() {
 		if colourOutput {
@@ -687,6 +693,22 @@ func (p *Plane) addLatLong(lat, lon float64, ts time.Time) (warn error) {
 			if travelledDistance > acceptableMaxDistance {
 				warn = fmt.Errorf(" the distance (%0.2fm) between {%0.4f,%0.4f} and {%0.4f,%0.4f} is too great for %s to travel in %0.2f seconds. New Track", travelledDistance, lat, lon, p.location.latitude, p.location.longitude, p.icao, durationTravelled)
 				p.location.TrackFinished = true
+
+				// debug log the recently received list of frames
+				p.tracker.log.Error().
+					Float64("Distance", travelledDistance).
+					Float64("Duration", durationTravelled).
+					Float64("Max Acceptable Distance", acceptableMaxDistance).
+					Floats64("Prev Lat/Lon", []float64{p.location.latitude, p.location.longitude}).
+					Floats64("This Lat/Lon", []float64{lat, lon}).
+					Msg("A Frame Too Far")
+				p.recentFrames.Range(func(f *mode_s.Frame) bool {
+					p.tracker.log.Error().
+						Time("received", f.TimeStamp()).
+						Str("Frame", f.RawString()).
+						Msg("Frames Leading to Broken Track")
+					return true
+				})
 			}
 		}
 	}
