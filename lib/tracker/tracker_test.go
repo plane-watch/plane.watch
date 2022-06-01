@@ -383,3 +383,87 @@ func TestPlaneListGetsEvicted(t *testing.T) {
 		t.Errorf("Tracker's forgetfulmap did not correctly evict plane")
 	}
 }
+
+// TestFarApartLocationUpdatesFail is testing how we decode a planes location with only a few frames far apart in time
+// we should not get a location
+func TestFarApartLocationUpdatesFail(t *testing.T) {
+	md := func(f *mode_s.Frame, err error) *mode_s.Frame {
+		if nil != err {
+			panic(err)
+		}
+		return f
+	}
+	frames := []*mode_s.Frame{
+		md(mode_s.DecodeString("8D4CC54C58D3012E5A42EC86E201", time.Unix(1654054750, 540447277))),
+		md(mode_s.DecodeString("8D4CC54C58D304E49BF688F07265", time.Unix(1654054754, 563149779))),
+		md(mode_s.DecodeString("8D4CC54C58D3012D1E44DD9DB4C3", time.Unix(1654054761, 392075155))),
+		md(mode_s.DecodeString("8D4CC54C58D304DFD3FE0680A0AE", time.Unix(1654054797, 461184199))),
+	}
+
+	// make sure our frame timestamps are correct
+	expectedUnixNano := []int64{
+		1654054750540447277,
+		1654054754563149779,
+		1654054761392075155,
+		1654054797461184199,
+	}
+	for i := 0; i < 4; i++ {
+		if expectedUnixNano[i] != frames[i].TimeStamp().UnixNano() {
+			t.Errorf("Incorrect unix timestamp for frame %d. Expected %d != %d", i, expectedUnixNano[i], frames[i].TimeStamp().UnixNano())
+		}
+	}
+
+	tkr := NewTracker()
+	p := tkr.GetPlane(0x4CC54C)
+
+	for i := 0; i < 4; i++ {
+		p.HandleModeSFrame(frames[i], nil, nil)
+
+		if p.location.hasLatLon {
+			t.Error("Should not have decoded lat/lon")
+		}
+	}
+}
+
+func TestBadLocationUpdateRejected(t *testing.T) {
+	md := func(f *mode_s.Frame, err error) *mode_s.Frame {
+		if nil != err {
+			panic(err)
+		}
+		return f
+	}
+	frames := []*mode_s.Frame{
+		// good decode
+		md(mode_s.DecodeString("8D4CA813589186EF638487A3F9F7", time.Unix(1654071089, 590443635))),
+		md(mode_s.DecodeString("8D4CA813589183871D80EEE6F328", time.Unix(1654071089, 993928591))),
+		// busted lat/lon
+		md(mode_s.DecodeString("8D4CA813589186EFA98497B6EF5A", time.Unix(1654071090, 498070277))),
+		md(mode_s.DecodeString("8D4CA813589183F7CCA0F55734EA", time.Unix(1654071090, 997511392))),
+	}
+
+	tkr := NewTracker()
+	p := tkr.GetPlane(0x4CA813)
+
+	for i := 0; i < 4; i++ {
+		p.HandleModeSFrame(frames[i], nil, nil)
+	}
+	if !p.location.hasLatLon {
+		t.Error("Should have decoded lat/lon")
+	}
+
+	// make sure we did not accept the bad location of
+	//  "Lat": 89.90261271848516,
+	//  "Lon": -86.77276611328125,
+
+	if 53.290813898636124 != p.location.latitude {
+		t.Error("Wrong Latitude")
+	}
+
+	if -2.553432688993553 != p.location.longitude {
+		t.Error("Wrong Longitude")
+	}
+
+	if 1 != len(p.locationHistory) {
+		t.Errorf("Incorrect history, expected: 1, got: %d", len(p.locationHistory))
+	}
+}
