@@ -199,9 +199,13 @@ func (cpr *CprLocation) computeLongitudeZone() error {
 	return nil
 }
 
+// checkFrameTiming makes sure that the difference in receive time between 2 lat/lon frames is < 1 second
+// they are emitted twice a second (2hz). This means one half of the lat/lon is tx every 0.5s
 func (cpr *CprLocation) checkFrameTiming() error {
-	if cpr.time1.After(cpr.time0.Add(3 * time.Second)) {
-		return fmt.Errorf("Unable to decode this CPR Pair. they are too far apart in time (%s, %s)", cpr.time0.Format(time.RFC822Z), cpr.time1.Format(time.RFC822Z))
+	d := cpr.time1.Sub(cpr.time0)
+	tt := math.Abs(float64(d.Milliseconds()))
+	if tt > 1500 { // allow for some network jitter + time of flight jitter
+		return errors.New("unable to decode this CPR Pair. they are too far apart in time")
 	}
 	return nil
 }
@@ -451,11 +455,6 @@ func cprModFunction(a, b int32) float64 {
 	//return math.Floor(res)
 	//log.Printf("Mod(%d, %d)=%0.2f", a, b, res)
 	return res
-}
-
-func (pl *PlaneLocation) SetDirection(heading float64, speed int32) {
-	pl.heading = heading
-	pl.velocity = float64(speed)
 }
 
 // haversin(θ) function
