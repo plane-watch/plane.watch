@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/md5"
 	"crypto/tls"
@@ -11,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,6 +33,7 @@ var testWebDir embed.FS
 
 var (
 	gridJsonPayload     []byte
+	gridJsonPayloadGzip []byte
 	gridJsonPayloadETag string
 )
 
@@ -39,9 +43,10 @@ func init() {
 	json := jsoniter.ConfigCompatibleWithStandardLibrary
 	gridJsonPayload, err = json.MarshalIndent(grid, "", "  ")
 	if nil != err {
-		panic(err)
+		log.Fatal().Err(err).Msg("Failed to json encode the tile grid")
 	}
 	gridJsonPayloadETag = fmt.Sprintf(`"%X"`, md5.Sum(gridJsonPayload))
+	gridJsonPayloadGzip = mustGzipBytes(gridJsonPayload)
 }
 
 type (
@@ -202,10 +207,17 @@ func (bw *PwWsBrokerWeb) jsonGrid(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cross-Origin-Resource-Policy", "cross-origin")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("ETag", gridJsonPayloadETag)
-	w.Header().Set("Content-Length", strconv.Itoa(len(gridJsonPayload)))
 	w.Header().Set("Cache-Control", "public, max-age=86400")
 
-	_, _ = w.Write(gridJsonPayload)
+	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+		w.Header().Set("Content-Encoding", "gzip")
+		w.Header().Set("Content-Length", strconv.Itoa(len(gridJsonPayloadGzip)))
+		_, _ = w.Write(gridJsonPayloadGzip)
+	} else {
+		w.Header().Set("Content-Length", strconv.Itoa(len(gridJsonPayload)))
+		_, _ = w.Write(gridJsonPayload)
+	}
+
 }
 
 func (bw *PwWsBrokerWeb) servePlanes(w http.ResponseWriter, r *http.Request) {
@@ -645,4 +657,23 @@ func (cl *ClientList) SendLocationUpdate(highLow, tile string, loc *export.Plane
 		}
 		return true
 	})
+}
+
+func mustGzipBytes(in []byte) []byte {
+	// make a gzip version
+	buf := bytes.Buffer{}
+	gzw, err := gzip.NewWriterLevel(&buf, gzip.BestCompression)
+	if nil != err {
+		log.Fatal().Err(err).Msg("Failed to create gzip writer")
+	}
+	_, err = gzw.Write(in)
+	if nil != err {
+		log.Fatal().Err(err).Msg("Failed to compress json")
+	}
+
+	if err = gzw.Close(); nil != err {
+		log.Fatal().Err(err).Msg("Failed to gzip json")
+	}
+
+	return buf.Bytes()
 }
