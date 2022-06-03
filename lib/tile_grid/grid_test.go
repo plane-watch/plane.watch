@@ -6,73 +6,112 @@ import (
 )
 
 func TestGlobeIndexSpecialTile_contains(t1 *testing.T) {
-	type fields struct {
-		North float64
-		East  float64
-		South float64
-		West  float64
-	}
-	type args struct {
+	type pt struct {
 		lat  float64
 		long float64
 	}
+	type fields struct {
+		// North+West, South+East
+		nw, se pt
+	}
+	perth := pt{lat: -31.952162, long: 115.943482}
+	london := pt{lat: 51.5, long: 10}
 	tests := []struct {
 		name   string
 		fields fields
-		args   args
+		args   pt
 		want   bool
 	}{
 		{
+			"top left of map",
+			fields{nw: pt{lat: 90, long: -180} /* => */, se: pt{lat: 75, long: -165}},
+			pt{lat: 80, long: -170},
+			true,
+		},
+		{
+			"top left of map no perth",
+			fields{nw: pt{lat: 90, long: -180} /* => */, se: pt{lat: 75, long: -165}},
+			perth,
+			false,
+		},
+		{
 			"contains centre",
-			fields{North: 20, East: -20, South: -20, West: 20},
-			args{lat: 0, long: 0},
+			fields{nw: pt{lat: 20, long: -20} /* => */, se: pt{lat: -20, long: 20}},
+			pt{lat: 0, long: 0},
 			true,
 		},
 		{
 			"world contains Perth",
-			fields{North: 90, East: -180, South: -90, West: 180},
-			args{lat: -31.952162, long: 115.943482},
+			fields{nw: pt{lat: 90, long: -180} /* => */, se: pt{lat: -90, long: 180}},
+			perth,
 			true,
 		},
 		{
 			"tile contains Perth",
-			fields{North: -31, East: 115, South: -32, West: 116},
-			args{lat: -31.952162, long: 115.943482},
+			fields{nw: pt{lat: -31, long: -115} /* => */, se: pt{lat: -32, long: 116}},
+			perth,
 			true,
 		},
 		{
 			"northern hemisphere does not contain Perth",
-			fields{North: 90, East: -180, South: 0, West: 180},
-			args{lat: -31.952162, long: 115.943482},
+			fields{nw: pt{lat: 90, long: -180} /* => */, se: pt{lat: 0, long: 180}},
+			perth,
 			false,
 		},
 		{
-			"southern hemisphere does not contain london",
-			fields{North: 0, East: -180, South: -90, West: 180},
-			args{lat: 51.5, long: 10},
-			false,
-		},
-
-		{
-			"longitude 0-180 does contain perth",
-			fields{North: 90, East: 0, South: -90, West: 180},
-			args{lat: -31.952162, long: 115.943482},
+			"northern hemisphere does contain London",
+			fields{nw: pt{lat: 90, long: -180} /* => */, se: pt{lat: 0, long: 180}},
+			london,
 			true,
 		},
 		{
-			"longitude -180-0 does not contain perth",
-			fields{North: 90, East: -180, South: -90, West: 0},
-			args{lat: -31.952162, long: 115.943482},
+			"southern hemisphere does not contain london",
+			fields{nw: pt{lat: 0, long: -180} /* => */, se: pt{lat: -90, long: 180}},
+			london,
 			false,
+		},
+		{
+			"southern hemisphere does contain perth",
+			fields{nw: pt{lat: 0, long: -180} /* => */, se: pt{lat: -90, long: 180}},
+			perth,
+			true,
+		},
+
+		{
+			"western hemisphere does not contain perth",
+			fields{nw: pt{lat: 90, long: -180} /* => */, se: pt{lat: -90, long: 0}},
+			perth,
+			false,
+		},
+		{
+			"eastern hemisphere does contain perth",
+			fields{nw: pt{lat: 90, long: 0} /* => */, se: pt{lat: -90, long: 180}},
+			perth,
+			true,
 		},
 	}
 	for _, tt := range tests {
 		t1.Run(tt.name, func(t1 *testing.T) {
+			// sanity check values
+			if tt.fields.nw.lat < -90 || tt.fields.nw.lat > 90 {
+				t1.Errorf("nw lat out of bounds -90...90. %f", tt.fields.nw.lat)
+			}
+			if tt.fields.nw.long < -180 || tt.fields.nw.long > 180 {
+				t1.Errorf("nw long out of bounds -180...180. %f", tt.fields.nw.long)
+			}
+			if tt.fields.se.lat < -90 || tt.fields.se.lat > 90 {
+				t1.Errorf("se lat out of bounds -90...90. %f", tt.fields.se.lat)
+			}
+			if tt.fields.se.long < -180 || tt.fields.se.long > 180 {
+				t1.Errorf("se long out of bounds -180...180. %f", tt.fields.se.long)
+			}
 			t := GlobeIndexSpecialTile{
-				North: tt.fields.North,
-				East:  tt.fields.East,
-				South: tt.fields.South,
-				West:  tt.fields.West,
+				debug: true,
+				North: tt.fields.nw.lat,
+				West:  tt.fields.nw.long,
+
+				South: tt.fields.se.lat,
+				East:  tt.fields.se.long,
 			}
 			if got := t.contains(tt.args.lat, tt.args.long); got != tt.want {
 				t1.Errorf("contains() = %v, want %v", got, tt.want)
