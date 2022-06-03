@@ -133,7 +133,7 @@ func Test_LookupTile(t *testing.T) {
 		{
 			"Perth is found",
 			args{lat: -31.952162, lon: 115.943482},
-			"tile38",
+			"tile35",
 		},
 		{
 			"53.253113, 179.723145",
