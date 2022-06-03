@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
+	"crypto/md5"
 	"crypto/tls"
 	"crypto/x509"
 	"embed"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -24,6 +27,22 @@ import (
 
 //go:embed test-web
 var testWebDir embed.FS
+
+var (
+	gridJsonPayload     []byte
+	gridJsonPayloadETag string
+)
+
+func init() {
+	var err error
+	grid := tile_grid.GetGrid()
+	json := jsoniter.ConfigCompatibleWithStandardLibrary
+	gridJsonPayload, err = json.MarshalIndent(grid, "", "  ")
+	if nil != err {
+		panic(err)
+	}
+	gridJsonPayloadETag = fmt.Sprintf(`"%X"`, md5.Sum(gridJsonPayload))
+}
 
 type (
 	PwWsBrokerWeb struct {
@@ -175,16 +194,18 @@ func (bw *PwWsBrokerWeb) indexPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (bw *PwWsBrokerWeb) jsonGrid(w http.ResponseWriter, r *http.Request) {
-	grid := tile_grid.GetGrid()
+	if r.Header.Get("If-None-Match") == gridJsonPayloadETag {
+		w.WriteHeader(304)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cross-Origin-Resource-Policy", "cross-origin")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	json := jsoniter.ConfigFastest
-	buf, err := json.MarshalIndent(grid, "", "  ")
-	if nil != err {
-		w.WriteHeader(500)
-	}
-	_, _ = w.Write(buf)
+	w.Header().Set("ETag", gridJsonPayloadETag)
+	w.Header().Set("Content-Length", strconv.Itoa(len(gridJsonPayload)))
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+
+	_, _ = w.Write(gridJsonPayload)
 }
 
 func (bw *PwWsBrokerWeb) servePlanes(w http.ResponseWriter, r *http.Request) {
