@@ -19,6 +19,7 @@ type (
 		Version                string                  `json:"version"`
 	}
 	GlobeIndexSpecialTile struct {
+		debug bool
 		North float64 `json:"north"`
 		East  float64 `json:"east"`
 		South float64 `json:"south"`
@@ -47,15 +48,30 @@ func init() {
 }
 
 func setupWorldGrid(data string) error {
+	worldGrid = make(map[string]GlobeIndexSpecialTile)
 	def := GlobalDef{}
 	err := json.Unmarshal([]byte(data), &def)
 	if nil != err {
 		return err
 	}
-	worldGrid = make(map[string]GlobeIndexSpecialTile)
 	for i, tile := range def.GlobeIndexSpecialTiles {
 		worldGrid["tile"+strconv.Itoa(i)] = tile
 	}
+
+	// this gives an even grid across the world
+	//id := 0
+	//inc := 15
+	//for lat := 90; lat > -90; lat -= inc {
+	//	for lon := -180; lon < 180; lon += inc {
+	//		worldGrid[fmt.Sprintf("tile%03d", id)] = GlobeIndexSpecialTile{
+	//			North: float64(lat),
+	//			South: float64(lat - inc),
+	//			West:  float64(lon),
+	//			East:  float64(lon + inc),
+	//		}
+	//		id++
+	//	}
+	//}
 	return nil
 }
 
@@ -113,12 +129,25 @@ func GridLocationNames() []string {
 // * lat is contained between North and South, and
 // * lon is contained between East and West
 func (t GlobeIndexSpecialTile) contains(lat, lon float64) bool {
-	//log.Debug().Float64("lat", lat).Float64("north", t.North).Bool("lat <= t.North", lat <= t.North).Send()
-	//log.Debug().Float64("lat", lat).Float64("south", t.North).Bool("lat >= t.South", lat >= t.South).Send()
-	//log.Debug().Float64("lon", lat).Float64("east", t.North).Bool("lat >= t.East", lat >= t.East).Send()
-	//log.Debug().Float64("lon", lat).Float64("west", t.North).Bool("lat <= t.West", lat <= t.West).Send()
+	//contains := (lat <= t.North && lat > t.South) && (lon >= t.East && lon < t.West)
 
-	return (lat <= t.North && lat > t.South) && (lon >= t.East && lon < t.West)
+	// 90 = top, -90 == bottom
+	containsLat := lat <= t.North && lat > t.South
+	// -180 == west, 180 == east
+	containsLon := lon >= t.West && lon < t.East
+	if t.debug {
+		log.Debug().
+			Floats64(`NW`, []float64{t.West, t.North}).
+			Floats64(`SE`, []float64{t.East, t.South}).
+			Floats64(`Pnt`, []float64{lat, lon}).
+			Floats64(`EW Range`, []float64{t.West, lon, t.East}).
+			Bool(`Contains Lat`, containsLat).
+			Bool(`Contains Lon`, containsLon).
+			Floats64(`NS Range`, []float64{t.North, lat, t.South}).
+			Bool(`Contains`, containsLat && containsLon).
+			Send()
+	}
+	return containsLat && containsLon
 }
 
 func GetGrid() GridLocations {

@@ -1,13 +1,19 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
+	"crypto/md5"
 	"crypto/tls"
 	"crypto/x509"
 	"embed"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,6 +30,24 @@ import (
 
 //go:embed test-web
 var testWebDir embed.FS
+
+var (
+	gridJsonPayload     []byte
+	gridJsonPayloadGzip []byte
+	gridJsonPayloadETag string
+)
+
+func init() {
+	var err error
+	grid := tile_grid.GetGrid()
+	json := jsoniter.ConfigCompatibleWithStandardLibrary
+	gridJsonPayload, err = json.MarshalIndent(grid, "", "  ")
+	if nil != err {
+		log.Fatal().Err(err).Msg("Failed to json encode the tile grid")
+	}
+	gridJsonPayloadETag = fmt.Sprintf(`"%X"`, md5.Sum(gridJsonPayload))
+	gridJsonPayloadGzip = mustGzipBytes(gridJsonPayload)
+}
 
 type (
 	PwWsBrokerWeb struct {
@@ -175,16 +199,25 @@ func (bw *PwWsBrokerWeb) indexPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (bw *PwWsBrokerWeb) jsonGrid(w http.ResponseWriter, r *http.Request) {
-	grid := tile_grid.GetGrid()
+	if r.Header.Get("If-None-Match") == gridJsonPayloadETag {
+		w.WriteHeader(304)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cross-Origin-Resource-Policy", "cross-origin")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	json := jsoniter.ConfigFastest
-	buf, err := json.MarshalIndent(grid, "", "  ")
-	if nil != err {
-		w.WriteHeader(500)
+	w.Header().Set("ETag", gridJsonPayloadETag)
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+
+	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+		w.Header().Set("Content-Encoding", "gzip")
+		w.Header().Set("Content-Length", strconv.Itoa(len(gridJsonPayloadGzip)))
+		_, _ = w.Write(gridJsonPayloadGzip)
+	} else {
+		w.Header().Set("Content-Length", strconv.Itoa(len(gridJsonPayload)))
+		_, _ = w.Write(gridJsonPayload)
 	}
-	_, _ = w.Write(buf)
+
 }
 
 func (bw *PwWsBrokerWeb) servePlanes(w http.ResponseWriter, r *http.Request) {
@@ -624,4 +657,23 @@ func (cl *ClientList) SendLocationUpdate(highLow, tile string, loc *export.Plane
 		}
 		return true
 	})
+}
+
+func mustGzipBytes(in []byte) []byte {
+	// make a gzip version
+	buf := bytes.Buffer{}
+	gzw, err := gzip.NewWriterLevel(&buf, gzip.BestCompression)
+	if nil != err {
+		log.Fatal().Err(err).Msg("Failed to create gzip writer")
+	}
+	_, err = gzw.Write(in)
+	if nil != err {
+		log.Fatal().Err(err).Msg("Failed to compress json")
+	}
+
+	if err = gzw.Close(); nil != err {
+		log.Fatal().Err(err).Msg("Failed to gzip json")
+	}
+
+	return buf.Bytes()
 }
