@@ -97,6 +97,7 @@ type (
 	}
 )
 
+// configureWeb Sets up our serve mux to handle our web endpoints
 func (bw *PwWsBrokerWeb) configureWeb() error {
 	bw.clients = newClientList()
 
@@ -157,6 +158,7 @@ func (bw *PwWsBrokerWeb) configureWeb() error {
 	return nil
 }
 
+// listenAndServe runs the top level serving and channel control
 func (bw *PwWsBrokerWeb) listenAndServe(exitChan chan bool) {
 	log.Info().Str("HttpAddr", bw.Addr).Msg("HTTP Listening on")
 	bw.listening = true
@@ -182,6 +184,7 @@ func (bw *PwWsBrokerWeb) listenAndServe(exitChan chan bool) {
 	exitChan <- true
 }
 
+// logRequest logs all the web requests we get
 func (bw *PwWsBrokerWeb) logRequest(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Debug().Str("Remote", r.RemoteAddr).Str("Request", r.RequestURI).Msg("Web RQ")
@@ -189,15 +192,18 @@ func (bw *PwWsBrokerWeb) logRequest(handler http.Handler) http.Handler {
 	})
 }
 
+// ServeHTTP Asks our internal serveMux to Serve HTTP web requests
 func (bw *PwWsBrokerWeb) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	bw.serveMux.ServeHTTP(w, r)
 }
 
+// indexPage gives people something to look at if they ask us for the index
 func (bw *PwWsBrokerWeb) indexPage(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 	_, _ = w.Write([]byte("Plane.Watch Websocket Broker"))
 }
 
+// jsonGrid Serves the grid that we base all our planes on
 func (bw *PwWsBrokerWeb) jsonGrid(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("If-None-Match") == gridJsonPayloadETag {
 		w.WriteHeader(304)
@@ -220,6 +226,7 @@ func (bw *PwWsBrokerWeb) jsonGrid(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// servePlanes Serves our Websocket Endpoint
 func (bw *PwWsBrokerWeb) servePlanes(w http.ResponseWriter, r *http.Request) {
 	log.Debug().Str("New Connection", r.RemoteAddr).Msg("New /planes WS")
 
@@ -257,15 +264,18 @@ func (bw *PwWsBrokerWeb) servePlanes(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// HealthCheck allows us to check the health of this component
 func (bw *PwWsBrokerWeb) HealthCheck() bool {
 	log.Info().Bool("Web Listening", bw.listening).Msg("Health check")
 	return bw.listening
 }
 
+// HealthCheckName Gives the name of this health check
 func (bw *PwWsBrokerWeb) HealthCheckName() string {
 	return "WS Broker Web"
 }
 
+// NewWsClient creates a new Websocket Client. This represents an individual connection and its handling
 func NewWsClient(conn *websocket.Conn, identifier string) *WsClient {
 	client := WsClient{
 		conn:       conn,
@@ -277,6 +287,7 @@ func NewWsClient(conn *websocket.Conn, identifier string) *WsClient {
 	return &client
 }
 
+// Handle is a top level method that is called to Handle a websocket client connection
 func (c *WsClient) Handle(ctx context.Context, sendTickDuration time.Duration) {
 	err := c.planeProtocolHandler(ctx, c.conn, sendTickDuration)
 	if websocket.CloseStatus(err) == websocket.StatusNormalClosure || websocket.CloseStatus(err) == websocket.StatusGoingAway {
@@ -289,6 +300,8 @@ func (c *WsClient) Handle(ctx context.Context, sendTickDuration time.Duration) {
 		return
 	}
 }
+
+// AddSub adds a "Please Subscribe this client to this tile" command to the clients command queue
 func (c *WsClient) AddSub(tileName string) {
 	log.Debug().Msg("Add Sub")
 	c.cmdChan <- WsCmd{
@@ -297,6 +310,8 @@ func (c *WsClient) AddSub(tileName string) {
 	}
 	log.Debug().Msg("Add Sub Done")
 }
+
+// UnSub adds a "Please remove this tile from the clients list" command to the clients command queue
 func (c *WsClient) UnSub(tileName string) {
 	log.Debug().Msg("Unsub")
 	c.cmdChan <- WsCmd{
@@ -306,7 +321,7 @@ func (c *WsClient) UnSub(tileName string) {
 	log.Debug().Msg("Unsub done")
 }
 
-// SendSubscribedTiles sends the list of tiles that we are currently subscribed to
+// SendSubscribedTiles adds a "Please send the list of tiles that we are currently subscribed to" command to the queue
 func (c *WsClient) SendSubscribedTiles() {
 	log.Debug().Msg("Unsub")
 	c.cmdChan <- WsCmd{
@@ -316,7 +331,7 @@ func (c *WsClient) SendSubscribedTiles() {
 	log.Debug().Msg("Unsub done")
 }
 
-// SendTilePlanes sends to the client the list of planes on the requested tile
+// SendTilePlanes adds a "send to the client the list of planes on the requested tile" command to the queue
 func (c *WsClient) SendTilePlanes(tileName string) {
 	c.log.Debug().Str("tile", tileName).Msg("Planes on Tile")
 	c.cmdChan <- WsCmd{
@@ -325,7 +340,7 @@ func (c *WsClient) SendTilePlanes(tileName string) {
 	}
 }
 
-// SendPlaneLocationHistory sends the location history (from clickhouse) of the requested flight
+// SendPlaneLocationHistory adds a "send the location history (from clickhouse) of the requested flight" command to the queue
 func (c *WsClient) SendPlaneLocationHistory(icao, callSign string) {
 	c.log.Debug().Str("icao", icao).Str("callSign", callSign).Msg("Request Flight Path")
 	go func() {
@@ -338,6 +353,10 @@ func (c *WsClient) SendPlaneLocationHistory(icao, callSign string) {
 	}()
 }
 
+// planeProtocolHandler handles our websocket protocol
+// it runs the command queue that sends information to the client
+// it runs (in a go routine) the reading of requests from the client.
+// the read requests become commands in the command queue
 func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Conn, sendTickDuration time.Duration) error {
 	// read from the connection for commands to perform
 	// these get added to the queue to process
@@ -458,11 +477,6 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 						}
 						return true
 					})
-					//c.log.Debug().
-					//	Str("action", cmdMsg.action).
-					//	Str("tile", cmdMsg.what).
-					//	Int("Num Planes", matching).
-					//	Msg("Sent List")
 				} else {
 					err = c.sendError(ctx, "Unknown Tile: "+cmdMsg.what)
 				}
@@ -499,7 +513,7 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 			}
 		case <-sendTick.C:
 			if len(locationMessages) > 0 {
-				err = c.sendPlaneMessageList(ctx, &ws_protocol.WsResponse{
+				err = c.sendPlaneMessage(ctx, &ws_protocol.WsResponse{
 					Type:      ws_protocol.ResponseTypePlaneLocations,
 					Locations: locationMessages,
 				})
@@ -513,6 +527,8 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 			break
 		}
 	}
+
+	// tell prometheus we are no longer caring about the tiles
 	for k := range subs {
 		prometheusSubscriptions.WithLabelValues(k).Dec()
 
@@ -520,6 +536,7 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 	return err
 }
 
+// sendAck sends an acknowledgement message to the client
 func (c *WsClient) sendAck(ctx context.Context, ackType, tile string) error {
 	rs := ws_protocol.WsResponse{
 		Type:  ackType,
@@ -528,6 +545,7 @@ func (c *WsClient) sendAck(ctx context.Context, ackType, tile string) error {
 	return c.sendPlaneMessage(ctx, &rs)
 }
 
+// sendError sends an error message to the client
 func (c *WsClient) sendError(ctx context.Context, msg string) error {
 	c.log.Error().Str("protocol", "error").Msg(msg)
 	rs := ws_protocol.WsResponse{
@@ -537,6 +555,7 @@ func (c *WsClient) sendError(ctx context.Context, msg string) error {
 	return c.sendPlaneMessage(ctx, &rs)
 }
 
+// sendPlaneMessage sends a message to the client, with timeout
 func (c *WsClient) sendPlaneMessage(ctx context.Context, planeMsg *ws_protocol.WsResponse) error {
 	json := jsoniter.ConfigFastest
 	buf, err := json.Marshal(planeMsg)
@@ -554,23 +573,8 @@ func (c *WsClient) sendPlaneMessage(ctx context.Context, planeMsg *ws_protocol.W
 	}()
 	return nil
 }
-func (c *WsClient) sendPlaneMessageList(ctx context.Context, planeMsg *ws_protocol.WsResponse) error {
-	json := jsoniter.ConfigFastest
-	buf, err := json.Marshal(planeMsg)
-	if nil != err {
-		c.log.Debug().Err(err).Str("type", planeMsg.Type).Msg("Failed to marshal plane msg to send to client")
-		return err
-	}
-	if err = c.writeTimeout(ctx, 3*time.Second, buf); nil != err {
-		c.log.Debug().
-			Err(err).
-			Str("type", planeMsg.Type).
-			Msgf("Failed to send message to client. %+v", err)
-		return err
-	}
-	return nil
-}
 
+// writeTimeout handles the writing of a message to the actual websocket connection
 func (c *WsClient) writeTimeout(ctx context.Context, timeout time.Duration, msg []byte) error {
 	ctxW, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -580,6 +584,7 @@ func (c *WsClient) writeTimeout(ctx context.Context, timeout time.Duration, msg 
 	return c.conn.Write(ctxW, websocket.MessageText, msg)
 }
 
+// newClientList represents a list of websocket clients that we are currently servicing
 func newClientList() *ClientList {
 	cl := ClientList{}
 	cl.globalList = forgetfulmap.NewForgetfulSyncMap(
@@ -610,6 +615,7 @@ func newClientList() *ClientList {
 	return &cl
 }
 
+// addClient adds a websocket client to the list
 func (cl *ClientList) addClient(c *WsClient) {
 	c.log.Debug().Msg("Add Client")
 	c.parent = cl
@@ -618,6 +624,7 @@ func (cl *ClientList) addClient(c *WsClient) {
 	//c.log.Debug().Msg("Add Client Done")
 }
 
+// removeClient removes a websocket client from the list
 func (cl *ClientList) removeClient(c *WsClient) {
 	c.log.Debug().Msg("Remove Client")
 	close(c.outChan)
