@@ -2,6 +2,7 @@ package tracker
 
 import (
 	"fmt"
+	"plane.watch/lib/tile_grid"
 	"strconv"
 	"sync"
 	"time"
@@ -182,6 +183,13 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 			Str("DF17 Msg Type", frame.MessageTypeString()).
 			Bytes("RAW", frame.Raw()).
 			Send()
+	}
+
+	// if there is no tile location for this plane and we have a refLat/refLon - let's assume it is in the same tile
+	// as the receiver. This will be "fixed" for aircraft sending lat/lon within a few frames if it is different.
+	// this means that all the aircraft that do not send locations, will at least have a chance of showing up.
+	if "" == p.GridTileLocation() && nil != refLat && nil != refLon {
+		p.location.gridTileLocation = tile_grid.LookupTile(*refLat, *refLon)
 	}
 
 	// determine what to do with our given frame
