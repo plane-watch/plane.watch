@@ -85,6 +85,7 @@ type (
 		action     string
 		what       string
 		extra      string
+		tick       time.Duration
 		locHistory []ws_protocol.LocationHistory
 	}
 	ClientList struct {
@@ -95,6 +96,18 @@ type (
 		//globalList sync.Map
 		globalList *forgetfulmap.ForgetfulSyncMap
 	}
+
+	AirportLocation struct {
+		Name     string
+		Icao     string
+		Iata     string
+		Lat, Lon float64
+	}
+	SearchResult struct {
+		Aircraft []*export.PlaneLocation
+		Airport  []AirportLocation
+		Route    []string
+	}
 )
 
 // configureWeb Sets up our serve mux to handle our web endpoints
@@ -103,6 +116,7 @@ func (bw *PwWsBrokerWeb) configureWeb() error {
 
 	bw.serveMux.HandleFunc("/", bw.indexPage)
 	bw.serveMux.HandleFunc("/grid", bw.jsonGrid)
+	bw.serveMux.HandleFunc("/search", bw.clients.search)
 	bw.serveMux.HandleFunc("/planes", bw.servePlanes)
 
 	if bw.ServeTest {
@@ -223,7 +237,48 @@ func (bw *PwWsBrokerWeb) jsonGrid(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Length", strconv.Itoa(len(gridJsonPayload)))
 		_, _ = w.Write(gridJsonPayload)
 	}
+}
 
+// search handles
+func (cl *ClientList) search(w http.ResponseWriter, r *http.Request) {
+	term := strings.ToLower(r.URL.Query().Get("q"))
+	json := jsoniter.ConfigFastest
+	results := SearchResult{
+		Aircraft: []*export.PlaneLocation{},
+		Airport:  []AirportLocation{},
+		Route:    []string{},
+	}
+
+	if len(term) >= 3 {
+		// find any aircraft
+		cl.globalList.Range(func(key, value interface{}) bool {
+			loc := value.(*export.PlaneLocation)
+
+			if strings.Contains(strings.ToLower(loc.Icao), term) ||
+				(nil != loc.CallSign && strings.Contains(strings.ToLower(*loc.CallSign), term)) ||
+				(nil != loc.Registration && strings.Contains(strings.ToLower(*loc.Registration), term)) {
+				results.Aircraft = append(results.Aircraft, loc)
+			}
+
+			return len(results.Aircraft) < 10
+		})
+	}
+
+	buf, err := json.Marshal(results)
+	if nil != err {
+		w.WriteHeader(500)
+		log.Error().Err(err).Msg("Unable to send search results")
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+
+		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			buf = mustGzipBytes(buf)
+			w.Header().Set("Content-Encoding", "gzip")
+		}
+		w.Header().Set("Content-Length", strconv.Itoa(len(buf)))
+		w.WriteHeader(200)
+		_, _ = w.Write(buf)
+	}
 }
 
 // servePlanes Serves our Websocket Endpoint
@@ -353,6 +408,21 @@ func (c *WsClient) SendPlaneLocationHistory(icao, callSign string) {
 	}()
 }
 
+func (c *WsClient) AdjustSendTick(tick int) {
+	if tick > 0 {
+		tickDuration := time.Duration(tick) * time.Millisecond
+		if tickDuration < 10*time.Second {
+			c.log.Debug().Dur("Requested Tick (ms)", tickDuration).Msg("Client Adjust Tick Timing")
+			go func() {
+				c.cmdChan <- WsCmd{
+					action: ws_protocol.RequestTypeTickAdjust,
+					tick:   tickDuration,
+				}
+			}()
+		}
+	}
+}
+
 // planeProtocolHandler handles our websocket protocol
 // it runs the command queue that sends information to the client
 // it runs (in a go routine) the reading of requests from the client.
@@ -389,6 +459,8 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 					c.SendTilePlanes(rq.GridTile)
 				case ws_protocol.RequestTypePlaneLocHistory:
 					c.SendPlaneLocationHistory(rq.Icao, rq.CallSign)
+				case ws_protocol.RequestTypeTickAdjust:
+					c.AdjustSendTick(rq.Tick)
 				default:
 					_ = c.sendError(ctx, "Unknown request type")
 				}
@@ -461,7 +533,6 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 				})
 			case ws_protocol.RequestTypeGridPlanes:
 				if _, gridOk := gridNames[cmdMsg.what]; gridOk {
-					// todo: evaluate performance
 					matching := 0
 					// find all things currently in requested grid
 					c.parent.globalList.Range(func(key, value interface{}) bool {
@@ -487,6 +558,11 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 					Icao:     cmdMsg.what,
 					CallSign: cmdMsg.extra,
 				})
+			case ws_protocol.RequestTypeTickAdjust:
+				// this is already less than 10 seconds
+				if cmdMsg.tick > sendTickDuration {
+					sendTick.Reset(cmdMsg.tick)
+				}
 			default:
 				err = c.sendError(ctx, "Unknown Command")
 			}
@@ -666,6 +742,7 @@ func (cl *ClientList) SendLocationUpdate(highLow, tile string, loc *export.Plane
 	})
 }
 
+// mustGzipBytes is a helper function that dies if there is an error GZIP'ing a byte stream
 func mustGzipBytes(in []byte) []byte {
 	// make a gzip version
 	buf := bytes.Buffer{}

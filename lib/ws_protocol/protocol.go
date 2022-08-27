@@ -10,6 +10,7 @@ const (
 	RequestTypeUnsubscribe     = "unsub"
 	RequestTypeGridPlanes      = "grid-planes"            // returns the current plane locations in grid
 	RequestTypePlaneLocHistory = "plane-location-history" // returns the requested planes path
+	RequestTypeTickAdjust      = "adjust-tick"            // adjusts how often we send updates
 
 	ResponseTypeError           = "error"
 	ResponseTypeAckSub          = "ack-sub"
@@ -26,6 +27,7 @@ type (
 		GridTile string `json:"gridTile"`
 		Icao     string `json:"icao,omitempty"`
 		CallSign string `json:"callSign,omitempty"`
+		Tick     int    `json:"tick,omitempty"` // in Milliseconds
 	}
 	LocationHistory struct {
 		Lat, Lon          float64
