@@ -23,6 +23,8 @@ var (
 	beastModeSShortBad = []byte{0xBB, 0x1A, 0x33, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x8D, 0x4D, 0x22, 0x72, 0x99, 0x08, 0x41, 0xB7, 0x90, 0x6C, 0x28, 0x91, 0xA8, 0x1A}
 	//                              | ESC | TYPE| MLAT                              | SIG | MODE S LONG
 	noBeast = []byte{0x31, 0x33, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x8D, 0x4D, 0x22, 0x72, 0x99, 0x08, 0x41, 0xB7, 0x90, 0x6C, 0x28, 0x91, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8}
+
+	emptyBuf = []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
 )
 
 func TestScanBeast(t *testing.T) {
@@ -46,28 +48,35 @@ func TestScanBeast(t *testing.T) {
 		},
 		{
 			name:        "Test One Valid Mode AC",
-			args:        args{data: beastModeAc, atEOF: true},
+			args:        args{data: append(beastModeAc, emptyBuf...), atEOF: true},
 			wantAdvance: len(beastModeAc),
 			wantToken:   beastModeAc,
 			wantErr:     false,
 		},
 		{
+			name:        "Test One Valid Mode AC, padded",
+			args:        args{data: append(emptyBuf, append(beastModeAc, emptyBuf...)...), atEOF: true},
+			wantAdvance: len(beastModeAc) + len(emptyBuf),
+			wantToken:   beastModeAc,
+			wantErr:     false,
+		},
+		{
 			name:        "Test One Valid Mode S Short",
-			args:        args{data: beastModeSShort, atEOF: true},
+			args:        args{data: append(beastModeSShort, emptyBuf...), atEOF: true},
 			wantAdvance: len(beastModeSShort),
 			wantToken:   beastModeSShort,
 			wantErr:     false,
 		},
 		{
 			name:        "Test One Valid Mode S Long",
-			args:        args{data: beastModeSLong, atEOF: true},
+			args:        args{data: append(beastModeSLong, emptyBuf...), atEOF: true},
 			wantAdvance: len(beastModeSLong),
 			wantToken:   beastModeSLong,
 			wantErr:     false,
 		},
 		{
 			name:        "Test One Valid Mode S Long Double Esc",
-			args:        args{data: beastModeSLongDoubleEsc, atEOF: true},
+			args:        args{data: append(beastModeSLongDoubleEsc, emptyBuf...), atEOF: true},
 			wantAdvance: len(beastModeSLongDoubleEsc),
 			wantToken:   beastModeSLongDoubleRemoved,
 			wantErr:     false,
@@ -81,15 +90,29 @@ func TestScanBeast(t *testing.T) {
 		},
 		{
 			name:        "Test Two Valid Mode S Short",
-			args:        args{data: append(beastModeSShort, beastModeSShort...), atEOF: true},
+			args:        args{data: append(append(beastModeSShort, beastModeSShort...), emptyBuf...), atEOF: true},
 			wantAdvance: len(beastModeSShort),
 			wantToken:   beastModeSShort,
 			wantErr:     false,
 		},
 		{
-			name:        "Test Two Valid Mode S Short",
-			args:        args{data: append(beastModeSShort[3:], beastModeSShort...), atEOF: true},
-			wantAdvance: len(beastModeSShort),
+			name:        "Test Two Valid Mode S Long",
+			args:        args{data: append(append(beastModeSLong, beastModeSLong...), emptyBuf...), atEOF: true},
+			wantAdvance: len(beastModeSLong),
+			wantToken:   beastModeSLong,
+			wantErr:     false,
+		},
+		{
+			name:        "Test Two Valid Mode S Long Escaped",
+			args:        args{data: append(append(beastModeSLongDoubleEsc, beastModeSLongDoubleEsc...), emptyBuf...), atEOF: true},
+			wantAdvance: len(beastModeSLongDoubleEsc),
+			wantToken:   beastModeSLongDoubleRemoved,
+			wantErr:     false,
+		},
+		{
+			name:        "Test Most of One Valid Mode S Short and One Valid Mode Short S",
+			args:        args{data: append(append(beastModeSShort[3:], beastModeSShort...), emptyBuf...), atEOF: true},
+			wantAdvance: len(beastModeSShort) + len(beastModeSShort[3:]),
 			wantToken:   beastModeSShort,
 			wantErr:     false,
 		},

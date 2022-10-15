@@ -16,5 +16,4 @@ func BenchmarkProducer_AddEvent(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		producer.run()
 	}
-
 }

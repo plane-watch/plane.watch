@@ -70,40 +70,28 @@ func ScanBeast() func(data []byte, atEOF bool) (int, []byte, error) {
 			return i + 1, nil, nil
 		}
 		bufLen := len(data)
+		max := msgLen << 1
 		//println("type", data[i+1], "input len", bufLen, "msg len",msgLen)
-		if bufLen >= i+msgLen {
+		if bufLen >= i+max {
 			// we have enough in our buffer
 			// account for double escapes
-			advance := msgLen
-			max := msgLen << 1
-			//token = make([]byte, msgLen)
+			bufferAdvance := i + msgLen
 
 			dataIndex := i // start at the <esc>/0x1a
 			tokenIndex := 0
-			token[tokenIndex] = data[dataIndex]
-			for dataIndex < i+advance-1 && dataIndex < i+max {
-				dataIndex++ // first inc skips past the first 0x1a
-				tokenIndex++
-				// can we get to the next byte?
-				if dataIndex+1 > bufLen {
-					// run out of buffer, want more
-					return 0, nil, nil
-				}
-
+			for tokenIndex < msgLen && dataIndex < i+max {
 				token[tokenIndex] = data[dataIndex]
-				if data[dataIndex] != 0x1A { // messages start with 0x1A
-					continue
-				}
-				if dataIndex+2 > bufLen {
-					// run out of buffer, want more
-					return 0, nil, nil
-				}
-				if data[dataIndex+1] == 0x1A { // skip over the second <esc>
-					advance++
+
+				// if the next byte is an escaped 0x1A, jump it
+				if data[dataIndex] == 0x1A && data[dataIndex+1] == 0x1A { // skip over the second <esc>
+					bufferAdvance++
 					dataIndex++
 				}
+
+				dataIndex++
+				tokenIndex++
 			}
-			return advance, token[0:msgLen], nil
+			return bufferAdvance, token[0:msgLen], nil
 		}
 		// we want more data!
 		return 0, nil, nil
