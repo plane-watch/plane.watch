@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func (p *producer) avrScanner(scan *bufio.Scanner) error {
+func (p *Producer) avrScanner(scan *bufio.Scanner) error {
 	for scan.Scan() {
 		line := scan.Text()
 		p.addFrame(mode_s.NewFrame(line, time.Now()), &p.FrameSource)

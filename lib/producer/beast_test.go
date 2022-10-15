@@ -3,6 +3,7 @@ package producer
 import (
 	"bufio"
 	"bytes"
+	"os"
 	"plane.watch/lib/tracker"
 	"reflect"
 	"sync"
@@ -116,7 +117,8 @@ func TestScanBeast(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotAdvance, gotToken, err := ScanBeast(tt.args.data, tt.args.atEOF)
+			scanner := ScanBeast()
+			gotAdvance, gotToken, err := scanner(tt.args.data, tt.args.atEOF)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ScanBeast() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -166,5 +168,20 @@ func Test_producer_beastScanner(t *testing.T) {
 	}
 	if unexpectedCounter != 0 {
 		t.Errorf("Got Unexpected Messaged. got %d, expected 1", expectedCounter)
+	}
+}
+
+func BenchmarkScanBeast(b *testing.B) {
+	f, err := os.Open("testdata/beast.sample")
+	if nil != err {
+		b.Fatal(err)
+	}
+
+	for n := 0; n < b.N; n++ {
+		f.Seek(0, 0)
+		scanner := bufio.NewScanner(f)
+		scanner.Split(ScanBeast())
+		for scanner.Scan() {
+		}
 	}
 }

@@ -27,7 +27,7 @@ const (
 )
 
 type (
-	producer struct {
+	Producer struct {
 		tracker.FrameSource
 		producerType int
 
@@ -49,11 +49,11 @@ type (
 		hasFetcher, fetcherConnected bool
 	}
 
-	Option func(*producer)
+	Option func(*Producer)
 )
 
-func New(opts ...Option) *producer {
-	p := &producer{
+func New(opts ...Option) *Producer {
+	p := &Producer{
 		FrameSource: tracker.FrameSource{
 			OriginIdentifier: "",
 			Name:             "",
@@ -100,10 +100,10 @@ func producerType(in int) string {
 	}
 }
 
-// producer.New(WithFetcher(host, port), WithType(producer.Avr), WithRefLatLon(lat, lon))
+// Producer.New(WithFetcher(host, port), WithType(Producer.Avr), WithRefLatLon(lat, lon))
 
 func WithListener(host, port string) Option {
-	return func(p *producer) {
+	return func(p *Producer) {
 		p.run = func() {
 			addr := net.JoinHostPort(host, port)
 			ln, err := net.Listen("tcp", addr)
@@ -132,14 +132,14 @@ func WithListener(host, port string) Option {
 }
 
 func WithSourceTag(tag string) Option {
-	return func(p *producer) {
+	return func(p *Producer) {
 		p.FrameSource.Tag = tag
 	}
 }
 
 func WithFetcher(host, port string) Option {
 	hp := net.JoinHostPort(host, port)
-	return func(p *producer) {
+	return func(p *Producer) {
 		p.hasFetcher = true
 		p.FrameSource.OriginIdentifier = hp
 		p.run = func() {
@@ -154,13 +154,13 @@ func WithFetcher(host, port string) Option {
 }
 
 func WithOriginName(name string) Option {
-	return func(p *producer) {
+	return func(p *Producer) {
 		p.FrameSource.Name = name
 	}
 }
 
 func WithFiles(filePaths []string) Option {
-	return func(p *producer) {
+	return func(p *Producer) {
 		p.run = func() {
 			p.readFiles(filePaths, func(reader io.Reader, fileName string) error {
 				scanner := bufio.NewScanner(reader)
@@ -172,20 +172,20 @@ func WithFiles(filePaths []string) Option {
 }
 
 func WithBeastDelay(beastDelay bool) Option {
-	return func(p *producer) {
+	return func(p *Producer) {
 		p.beastDelay = beastDelay
 	}
 }
 
 func WithType(producerType int) Option {
-	return func(p *producer) {
+	return func(p *Producer) {
 		switch producerType {
 		case Avr, Sbs1:
 			p.producerType = producerType
 			p.splitter = bufio.ScanLines
 		case Beast:
 			p.producerType = producerType
-			p.splitter = ScanBeast
+			p.splitter = ScanBeast()
 		default:
 			log.Error().Msgf("Unknown Producer Type")
 		}
@@ -193,14 +193,14 @@ func WithType(producerType int) Option {
 }
 
 func WithPrometheusCounters(avr, beast, sbs1 prometheus.Counter) Option {
-	return func(p *producer) {
+	return func(p *Producer) {
 		p.stats.avr = avr
 		p.stats.beast = beast
 		p.stats.sbs1 = sbs1
 	}
 }
 
-func (p *producer) readFromScanner(scan *bufio.Scanner) error {
+func (p *Producer) readFromScanner(scan *bufio.Scanner) error {
 	scan.Split(p.splitter)
 
 	switch p.producerType {
@@ -211,60 +211,60 @@ func (p *producer) readFromScanner(scan *bufio.Scanner) error {
 	case Beast:
 		return p.beastScanner(scan)
 	default:
-		return errors.New("unknown producer type")
+		return errors.New("unknown Producer type")
 	}
 }
 
 // WithReferenceLatLon sets up the reference lat/lon for decoding surface position messages
 func WithReferenceLatLon(lat, lon float64) Option {
-	return func(p *producer) {
+	return func(p *Producer) {
 		log.Debug().Float64("lat", lat).Float64("lon", lon).Msg("With Reference Lat/Lon")
 		p.RefLat = &lat
 		p.RefLon = &lon
 	}
 }
 
-func (p *producer) String() string {
+func (p *Producer) String() string {
 	return p.Name
 }
 
-func (p *producer) Listen() chan tracker.Event {
+func (p *Producer) Listen() chan tracker.Event {
 	go p.run()
 	return p.out
 }
 
-func (p *producer) addFrame(f tracker.Frame, s *tracker.FrameSource) {
+func (p *Producer) addFrame(f tracker.Frame, s *tracker.FrameSource) {
 	p.AddEvent(tracker.NewFrameEvent(f, s))
 }
 
-func (p *producer) addDebug(sfmt string, v ...interface{}) {
+func (p *Producer) addDebug(sfmt string, v ...interface{}) {
 	log.Debug().Str("section", p.Name).Msgf(sfmt, v...)
 }
 
-func (p *producer) addInfo(sfmt string, v ...interface{}) {
+func (p *Producer) addInfo(sfmt string, v ...interface{}) {
 	log.Info().Str("section", p.Name).Msgf(sfmt, v...)
 }
 
-func (p *producer) addError(err error) {
+func (p *Producer) addError(err error) {
 	log.Error().Str("section", p.Name).Err(err).Send()
 }
 
-func (p *producer) HealthCheck() bool {
+func (p *Producer) HealthCheck() bool {
 	if p.hasFetcher {
 		return p.fetcherConnected
 	}
 	return true
 }
 
-func (p *producer) HealthCheckName() string {
+func (p *Producer) HealthCheckName() string {
 	return p.Name
 }
 
-func (p *producer) Stop() {
+func (p *Producer) Stop() {
 	p.cmdChan <- cmdExit
 }
 
-func (p *producer) AddEvent(e tracker.Event) {
+func (p *Producer) AddEvent(e tracker.Event) {
 	p.outLocker.Lock()
 	defer p.outLocker.Unlock()
 	if !p.outClosed {
@@ -272,7 +272,7 @@ func (p *producer) AddEvent(e tracker.Event) {
 	}
 }
 
-func (p *producer) Cleanup() {
+func (p *Producer) Cleanup() {
 	p.outLocker.Lock()
 	defer p.outLocker.Unlock()
 	if p.outClosed {
@@ -282,7 +282,7 @@ func (p *producer) Cleanup() {
 	close(p.out)
 }
 
-func (p *producer) readFiles(dataFiles []string, read func(io.Reader, string) error) {
+func (p *Producer) readFiles(dataFiles []string, read func(io.Reader, string) error) {
 	var err error
 	var inFile *os.File
 	var gzipFile *gzip.Reader
@@ -339,7 +339,7 @@ func (p *producer) readFiles(dataFiles []string, read func(io.Reader, string) er
 	}()
 }
 
-func (p *producer) fetcher(host, port string, read func(net.Conn) error) {
+func (p *Producer) fetcher(host, port string, read func(net.Conn) error) {
 	var conn net.Conn
 	var wLock sync.RWMutex
 	working := true
