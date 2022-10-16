@@ -284,6 +284,11 @@ func main() {
 			Action:    gatherSamples,
 			ArgsUsage: "[app.log - A file name to output to or stdout if not specified]",
 		},
+		{
+			Name:   "one-of-each-beast",
+			Usage:  "Get one (1) message of each time and format it for a golang beast array",
+			Action: getBeastlyMessages,
+		},
 	}
 
 	app.Before = func(c *cli.Context) error {
