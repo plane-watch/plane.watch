@@ -15,6 +15,7 @@ type (
 		mlatTimestamp []byte
 		signalLevel   byte
 		body          []byte
+		bodyString    string
 
 		isRadarCape  bool
 		hasDecoded   bool
@@ -204,6 +205,18 @@ func (f *Frame) AvrRaw() []byte {
 		return nil
 	}
 	return f.body
+}
+
+func (f *Frame) RawString() string {
+	if nil == f {
+		return ""
+	}
+
+	if "" == f.bodyString {
+		f.bodyString = fmt.Sprintf("%X", f.body)
+	}
+
+	return f.bodyString
 }
 
 func (f *Frame) SignalRssi() float64 {

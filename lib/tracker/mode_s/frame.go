@@ -600,9 +600,9 @@ func (f *Frame) RawString() string {
 	if nil == f {
 		return ""
 	}
-	if f.fromBytes {
+	if f.fromBytes && "" == f.raw {
 		// we need to convert
-		return fmt.Sprintf("%X", f.message)
+		f.raw = fmt.Sprintf("%X", f.message)
 	}
 	return f.raw
 }

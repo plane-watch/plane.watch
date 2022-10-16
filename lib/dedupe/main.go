@@ -1,7 +1,6 @@
 package dedupe
 
 import (
-	"fmt"
 	"plane.watch/lib/dedupe/forgetfulmap"
 	"plane.watch/lib/tracker"
 	"plane.watch/lib/tracker/beast"
@@ -25,7 +24,7 @@ type (
 func NewFilter() *Filter {
 	return &Filter{
 		list:   forgetfulmap.NewForgetfulSyncMap(),
-		events: make(chan tracker.Event),
+		events: make(chan tracker.Event, 10),
 	}
 }
 
@@ -60,9 +59,9 @@ func (f *Filter) Handle(frame tracker.Frame, src *tracker.FrameSource) tracker.F
 	var key interface{}
 	switch (frame).(type) {
 	case *beast.Frame:
-		key = fmt.Sprintf("%X", frame.(*beast.Frame).AvrRaw())
+		key = frame.(*beast.Frame).RawString()
 	case *mode_s.Frame:
-		key = fmt.Sprintf("%X", frame.(*mode_s.Frame).Raw())
+		key = frame.(*mode_s.Frame).RawString()
 	case *sbs1.Frame:
 		// todo: investigate better dedupe detection for sbs1
 		key = string(frame.(*sbs1.Frame).Raw())
