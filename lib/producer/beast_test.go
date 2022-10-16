@@ -240,6 +240,48 @@ func TestScanBeastUnique(t *testing.T) {
 	}
 }
 
+func TestScanBeastBufferWorks(t *testing.T) {
+	// create `tokenBufSize` short messages
+	// create `tokenBufSize` long messages
+	// append them, we have `2x tokenBufSize`
+	// gather all messages
+	// make sure the first `tokenBufSize` are short and;
+	// make sure the second `tokenBufSize` are long
+
+	short := bytes.Repeat(beastModeSShort, tokenBufSize)
+	long := bytes.Repeat(beastModeSLong, tokenBufSize)
+	scanner := bufio.NewScanner(bytes.NewReader(append(append(short, long...), emptyBuf...)))
+	scanner.Split(ScanBeast())
+
+	idx := 0
+	tokens := make([][]byte, 2*tokenBufSize)
+	for scanner.Scan() {
+		token := scanner.Bytes()
+
+		tokens[idx] = make([]byte, len(token))
+		copy(tokens[idx], token)
+
+		idx++
+		if idx > len(tokens) {
+			t.Errorf("Token buffer is too short")
+			return
+		}
+	}
+	if (2 * tokenBufSize) != idx {
+		t.Errorf("Incorrect number if items created, expected %d, got %d", 2*tokenBufSize, idx)
+	}
+	for i := 0; i < tokenBufSize; i++ {
+		if !bytes.Equal(beastModeSShort, tokens[i]) {
+			t.Errorf("Idx: %d - expected beastModeSShort, got %02X", i, tokens[i])
+		}
+	}
+	for i := tokenBufSize; i < tokenBufSize*2; i++ {
+		if !bytes.Equal(beastModeSLong, tokens[i]) {
+			t.Errorf("Idx: %d - expected beastModeSLong, got %02X", i, tokens[i])
+		}
+	}
+}
+
 func BenchmarkScanBeast(b *testing.B) {
 	f, err := os.Open("testdata/beast.sample")
 	if nil != err {
