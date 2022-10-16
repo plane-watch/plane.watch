@@ -24,7 +24,7 @@ var (
 	//                              | ESC | TYPE| MLAT                              | SIG | MODE S LONG
 	noBeast = []byte{0x31, 0x33, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x8D, 0x4D, 0x22, 0x72, 0x99, 0x08, 0x41, 0xB7, 0x90, 0x6C, 0x28, 0x91, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8}
 
-	emptyBuf = []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
+	emptyBuf = []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
 )
 
 func TestScanBeast(t *testing.T) {
@@ -148,8 +148,15 @@ func TestScanBeast(t *testing.T) {
 			}
 			if gotAdvance != tt.wantAdvance {
 				t.Errorf("ScanBeast() gotAdvance = %v, want %v", gotAdvance, tt.wantAdvance)
+				return
 			}
-			if !reflect.DeepEqual(gotToken, tt.wantToken) {
+
+			if gotToken == nil && tt.wantToken == nil {
+				return
+			}
+
+			l := len(tt.wantToken)
+			if !reflect.DeepEqual(gotToken[0:l], tt.wantToken) {
 				t.Errorf("ScanBeast() gotToken (len %d) = %X, want (len %d) %X", len(gotToken), gotToken, len(tt.wantToken), tt.wantToken)
 			}
 		})
@@ -191,6 +198,45 @@ func Test_producer_beastScanner(t *testing.T) {
 	}
 	if unexpectedCounter != 0 {
 		t.Errorf("Got Unexpected Messaged. got %d, expected 1", expectedCounter)
+	}
+}
+
+func TestScanBeastUnique(t *testing.T) {
+	scanner := ScanBeast()
+
+	buf := append(append(beastModeSShort, beastModeSLong...), emptyBuf...)
+
+	// get the first message
+
+	gotAdvance1, gotToken1, err1 := scanner(buf, true)
+	if err1 != nil {
+		t.Errorf("ScanBeast() error = %v", err1)
+		return
+	}
+	if gotAdvance1 != len(beastModeSShort) {
+		t.Errorf("ScanBeast() gotAdvance1 = %v, want %v", gotAdvance1, len(beastModeSShort))
+	}
+	if !reflect.DeepEqual(gotToken1[0:gotAdvance1], beastModeSShort) {
+		t.Errorf("ScanBeast() gotToken1 (len %d) = %X, want (len %d) %X", len(gotToken1), gotToken1, len(beastModeSShort), beastModeSShort)
+	}
+	// get the second message
+
+	gotAdvance2, gotToken2, err2 := scanner(buf[gotAdvance1:], true)
+	if err1 != nil {
+		t.Errorf("ScanBeast() error = %v", err2)
+		return
+	}
+	if gotAdvance2 != len(beastModeSLong) {
+		t.Errorf("ScanBeast() gotAdvance2 = %v, want %v", gotAdvance2, len(beastModeSLong))
+	}
+	if !reflect.DeepEqual(gotToken2[0:gotAdvance2], beastModeSLong) {
+		t.Errorf("ScanBeast() gotToken1 (len %d) = %X, want (len %d) %X", len(gotToken2), gotToken2, len(beastModeSLong), beastModeSLong)
+	}
+
+	// and now make sure they are both different
+
+	if reflect.DeepEqual(gotToken1[0:12], gotToken2[0:12]) {
+		t.Errorf("Token1 and Token2 are the same, did you use the same base slice?")
 	}
 }
 

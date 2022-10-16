@@ -4,8 +4,12 @@ import (
 	"bufio"
 	"bytes"
 	"plane.watch/lib/tracker/beast"
+	"sync"
 	"time"
 )
+
+const tokenBufSize = 1000
+const tokenBufLen = 50
 
 func (p *Producer) beastScanner(scan *bufio.Scanner) error {
 	lastTimeStamp := time.Duration(0)
@@ -33,7 +37,11 @@ func (p *Producer) beastScanner(scan *bufio.Scanner) error {
 
 // ScanBeast is a splitter for BEAST format messages
 func ScanBeast() func(data []byte, atEOF bool) (int, []byte, error) {
-	var token [50]byte
+	// slices are pointers in themselves
+	// let GoLang's garbage collection collect old buffers when they are no longer referenced
+	var tokenBuf []byte
+	var tokenBufIdx uint
+	var l sync.Mutex
 
 	return func(data []byte, atEOF bool) (int, []byte, error) {
 		if atEOF && len(data) == 0 {
@@ -65,21 +73,34 @@ func ScanBeast() func(data []byte, atEOF bool) (int, []byte, error) {
 			// Config Settings and Stats
 			// 1(esc), 1(type), 6(mlat), 1(unused), (1)DIP Config, (1)timestamp error ticks
 			msgLen = 11
+		case 0x1A:
+			// found an escaped 0x1A, skip that too
+			return i + 2, nil, nil
+
 		default:
 			// unknown? assume we got an out of sequence and skip
 			return i + 1, nil, nil
 		}
-		bufLen := len(data)
-		max := msgLen << 1
+		bufLen := len(data) - i
 		//println("type", data[i+1], "input len", bufLen, "msg len",msgLen)
-		if bufLen >= i+max {
+		if bufLen >= tokenBufLen {
 			// we have enough in our buffer
 			// account for double escapes
 			bufferAdvance := i + msgLen
 
+			l.Lock()
+			if nil == tokenBuf || (tokenBufIdx) >= tokenBufSize {
+				tokenBuf = make([]byte, tokenBufLen*tokenBufSize)
+				tokenBufIdx = 0
+			}
+
+			token := tokenBuf[tokenBufIdx*tokenBufLen : (tokenBufIdx+1)*tokenBufLen]
+			tokenBufIdx++
+			l.Unlock()
+
 			dataIndex := i // start at the <esc>/0x1a
 			tokenIndex := 0
-			for tokenIndex < msgLen && dataIndex < i+max {
+			for tokenIndex < msgLen && dataIndex < i+tokenBufLen {
 				token[tokenIndex] = data[dataIndex]
 
 				// if the next byte is an escaped 0x1A, jump it

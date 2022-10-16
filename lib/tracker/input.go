@@ -176,7 +176,7 @@ func (t *Tracker) Stop() {
 	t.middlewareWaiter.Wait()
 }
 
-//StopOnCancel listens for SigInt etc and gracefully stops
+// StopOnCancel listens for SigInt etc and gracefully stops
 func (t *Tracker) StopOnCancel() {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)

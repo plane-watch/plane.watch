@@ -22,6 +22,13 @@ type (
 	}
 )
 
+//var msgLenLookup = map[byte]int{
+//	0x31: 2,
+//	0x32: 7,
+//	0x33: 14,
+//	0x34: 2,
+//}
+
 func (f *Frame) Icao() uint32 {
 	if nil == f {
 		return 0
@@ -83,9 +90,11 @@ func newBeastMsg(rawBytes []byte) *Frame {
 	if rawBytes[1] < 0x31 || rawBytes[1] > 0x34 {
 		return nil
 	}
+
+	// note: our parts here refer to the underlying slice that was passed in
 	return &Frame{
 		raw:           rawBytes,
-		msgType:       rawBytes[1],
+		msgType:       rawBytes[1] + 0,
 		mlatTimestamp: rawBytes[2:8],
 		signalLevel:   rawBytes[8],
 		body:          rawBytes[9:],
@@ -95,19 +104,30 @@ func newBeastMsg(rawBytes []byte) *Frame {
 func NewFrame(rawBytes []byte, isRadarCape bool) *Frame {
 	if f := newBeastMsg(rawBytes); nil != f {
 		f.isRadarCape = isRadarCape
-		//if (mm->signalLevel > 0)
-		//        printf("RSSI: %.1f dBFS\n", 10 * log10(mm->signalLevel));
+
 		switch f.msgType {
 		case 0x31:
+			//if len(f.body) != 2 {
+			//	return nil
+			//}
 			// mode-ac 10 bytes (2+8)
 			f.decodeModeAc()
 		case 0x32:
+			//if len(f.body) != 7 {
+			//	return nil
+			//}
 			// mode-s short 15 bytes
-			f.decodedModeS = f.decodeModeSShort()
+			f.decodedModeS = mode_s.NewFrameFromBytes(0, f.body, time.Now())
 		case 0x33:
 			// mode-s long 22 bytes
-			f.decodedModeS = f.decodeModeSLong()
+			//if len(f.body) != 14 {
+			//	return nil
+			//}
+			f.decodedModeS = mode_s.NewFrameFromBytes(0, f.body, time.Now())
 		case 0x34:
+			//if len(f.body) != 2 {
+			//	return nil
+			//}
 			// signal strength 10 bytes
 			f.decodeConfig()
 		default:
@@ -123,30 +143,8 @@ func (f *Frame) decodeModeAc() {
 	// TODO: Decode ModeAC
 }
 
-func (f *Frame) decodeModeSShort() *mode_s.Frame {
-	if nil == f {
-		return nil
-	}
-
-	return mode_s.NewFrame(f.avr(), time.Now())
-}
-
-func (f *Frame) decodeModeSLong() *mode_s.Frame {
-	if nil == f {
-		return nil
-	}
-	return mode_s.NewFrame(f.avr(), time.Now())
-}
-
 func (f *Frame) decodeConfig() {
 	// TODO: Decode RadarCape Config Info
-}
-
-func (f *Frame) avr() string {
-	if nil == f {
-		return ""
-	}
-	return fmt.Sprintf("@%X%X;", f.mlatTimestamp, f.body)
 }
 
 // BeastTicksNs returns the number of nanoseconds the beast has been on for (the mlat timestamp is calculated from power on)

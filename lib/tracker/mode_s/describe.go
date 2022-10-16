@@ -457,7 +457,7 @@ func (f *Frame) String() string {
 func (f *Frame) Describe(output io.Writer) {
 	fprintf(output, "MODE S Packet:\n")
 	fprintf(output, "Length              : %d bits\n", f.getMessageLengthBits())
-	fprintf(output, "Frame               : %s\n", f.raw)
+	fprintf(output, "Frame               : %s\n", f.RawString())
 	fprintf(output, "DF: Downlink Format : (%d) %s\n", f.downLinkFormat, f.DownLinkFormat())
 	if f.mode == "MLAT" {
 		fprintf(output, "MLAT: Beast Ticks  : %d (@12mhz clock)\n", f.beastTicks)
@@ -917,7 +917,7 @@ func (f *Frame) formatBitString(features []featureBreakdown) string {
 
 		if fieldBitCounter != feat.start {
 			log.Warn().
-				Str("frame", f.raw).
+				Str("frame", f.RawString()).
 				Msgf("Describe: Top Level Fields Not Adding up. (%d %s %d). Expected Start=%d, got=%d", f.downLinkFormat, sk, f.messageSubType, feat.start, fieldBitCounter)
 		}
 		fieldBitCounter = feat.end
@@ -942,7 +942,7 @@ func (f *Frame) formatBitString(features []featureBreakdown) string {
 			for _, sf := range feat.subFields[sk] {
 				if subFieldBitCounter != sf.start {
 					log.Warn().
-						Str("frame", f.raw).
+						Str("frame", f.RawString()).
 						Msgf("Describe: Second Level Fields Not Adding up. (%d %s %d). Expected Start=%d, got=%d", f.downLinkFormat, sk, f.messageSubType, sf.start, subFieldBitCounter)
 				}
 				subFieldBitCounter = sf.end
@@ -957,7 +957,7 @@ func (f *Frame) formatBitString(features []featureBreakdown) string {
 					for _, ssf := range sf.subFields[ssk] {
 						if subSubFieldBitCounter != ssf.start {
 							log.Warn().
-								Str("frame", f.raw).
+								Str("frame", f.RawString()).
 								Msgf("Describe: Third Level Fields Not Adding up. (%d %s %d). Expected Start=%d, got=%d", f.downLinkFormat, sk, f.messageSubType, ssf.start, subSubFieldBitCounter)
 						}
 						doMakeBitString(ssf)
