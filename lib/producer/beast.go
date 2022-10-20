@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"plane.watch/lib/tracker/beast"
-	"sync"
 	"time"
 )
 
@@ -15,10 +14,14 @@ func (p *Producer) beastScanner(scan *bufio.Scanner) error {
 	lastTimeStamp := time.Duration(0)
 	for scan.Scan() {
 		msg := scan.Bytes()
-		frame := beast.NewFrame(msg, false)
-		if nil == frame {
+		frame, err := beast.NewFrame(msg, false)
+		if nil != err {
 			continue
 		}
+		//frame := beast.NewFrame(msg, false)
+		//if nil == frame {
+		//	continue
+		//}
 		if p.beastDelay {
 			currentTs := frame.BeastTicksNs()
 			if lastTimeStamp > 0 && lastTimeStamp < currentTs {
@@ -26,7 +29,7 @@ func (p *Producer) beastScanner(scan *bufio.Scanner) error {
 			}
 			lastTimeStamp = currentTs
 		}
-		p.addFrame(frame, &p.FrameSource)
+		p.addFrame(&frame, &p.FrameSource)
 
 		if nil != p.stats.beast {
 			p.stats.beast.Inc()
@@ -39,9 +42,9 @@ func (p *Producer) beastScanner(scan *bufio.Scanner) error {
 func ScanBeast() func(data []byte, atEOF bool) (int, []byte, error) {
 	// slices are pointers in themselves
 	// let GoLang's garbage collection collect old buffers when they are no longer referenced
-	var tokenBuf []byte
-	var tokenBufIdx uint
-	var l sync.Mutex
+	//var tokenBuf []byte
+	//var tokenBufIdx uint
+	//var l sync.Mutex
 
 	return func(data []byte, atEOF bool) (int, []byte, error) {
 		if atEOF && len(data) == 0 {
@@ -88,15 +91,7 @@ func ScanBeast() func(data []byte, atEOF bool) (int, []byte, error) {
 			// account for double escapes
 			bufferAdvance := i + msgLen
 
-			l.Lock()
-			if nil == tokenBuf || (tokenBufIdx) >= tokenBufSize {
-				tokenBuf = make([]byte, tokenBufLen*tokenBufSize)
-				tokenBufIdx = 0
-			}
-
-			token := tokenBuf[tokenBufIdx*tokenBufLen : (tokenBufIdx+1)*tokenBufLen]
-			tokenBufIdx++
-			l.Unlock()
+			token := [tokenBufLen]byte{}
 
 			dataIndex := i // start at the <esc>/0x1a
 			tokenIndex := 0

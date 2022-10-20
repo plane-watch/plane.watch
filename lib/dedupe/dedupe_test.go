@@ -22,15 +22,15 @@ func TestFilter_Handle(t *testing.T) {
 	filter := NewFilter()
 	go filter.drain()
 
-	frame := beast.NewFrame(beastModeSShort, false)
+	frame, _ := beast.NewFrame(beastModeSShort, false)
 
-	resp := filter.Handle(frame, source)
+	resp := filter.Handle(&frame, source)
 
-	if resp != frame {
+	if resp == nil {
 		t.Errorf("Expected the same frame back")
 	}
 
-	if nil != filter.Handle(frame, source) {
+	if nil != filter.Handle(&frame, source) {
 		t.Errorf("Got a duplicated frame back")
 	}
 }
@@ -41,11 +41,11 @@ func BenchmarkFilter_HandleDuplicates(b *testing.B) {
 	filter := NewFilter()
 	go filter.drain()
 
-	frame := beast.NewFrame(beastModeSShort, false)
-	filter.Handle(frame, source)
+	frame, _ := beast.NewFrame(beastModeSShort, false)
+	filter.Handle(&frame, source)
 
 	for n := 0; n < b.N; n++ {
-		if nil != filter.Handle(frame, source) {
+		if nil != filter.Handle(&frame, source) {
 			b.Error("Should not have gotten a non empty response - duplicate handled incorrectly!?")
 		}
 	}
@@ -57,7 +57,7 @@ func BenchmarkFilter_HandleUnique(b *testing.B) {
 
 	max := 0x00FFFFFF
 
-	messages := make([]*beast.Frame, 0, max)
+	messages := make([]beast.Frame, 0, max)
 
 	// setup our test data
 	template := make([]byte, len(beastModeSShort))
@@ -73,7 +73,7 @@ func BenchmarkFilter_HandleUnique(b *testing.B) {
 				shrt[13] = byte(x)
 				shrt[14] = byte(y)
 				shrt[15] = byte(z)
-				frame := beast.NewFrame(shrt, false)
+				frame, _ := beast.NewFrame(shrt, false)
 				messages = append(messages, frame)
 			}
 		}
@@ -88,7 +88,7 @@ func BenchmarkFilter_HandleUnique(b *testing.B) {
 			if n > 16777215 {
 				bb.Error("not prepared that many tests")
 			}
-			if nil != filter.Handle(messages[n], source) {
+			if nil != filter.Handle(&messages[n], source) {
 				//b.Error("Should not have gotten a non empty response - duplicate handled incorrectly!?")
 			}
 		}

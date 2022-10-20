@@ -31,9 +31,7 @@ type (
 		tracker.FrameSource
 		producerType int
 
-		out       chan tracker.Event
-		outClosed bool
-		outLocker sync.Mutex
+		out chan tracker.Event
 
 		cmdChan chan int
 
@@ -61,9 +59,8 @@ func New(opts ...Option) *Producer {
 			RefLat:           nil,
 			RefLon:           nil,
 		},
-		out:       make(chan tracker.Event, 100),
-		outClosed: false,
-		cmdChan:   make(chan int),
+		out:     make(chan tracker.Event, 100),
+		cmdChan: make(chan int),
 		run: func() {
 			println("You did not specify any sources")
 			os.Exit(1)
@@ -265,20 +262,12 @@ func (p *Producer) Stop() {
 }
 
 func (p *Producer) AddEvent(e tracker.Event) {
-	p.outLocker.Lock()
-	defer p.outLocker.Unlock()
-	if !p.outClosed {
-		p.out <- e
-	}
+	defer func() { recover() }()
+	p.out <- e
 }
 
 func (p *Producer) Cleanup() {
-	p.outLocker.Lock()
-	defer p.outLocker.Unlock()
-	if p.outClosed {
-		return
-	}
-	p.outClosed = true
+	defer func() { recover() }()
 	close(p.out)
 }
 

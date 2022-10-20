@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"os"
 	"plane.watch/lib/tracker"
+	"plane.watch/lib/tracker/beast"
 	"reflect"
 	"sync"
 	"testing"
@@ -293,6 +294,31 @@ func BenchmarkScanBeast(b *testing.B) {
 		scanner := bufio.NewScanner(f)
 		scanner.Split(ScanBeast())
 		for scanner.Scan() {
+		}
+	}
+}
+
+func BenchmarkBeastDecode(b *testing.B) {
+	// contains 37 beast messages
+	f, err := os.Open("testdata/beast-smallish.sample")
+	if nil != err {
+		b.Fatal(err)
+	}
+
+	for n := 0; n < b.N; n++ {
+		f.Seek(0, 0)
+		scanner := bufio.NewScanner(f)
+		scanner.Split(ScanBeast())
+		for scanner.Scan() {
+			msg := scanner.Bytes()
+			frame, err := beast.NewFrame(msg, false)
+			if nil != err {
+				continue
+			}
+
+			if err = frame.Decode(); nil != err {
+				continue
+			}
 		}
 	}
 }

@@ -14,9 +14,9 @@ var (
 )
 
 func TestNewBeastMsgModeAC(t *testing.T) {
-	f := newBeastMsg(beastModeAc)
+	f, err := newBeastMsg(beastModeAc)
 
-	if nil == f {
+	if nil != err {
 		t.Error("Did not get a beast message")
 		return
 	}
@@ -27,9 +27,9 @@ func TestNewBeastMsgModeAC(t *testing.T) {
 }
 
 func TestNewBeastMsgModeSShort(t *testing.T) {
-	f := newBeastMsg(beastModeSShort)
+	f, err := newBeastMsg(beastModeSShort)
 
-	if nil == f {
+	if nil != err {
 		t.Error("Did not get a beast message")
 		return
 	}
@@ -61,10 +61,10 @@ func TestNewBeastMsgModeSShort(t *testing.T) {
 }
 
 func TestNewBeastMsgModeSLong(t *testing.T) {
-	f := newBeastMsg(beastModeSLong)
+	f, err := newBeastMsg(beastModeSLong)
 
-	if nil == f {
-		t.Error("Did not get a beast message")
+	if nil != err {
+		t.Errorf("Did not get a beast message: %s", err)
 		return
 	}
 
@@ -112,8 +112,9 @@ func Test_newBeastMsg(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := newBeastMsg(tt.args.rawBytes); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("newBeastMsg() = %v, want %v", got, tt.want)
+			_, err := newBeastMsg(tt.args.rawBytes)
+			if nil == err {
+				t.Error("expected bad decode")
 			}
 		})
 	}
@@ -131,15 +132,16 @@ func TestFrame_SignalRssi(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := fmt.Sprintf("%0.1f", newBeastMsg(tt.args).SignalRssi()); !reflect.DeepEqual(got, tt.want) {
+			beastMsg, _ := newBeastMsg(tt.args)
+			if got := fmt.Sprintf("%0.1f", beastMsg.SignalRssi()); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("newBeastMsg() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func BenchmarkNewFrame(b *testing.B) {
-	messages := map[string][]byte{
+var (
+	messages = map[string][]byte{
 		"DF00_MT00_ST00": {0x1A, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xE1, 0x98, 0x38, 0x5F, 0x1A, 0x9D},
 		"DF04_MT00_ST00": {0x1A, 0x32, 0x80, 0x61, 0xEA, 0xEA, 0x5D, 0xB0, 0x14, 0x20, 0x00, 0x17, 0x30, 0xE3, 0x07, 0x9D},
 		"DF05_MT00_ST00": {0x1A, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x28, 0x00, 0x09, 0xA3, 0xE0, 0x29, 0x52},
@@ -173,12 +175,34 @@ func BenchmarkNewFrame(b *testing.B) {
 		"DF21_MT00_ST00": {0x1A, 0x33, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xA8, 0x00, 0x08, 0x00, 0x99, 0x6C, 0x09, 0xF0, 0xA8, 0x00, 0x00, 0xC8, 0xCE, 0x43},
 		"DF24_MT00_ST00": {0x1A, 0x33, 0x04, 0x92, 0xE3, 0x82, 0x04, 0x84, 0x1E, 0xC5, 0x53, 0x2D, 0x86, 0x50, 0xF3, 0x51, 0x5B, 0x29, 0xBE, 0x13, 0x0D, 0xBA, 0xAD},
 	}
-	keys := []string{`DF00_MT00_ST00`, `DF04_MT00_ST00`, `DF05_MT00_ST00`, `DF11_MT00_ST00`, `DF16_MT00_ST00`, `DF17_MT00_ST00`, `DF17_MT02_ST00`, `DF17_MT03_ST00`, `DF17_MT04_ST00`, `DF17_MT07_ST00`, `DF17_MT11_ST00`, `DF17_MT12_ST00`, `DF17_MT13_ST00`, `DF17_MT18_ST00`, `DF17_MT19_ST01`, `DF17_MT19_ST03`, `DF17_MT23_ST07`, `DF17_MT28_ST01`, `DF17_MT29_ST02`, `DF17_MT31_ST00`, `DF17_MT31_ST01`, `DF18_MT00_ST00`, `DF18_MT02_ST00`, `DF18_MT05_ST00`, `DF18_MT06_ST00`, `DF18_MT07_ST00`, `DF18_MT08_ST00`, `DF18_MT24_ST01`, `DF18_MT31_ST01`, `DF20_MT00_ST00`, `DF21_MT00_ST00`, `DF24_MT00_ST00`}
+	keys = []string{`DF00_MT00_ST00`, `DF04_MT00_ST00`, `DF05_MT00_ST00`, `DF11_MT00_ST00`, `DF16_MT00_ST00`, `DF17_MT00_ST00`, `DF17_MT02_ST00`, `DF17_MT03_ST00`, `DF17_MT04_ST00`, `DF17_MT07_ST00`, `DF17_MT11_ST00`, `DF17_MT12_ST00`, `DF17_MT13_ST00`, `DF17_MT18_ST00`, `DF17_MT19_ST01`, `DF17_MT19_ST03`, `DF17_MT23_ST07`, `DF17_MT28_ST01`, `DF17_MT29_ST02`, `DF17_MT31_ST00`, `DF17_MT31_ST01`, `DF18_MT00_ST00`, `DF18_MT02_ST00`, `DF18_MT05_ST00`, `DF18_MT06_ST00`, `DF18_MT07_ST00`, `DF18_MT08_ST00`, `DF18_MT24_ST01`, `DF18_MT31_ST01`, `DF20_MT00_ST00`, `DF21_MT00_ST00`, `DF24_MT00_ST00`}
+)
+
+func BenchmarkNewFrame2Only(b *testing.B) {
 	for _, name := range keys {
 		arg := messages[name]
 		b.Run(name, func(bb *testing.B) {
 			for n := 0; n < bb.N; n++ {
-				if err := NewFrame(arg, false).Decode(); nil != err {
+				if _, err := NewFrame(arg, false); nil != err {
+					bb.Error(err)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkNewFrameAndDecode(b *testing.B) {
+	for _, name := range keys {
+		arg := messages[name]
+		b.Run(name, func(bb *testing.B) {
+			var frame Frame
+			var err error
+			for n := 0; n < bb.N; n++ {
+				frame, err = NewFrame(arg, false)
+				if nil != err {
+					b.Error(err)
+				}
+				if err = frame.Decode(); nil != err {
 					bb.Error(err)
 				}
 			}

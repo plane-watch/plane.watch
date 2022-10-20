@@ -79,31 +79,35 @@ func (f *Frame) Raw() []byte {
 
 var magicTimestampMLAT = []byte{0xFF, 0x00, 0x4D, 0x4C, 0x41, 0x54}
 
-func newBeastMsg(rawBytes []byte) *Frame {
+var ErrBadBeastFrame = errors.New("bad beast frame")
+
+func newBeastMsg(rawBytes []byte) (Frame, error) {
+	var f Frame
 	if len(rawBytes) <= 8 {
-		return nil
+		return f, ErrBadBeastFrame
 	}
 	// decode beast into AVR
 	if rawBytes[0] != 0x1A {
 		// invalid frame
-		return nil
+		return f, ErrBadBeastFrame
 	}
 	if rawBytes[1] < 0x31 || rawBytes[1] > 0x34 {
-		return nil
+		return f, ErrBadBeastFrame
 	}
 
 	// note: our parts here refer to the underlying slice that was passed in
-	return &Frame{
-		raw:           rawBytes,
-		msgType:       rawBytes[1] + 0,
-		mlatTimestamp: rawBytes[2:8],
-		signalLevel:   rawBytes[8],
-		body:          rawBytes[9:],
-	}
+	f.raw = rawBytes
+	f.msgType = rawBytes[1] + 0
+	f.mlatTimestamp = rawBytes[2:8]
+	f.signalLevel = rawBytes[8]
+	f.body = rawBytes[9:]
+	return f, nil
+
 }
 
-func NewFrame(rawBytes []byte, isRadarCape bool) *Frame {
-	if f := newBeastMsg(rawBytes); nil != f {
+func NewFrame(rawBytes []byte, isRadarCape bool) (Frame, error) {
+	f, err := newBeastMsg(rawBytes)
+	if nil != err {
 		f.isRadarCape = isRadarCape
 
 		switch f.msgType {
@@ -132,12 +136,12 @@ func NewFrame(rawBytes []byte, isRadarCape bool) *Frame {
 			// signal strength 10 bytes
 			f.decodeConfig()
 		default:
-			return nil
+			return f, err
 		}
-		return f
+		return f, nil
 	}
 
-	return nil
+	return f, err
 }
 
 func (f *Frame) decodeModeAc() {
