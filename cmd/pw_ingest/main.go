@@ -25,6 +25,10 @@ var (
 		Name: "pw_ingest_current_tracked_planes_count",
 		Help: "The number of planes this instance is currently tracking",
 	})
+	prometheusOutputFrameDedupe = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "pw_ingest_output_frame_dedupe_total",
+		Help: "The total number of deduped frames not output.",
+	})
 )
 
 func main() {
@@ -77,6 +81,11 @@ func main() {
 			},
 		},
 	}
+	app.Flags = append(app.Flags, &cli.BoolFlag{
+		Name:    "dedupe-filter",
+		Usage:   "Include the usage of the ADSB Message Deduplication Filter. Useful for combo feeds",
+		EnvVars: []string{"DEDUPE"},
+	})
 
 	app.Before = func(c *cli.Context) error {
 		logging.SetLoggingLevel(c)
@@ -98,7 +107,9 @@ func commonSetup(c *cli.Context) (*tracker.Tracker, error) {
 	trackerOpts = append(trackerOpts, tracker.WithPrometheusCounters(prometheusGaugeCurrentPlanes, prometheusCounterFramesDecoded))
 	trk := tracker.NewTracker(trackerOpts...)
 
-	trk.AddMiddleware(dedupe.NewFilter())
+	if c.Bool("dedupe-filter") {
+		trk.AddMiddleware(dedupe.NewFilter(dedupe.WithDedupeCounter(prometheusOutputFrameDedupe)))
+	}
 	sinks, err := setup.HandleSinkFlags(c, "pw_ingest")
 	if nil != err {
 		return nil, err

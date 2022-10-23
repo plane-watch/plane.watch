@@ -154,14 +154,6 @@ func (s *Sink) OnEvent(e tracker.Event) {
 		if nil != s.config.stats.frame {
 			s.config.stats.frame.Inc()
 		}
-
-	case *tracker.DedupedFrameEvent:
-		ourFrame := e.(*tracker.DedupedFrameEvent).Frame()
-		source := e.(*tracker.DedupedFrameEvent).Source()
-		err = s.sendFrameDedupe(ourFrame, source)
-		if nil != s.config.stats.dedupeFrame {
-			s.config.stats.dedupeFrame.Inc()
-		}
 	}
 
 	if nil != err {

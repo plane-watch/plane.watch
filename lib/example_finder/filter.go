@@ -13,8 +13,6 @@ import (
 
 type (
 	Filter struct {
-		events chan tracker.Event
-
 		listIcaos    []uint32
 		listDfType   []byte
 		listDfMeType []byte
@@ -78,19 +76,11 @@ func NewFilter(opts ...Option) *Filter {
 	return f
 }
 
-func (f *Filter) Listen() chan tracker.Event {
-	return f.events
-}
-
-func (f *Filter) Stop() {
-	close(f.events)
-}
-
 func (f *Filter) String() string {
 	return "Example Finder/Filter"
 }
 
-func (f *Filter) Handle(frame tracker.Frame, src *tracker.FrameSource) tracker.Frame {
+func (f *Filter) Handle(frame tracker.Frame) tracker.Frame {
 	if nil == frame {
 		return nil
 	}

@@ -19,10 +19,6 @@ var (
 		Name: "pw_ingest_output_frame_total",
 		Help: "The total number of raw frames output. (no dedupe)",
 	})
-	prometheusOutputFrameDedupe = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "pw_ingest_output_frame_dedupe_total",
-		Help: "The total number of deduped frames output.",
-	})
 	prometheusOutputPlaneLocation = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "pw_ingest_output_location_update_total",
 		Help: "The total number of plane location events output.",
@@ -95,7 +91,7 @@ func handleSink(connName, urlSink, defaultTag string, defaultTtl int, defaultQue
 		sink.WithUserPass(parsedUrl.User.Username(), urlPass),
 		sink.WithSourceTag(getTag(parsedUrl, defaultTag)),
 		sink.WithMessageTtl(messageTtl),
-		sink.WithPrometheusCounters(prometheusOutputFrame, prometheusOutputFrameDedupe, prometheusOutputPlaneLocation),
+		sink.WithPrometheusCounters(prometheusOutputFrame, prometheusOutputPlaneLocation),
 	}
 
 	switch strings.ToLower(parsedUrl.Scheme) {
