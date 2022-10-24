@@ -114,7 +114,7 @@ func (t *Tracker) EventListener(eventSource EventMaker, waiter *sync.WaitGroup) 
 		case *FrameEvent:
 			t.decodingQueue <- e.(*FrameEvent)
 			// send this event on!
-			t.AddEvent(e)
+			//t.AddEvent(e)
 		}
 	}
 	waiter.Done()
