@@ -68,7 +68,6 @@ func (f *Frame) Decode() error {
 	if f.hasDecoded {
 		return nil
 	}
-
 	if !f.fromBytes {
 		if err := f.parseIntoRaw(); nil != err {
 			return err

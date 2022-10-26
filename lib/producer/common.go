@@ -262,7 +262,11 @@ func (p *Producer) Stop() {
 }
 
 func (p *Producer) AddEvent(e tracker.Event) {
-	defer func() { recover() }()
+	defer func() {
+		if r := recover(); nil != r {
+			log.Error().Interface("recover", r).Msg("Failed to add event")
+		}
+	}()
 	p.out <- e
 }
 

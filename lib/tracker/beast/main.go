@@ -107,7 +107,7 @@ func newBeastMsg(rawBytes []byte) (Frame, error) {
 
 func NewFrame(rawBytes []byte, isRadarCape bool) (Frame, error) {
 	f, err := newBeastMsg(rawBytes)
-	if nil != err {
+	if nil == err {
 		f.isRadarCape = isRadarCape
 
 		switch f.msgType {

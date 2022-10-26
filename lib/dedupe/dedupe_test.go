@@ -15,7 +15,10 @@ var (
 func TestFilter_HandleOld(t *testing.T) {
 	filter := NewFilter()
 
-	frame, _ := beast.NewFrame(beastModeSShort, false)
+	frame, err := beast.NewFrame(beastModeSShort, false)
+	if nil != err {
+		t.Error(err)
+	}
 
 	resp := filter.HandleOld(&frame)
 

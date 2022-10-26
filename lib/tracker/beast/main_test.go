@@ -140,6 +140,28 @@ func TestFrame_SignalRssi(t *testing.T) {
 	}
 }
 
+func TestNewFrame(t *testing.T) {
+	frame, err := NewFrame(beastModeSShort, false)
+	if nil != err {
+		t.Error(err)
+	}
+	if err = frame.Decode(); nil != err {
+		t.Error(err)
+	}
+
+	if !frame.hasDecoded {
+		t.Error("Should have decoded")
+	}
+
+	if "7C49F8" != frame.IcaoStr() {
+		t.Errorf("%0X failed to decode frame properly: %s is not correct", beastModeSShort, frame.IcaoStr())
+	}
+
+	if "7C49F8" != frame.AvrFrame().IcaoStr() {
+		t.Errorf("AVR failed to decode frame properly: %s is not correct", frame.IcaoStr())
+	}
+}
+
 var (
 	messages = map[string][]byte{
 		"DF00_MT00_ST00": {0x1A, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xE1, 0x98, 0x38, 0x5F, 0x1A, 0x9D},
