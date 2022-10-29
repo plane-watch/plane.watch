@@ -19,9 +19,11 @@ type (
 
 		isRadarCape  bool
 		hasDecoded   bool
-		decodedModeS *mode_s.Frame
+		decodedModeS mode_s.Frame
 	}
 )
+
+var zeroTime time.Time
 
 //var msgLenLookup = map[byte]int{
 //	0x31: 2,
@@ -81,7 +83,7 @@ var magicTimestampMLAT = []byte{0xFF, 0x00, 0x4D, 0x4C, 0x41, 0x54}
 
 var ErrBadBeastFrame = errors.New("bad beast frame")
 
-func newBeastMsg(rawBytes []byte) (Frame, error) {
+func NewFrame(rawBytes []byte, isRadarCape bool) (Frame, error) {
 	var f Frame
 	if len(rawBytes) <= 8 {
 		return f, ErrBadBeastFrame
@@ -101,47 +103,30 @@ func newBeastMsg(rawBytes []byte) (Frame, error) {
 	f.mlatTimestamp = rawBytes[2:8]
 	f.signalLevel = rawBytes[8]
 	f.body = rawBytes[9:]
-	return f, nil
+	//copy(f.body[:], rawBytes[9:])
 
-}
+	f.isRadarCape = isRadarCape
 
-func NewFrame(rawBytes []byte, isRadarCape bool) (Frame, error) {
-	f, err := newBeastMsg(rawBytes)
-	if nil == err {
-		f.isRadarCape = isRadarCape
-
-		switch f.msgType {
-		case 0x31:
-			//if len(f.body) != 2 {
-			//	return nil
-			//}
-			// mode-ac 10 bytes (2+8)
-			f.decodeModeAc()
-		case 0x32:
-			//if len(f.body) != 7 {
-			//	return nil
-			//}
-			// mode-s short 15 bytes
-			f.decodedModeS = mode_s.NewFrameFromBytes(0, f.body, time.Now())
-		case 0x33:
-			// mode-s long 22 bytes
-			//if len(f.body) != 14 {
-			//	return nil
-			//}
-			f.decodedModeS = mode_s.NewFrameFromBytes(0, f.body, time.Now())
-		case 0x34:
-			//if len(f.body) != 2 {
-			//	return nil
-			//}
-			// signal strength 10 bytes
-			f.decodeConfig()
-		default:
-			return f, err
-		}
-		return f, nil
+	switch f.msgType {
+	case 0x31:
+		//if len(f.body) != 2 {
+		//	return nil
+		//}
+		// mode-ac 10 bytes (2+8)
+		f.decodeModeAc()
+	case 0x32, 0x33:
+		// 0x32 = mode-s short 15 bytes
+		// 0x33 = mode-s long 22 bytes
+		f.decodedModeS = mode_s.NewFrameFromBytes(0, f.body, zeroTime)
+	case 0x34:
+		//if len(f.body) != 2 {
+		//	return nil
+		//}
+		// signal strength 10 bytes
+		f.decodeConfig()
+	default:
 	}
-
-	return f, err
+	return f, nil
 }
 
 func (f *Frame) decodeModeAc() {
@@ -201,7 +186,7 @@ func (f *Frame) AvrFrame() *mode_s.Frame {
 	if !f.hasDecoded {
 		_ = f.Decode()
 	}
-	return f.decodedModeS
+	return &f.decodedModeS
 }
 
 func (f *Frame) AvrRaw() []byte {

@@ -14,7 +14,7 @@ var (
 )
 
 func TestNewBeastMsgModeAC(t *testing.T) {
-	f, err := newBeastMsg(beastModeAc)
+	f, err := NewFrame(beastModeAc, false)
 
 	if nil != err {
 		t.Error("Did not get a beast message")
@@ -27,7 +27,7 @@ func TestNewBeastMsgModeAC(t *testing.T) {
 }
 
 func TestNewBeastMsgModeSShort(t *testing.T) {
-	f, err := newBeastMsg(beastModeSShort)
+	f, err := NewFrame(beastModeSShort, false)
 
 	if nil != err {
 		t.Error("Did not get a beast message")
@@ -61,7 +61,7 @@ func TestNewBeastMsgModeSShort(t *testing.T) {
 }
 
 func TestNewBeastMsgModeSLong(t *testing.T) {
-	f, err := newBeastMsg(beastModeSLong)
+	f, err := NewFrame(beastModeSLong, false)
 
 	if nil != err {
 		t.Errorf("Did not get a beast message: %s", err)
@@ -112,7 +112,7 @@ func Test_newBeastMsg(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := newBeastMsg(tt.args.rawBytes)
+			_, err := NewFrame(tt.args.rawBytes, false)
 			if nil == err {
 				t.Error("expected bad decode")
 			}
@@ -132,7 +132,7 @@ func TestFrame_SignalRssi(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			beastMsg, _ := newBeastMsg(tt.args)
+			beastMsg, _ := NewFrame(tt.args, false)
 			if got := fmt.Sprintf("%0.1f", beastMsg.SignalRssi()); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("newBeastMsg() = %v, want %v", got, tt.want)
 			}

@@ -306,7 +306,7 @@ type (
 		// if we have trouble decoding our frame, the message ends up here
 		err error
 
-		decodeLock            sync.Mutex
+		decodeLock            *sync.Mutex
 		hasDecoded, fromBytes bool
 	}
 )

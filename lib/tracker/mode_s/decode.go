@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 )
@@ -39,15 +40,17 @@ func DecodeString(rawFrame string, t time.Time) (*Frame, error) {
 
 func NewFrame(rawFrame string, t time.Time) *Frame {
 	f := Frame{
-		full:      rawFrame,
-		timeStamp: t,
+		decodeLock: &sync.Mutex{},
+		full:       rawFrame,
+		timeStamp:  t,
 	}
 
 	return &f
 }
 
-func NewFrameFromBytes(beastTicks uint64, message []byte, t time.Time) *Frame {
-	f := Frame{
+func NewFrameFromBytes(beastTicks uint64, message []byte, t time.Time) Frame {
+	return Frame{
+		decodeLock: &sync.Mutex{},
 		full:       "",
 		mode:       "MLAT",
 		beastTicks: beastTicks,
@@ -55,8 +58,6 @@ func NewFrameFromBytes(beastTicks uint64, message []byte, t time.Time) *Frame {
 		message:    message,
 		fromBytes:  true,
 	}
-
-	return &f
 }
 
 func (f *Frame) Decode() error {
