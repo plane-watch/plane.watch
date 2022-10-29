@@ -91,7 +91,7 @@ func (s *Sink) trackerMsgJson(le *tracker.PlaneLocationEvent) ([]byte, error) {
 	eventStruct := export.NewPlaneLocation(plane, le.New(), le.Removed(), s.config.sourceTag)
 
 	var jsonBuf []byte
-	jsonBuf, err = json.MarshalIndent(&eventStruct, "", "  ")
+	jsonBuf, err = json.Marshal(eventStruct)
 	if nil != err {
 		log.Error().Err(err).Msg("could not create json bytes for sending")
 		return nil, err
@@ -147,7 +147,6 @@ func (s *Sink) OnEvent(e tracker.Event) {
 		}
 
 	case *tracker.FrameEvent:
-		//println("Got a Frame!")
 		ourFrame := e.(*tracker.FrameEvent).Frame()
 		source := e.(*tracker.FrameEvent).Source()
 		err = s.sendFrameAll(ourFrame, source)
