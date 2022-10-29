@@ -5,9 +5,9 @@ import (
 	"strings"
 )
 
-func NewPlaneLocation(plane *tracker.Plane, isNew, isRemoved bool, source string) *PlaneLocation {
+func NewPlaneLocation(plane *tracker.Plane, isNew, isRemoved bool, source string) PlaneLocation {
 	callSign := strings.TrimSpace(plane.FlightNumber())
-	eventStruct := PlaneLocation{
+	return PlaneLocation{
 		New:             isNew,
 		Removed:         isRemoved,
 		Icao:            plane.IcaoIdentifierStr(),
@@ -38,6 +38,4 @@ func NewPlaneLocation(plane *tracker.Plane, isNew, isRemoved bool, source string
 		TrackedSince:    plane.TrackedSince().UTC(),
 		SignalRssi:      plane.SignalLevel(),
 	}
-
-	return &eventStruct
 }
