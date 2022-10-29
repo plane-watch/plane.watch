@@ -344,11 +344,13 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 				}
 				p.setLocationUpdateTime(frame.TimeStamp())
 
-				headingStr := "unknown heading"
-				if p.HasHeading() {
-					headingStr = fmt.Sprintf("heading %0.2f", p.Heading())
+				if zerolog.GlobalLevel() >= zerolog.DebugLevel {
+					headingStr := "unknown heading"
+					if p.HasHeading() {
+						headingStr = fmt.Sprintf("heading %0.2f", p.Heading())
+					}
+					debugMessage(" has %s and is travelling at %0.2f knots\033[0m", headingStr, p.Velocity())
 				}
-				debugMessage(" has %s and is travelling at %0.2f knots\033[0m", headingStr, p.Velocity())
 				break
 			}
 		case mode_s.DF17FrameTestMessage: //, "Test Message":
@@ -414,7 +416,7 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 	}
 
 	if hasChanged {
-		p.tracker.AddEvent(newPlaneLocationEvent(p))
+		p.tracker.AddEvent(NewPlaneLocationEvent(p))
 	}
 }
 
@@ -432,6 +434,6 @@ func (p *Plane) HandleSbs1Frame(frame *sbs1.Frame) {
 	}
 
 	if hasChanged {
-		p.tracker.AddEvent(newPlaneLocationEvent(p))
+		p.tracker.AddEvent(NewPlaneLocationEvent(p))
 	}
 }

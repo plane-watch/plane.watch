@@ -46,7 +46,7 @@ func (t *Tracker) processEvents() {
 	t.eventsWaiter.Done()
 }
 
-func newPlaneLocationEvent(p *Plane) *PlaneLocationEvent {
+func NewPlaneLocationEvent(p *Plane) *PlaneLocationEvent {
 	return &PlaneLocationEvent{p: p}
 }
 
