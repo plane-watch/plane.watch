@@ -477,6 +477,7 @@ type testProducer struct {
 	frames []beast.Frame
 	idx    int
 	e      chan Event
+	source *FrameSource
 }
 
 func newTestProducer() *testProducer {
@@ -518,6 +519,13 @@ func newTestProducer() *testProducer {
 		frames: make([]beast.Frame, 0, len(messages)),
 		idx:    0,
 		e:      make(chan Event),
+		source: &FrameSource{
+			OriginIdentifier: "test",
+			Name:             "test",
+			Tag:              "test",
+			RefLat:           nil,
+			RefLon:           nil,
+		},
 	}
 	for k := range messages {
 		frame, _ := beast.NewFrame(messages[k], false)
@@ -552,7 +560,7 @@ func (tp *testProducer) addMsg() {
 	}
 	tp.e <- &FrameEvent{
 		frame:  &tp.frames[tp.idx],
-		source: nil,
+		source: tp.source,
 	}
 	tp.idx++
 }

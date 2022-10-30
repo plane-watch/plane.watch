@@ -14,8 +14,8 @@ type (
 	}
 )
 
-func newLossyFrameList(numItems int) *lossyFrameList {
-	return &lossyFrameList{
+func newLossyFrameList(numItems int) lossyFrameList {
+	return lossyFrameList{
 		head:     nil,
 		tail:     nil,
 		capacity: numItems,

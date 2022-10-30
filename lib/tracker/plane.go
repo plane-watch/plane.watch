@@ -58,7 +58,7 @@ type (
 	}
 
 	Plane struct {
-		recentFrames *lossyFrameList
+		recentFrames lossyFrameList
 
 		tracker         *Tracker
 		trackedSince    time.Time
