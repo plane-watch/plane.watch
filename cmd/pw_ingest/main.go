@@ -1,12 +1,11 @@
 package main
 
 import (
-	"os"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"os"
 	"plane.watch/lib/dedupe"
 	"plane.watch/lib/example_finder"
 	"plane.watch/lib/logging"
@@ -109,6 +108,7 @@ func commonSetup(c *cli.Context) (*tracker.Tracker, error) {
 
 	if c.Bool("dedupe-filter") {
 		trk.AddMiddleware(dedupe.NewFilter(dedupe.WithDedupeCounter(prometheusOutputFrameDedupe)))
+		//trk.AddMiddleware(dedupe.NewFilterBTree(dedupe.WithDedupeCounterBTree(prometheusOutputFrameDedupe), dedupe.WithBtreeDegree(16)))
 	}
 	sinks, err := setup.HandleSinkFlags(c, "pw_ingest")
 	if nil != err {
@@ -130,6 +130,9 @@ func commonSetup(c *cli.Context) (*tracker.Tracker, error) {
 }
 
 func runSimple(c *cli.Context) error {
+	defer func() {
+		recover()
+	}()
 	logging.ConfigureForCli()
 
 	trk, err := commonSetup(c)
@@ -169,6 +172,9 @@ func runDfFilter(c *cli.Context) error {
 
 // run is our method for running things
 func run(c *cli.Context) error {
+	defer func() {
+		recover()
+	}()
 	app, err := newAppDisplay()
 	if nil != err {
 		return err
