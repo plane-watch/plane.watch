@@ -1,12 +1,11 @@
 package main
 
 import (
-	"os"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"os"
 	"plane.watch/lib/dedupe"
 	"plane.watch/lib/example_finder"
 	"plane.watch/lib/logging"
@@ -24,6 +23,10 @@ var (
 	prometheusGaugeCurrentPlanes = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "pw_ingest_current_tracked_planes_count",
 		Help: "The number of planes this instance is currently tracking",
+	})
+	prometheusOutputFrameDedupe = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "pw_ingest_output_frame_dedupe_total",
+		Help: "The total number of deduped frames not output.",
 	})
 )
 
@@ -77,6 +80,11 @@ func main() {
 			},
 		},
 	}
+	app.Flags = append(app.Flags, &cli.BoolFlag{
+		Name:    "dedupe-filter",
+		Usage:   "Include the usage of the ADSB Message Deduplication Filter. Useful for combo feeds",
+		EnvVars: []string{"DEDUPE"},
+	})
 
 	app.Before = func(c *cli.Context) error {
 		logging.SetLoggingLevel(c)
@@ -98,7 +106,10 @@ func commonSetup(c *cli.Context) (*tracker.Tracker, error) {
 	trackerOpts = append(trackerOpts, tracker.WithPrometheusCounters(prometheusGaugeCurrentPlanes, prometheusCounterFramesDecoded))
 	trk := tracker.NewTracker(trackerOpts...)
 
-	trk.AddMiddleware(dedupe.NewFilter())
+	if c.Bool("dedupe-filter") {
+		trk.AddMiddleware(dedupe.NewFilter(dedupe.WithDedupeCounter(prometheusOutputFrameDedupe)))
+		//trk.AddMiddleware(dedupe.NewFilterBTree(dedupe.WithDedupeCounterBTree(prometheusOutputFrameDedupe), dedupe.WithBtreeDegree(16)))
+	}
 	sinks, err := setup.HandleSinkFlags(c, "pw_ingest")
 	if nil != err {
 		return nil, err
@@ -119,6 +130,9 @@ func commonSetup(c *cli.Context) (*tracker.Tracker, error) {
 }
 
 func runSimple(c *cli.Context) error {
+	defer func() {
+		recover()
+	}()
 	logging.ConfigureForCli()
 
 	trk, err := commonSetup(c)
@@ -158,6 +172,9 @@ func runDfFilter(c *cli.Context) error {
 
 // run is our method for running things
 func run(c *cli.Context) error {
+	defer func() {
+		recover()
+	}()
 	app, err := newAppDisplay()
 	if nil != err {
 		return err

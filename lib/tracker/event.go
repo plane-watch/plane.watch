@@ -1,6 +1,5 @@
 package tracker
 
-const LogEventType = "log-event"
 const PlaneLocationEventType = "plane-location-event"
 
 type (
@@ -20,9 +19,6 @@ type (
 	FrameEvent struct {
 		frame  Frame
 		source *FrameSource
-	}
-	DedupedFrameEvent struct {
-		FrameEvent
 	}
 
 	FrameSource struct {
@@ -50,7 +46,7 @@ func (t *Tracker) processEvents() {
 	t.eventsWaiter.Done()
 }
 
-func newPlaneLocationEvent(p *Plane) *PlaneLocationEvent {
+func NewPlaneLocationEvent(p *Plane) *PlaneLocationEvent {
 	return &PlaneLocationEvent{p: p}
 }
 
@@ -76,10 +72,6 @@ func (p *PlaneLocationEvent) Removed() bool {
 
 func NewFrameEvent(f Frame, s *FrameSource) *FrameEvent {
 	return &FrameEvent{frame: f, source: s}
-}
-
-func NewDedupedFrameEvent(f Frame, s *FrameSource) *DedupedFrameEvent {
-	return &DedupedFrameEvent{FrameEvent{frame: f, source: s}}
 }
 
 func (f *FrameEvent) Type() string {

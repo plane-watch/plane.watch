@@ -70,5 +70,13 @@ func TestStackPushPopMultiple(t *testing.T) {
 	if nil != fl.Pop() {
 		t.Errorf("pop'd something off an empty queue")
 	}
+}
 
+func BenchmarkLossyFrameList_Push(b *testing.B) {
+	fl := newLossyFrameList(10)
+	frame := mode_s.NewFrame("8E7C7F0D581176D7BB8D48CD7714", time.Now())
+
+	for n := 0; n < b.N; n++ {
+		fl.Push(frame)
+	}
 }

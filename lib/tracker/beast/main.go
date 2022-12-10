@@ -15,12 +15,22 @@ type (
 		mlatTimestamp []byte
 		signalLevel   byte
 		body          []byte
+		bodyString    string
 
 		isRadarCape  bool
 		hasDecoded   bool
-		decodedModeS *mode_s.Frame
+		decodedModeS mode_s.Frame
 	}
 )
+
+var zeroTime time.Time
+
+//var msgLenLookup = map[byte]int{
+//	0x31: 2,
+//	0x32: 7,
+//	0x33: 14,
+//	0x34: 2,
+//}
 
 func (f *Frame) Icao() uint32 {
 	if nil == f {
@@ -71,82 +81,60 @@ func (f *Frame) Raw() []byte {
 
 var magicTimestampMLAT = []byte{0xFF, 0x00, 0x4D, 0x4C, 0x41, 0x54}
 
-func newBeastMsg(rawBytes []byte) *Frame {
+var ErrBadBeastFrame = errors.New("bad beast frame")
+
+func NewFrame(rawBytes []byte, isRadarCape bool) (Frame, error) {
+	var f Frame
 	if len(rawBytes) <= 8 {
-		return nil
+		return f, ErrBadBeastFrame
 	}
 	// decode beast into AVR
 	if rawBytes[0] != 0x1A {
 		// invalid frame
-		return nil
+		return f, ErrBadBeastFrame
 	}
 	if rawBytes[1] < 0x31 || rawBytes[1] > 0x34 {
-		return nil
-	}
-	return &Frame{
-		raw:           rawBytes,
-		msgType:       rawBytes[1],
-		mlatTimestamp: rawBytes[2:8],
-		signalLevel:   rawBytes[8],
-		body:          rawBytes[9:],
-	}
-}
-
-func NewFrame(rawBytes []byte, isRadarCape bool) *Frame {
-	if f := newBeastMsg(rawBytes); nil != f {
-		f.isRadarCape = isRadarCape
-		//if (mm->signalLevel > 0)
-		//        printf("RSSI: %.1f dBFS\n", 10 * log10(mm->signalLevel));
-		switch f.msgType {
-		case 0x31:
-			// mode-ac 10 bytes (2+8)
-			f.decodeModeAc()
-		case 0x32:
-			// mode-s short 15 bytes
-			f.decodedModeS = f.decodeModeSShort()
-		case 0x33:
-			// mode-s long 22 bytes
-			f.decodedModeS = f.decodeModeSLong()
-		case 0x34:
-			// signal strength 10 bytes
-			f.decodeConfig()
-		default:
-			return nil
-		}
-		return f
+		return f, ErrBadBeastFrame
 	}
 
-	return nil
+	// note: our parts here refer to the underlying slice that was passed in
+	f.raw = rawBytes
+	f.msgType = rawBytes[1] + 0
+	f.mlatTimestamp = rawBytes[2:8]
+	f.signalLevel = rawBytes[8]
+	f.body = rawBytes[9:]
+	//copy(f.body[:], rawBytes[9:])
+
+	f.isRadarCape = isRadarCape
+
+	switch f.msgType {
+	case 0x31:
+		//if len(f.body) != 2 {
+		//	return nil
+		//}
+		// mode-ac 10 bytes (2+8)
+		f.decodeModeAc()
+	case 0x32, 0x33:
+		// 0x32 = mode-s short 15 bytes
+		// 0x33 = mode-s long 22 bytes
+		f.decodedModeS = mode_s.NewFrameFromBytes(0, f.body, zeroTime)
+	case 0x34:
+		//if len(f.body) != 2 {
+		//	return nil
+		//}
+		// signal strength 10 bytes
+		f.decodeConfig()
+	default:
+	}
+	return f, nil
 }
 
 func (f *Frame) decodeModeAc() {
 	// TODO: Decode ModeAC
 }
 
-func (f *Frame) decodeModeSShort() *mode_s.Frame {
-	if nil == f {
-		return nil
-	}
-
-	return mode_s.NewFrame(f.avr(), time.Now())
-}
-
-func (f *Frame) decodeModeSLong() *mode_s.Frame {
-	if nil == f {
-		return nil
-	}
-	return mode_s.NewFrame(f.avr(), time.Now())
-}
-
 func (f *Frame) decodeConfig() {
 	// TODO: Decode RadarCape Config Info
-}
-
-func (f *Frame) avr() string {
-	if nil == f {
-		return ""
-	}
-	return fmt.Sprintf("@%X%X;", f.mlatTimestamp, f.body)
 }
 
 // BeastTicksNs returns the number of nanoseconds the beast has been on for (the mlat timestamp is calculated from power on)
@@ -198,7 +186,7 @@ func (f *Frame) AvrFrame() *mode_s.Frame {
 	if !f.hasDecoded {
 		_ = f.Decode()
 	}
-	return f.decodedModeS
+	return &f.decodedModeS
 }
 
 func (f *Frame) AvrRaw() []byte {
@@ -206,6 +194,18 @@ func (f *Frame) AvrRaw() []byte {
 		return nil
 	}
 	return f.body
+}
+
+func (f *Frame) RawString() string {
+	if nil == f {
+		return ""
+	}
+
+	if "" == f.bodyString {
+		f.bodyString = fmt.Sprintf("%X", f.body)
+	}
+
+	return f.bodyString
 }
 
 func (f *Frame) SignalRssi() float64 {

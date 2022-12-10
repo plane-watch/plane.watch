@@ -306,8 +306,8 @@ type (
 		// if we have trouble decoding our frame, the message ends up here
 		err error
 
-		decodeLock sync.Mutex
-		hasDecoded bool
+		decodeLock            *sync.Mutex
+		hasDecoded, fromBytes bool
 	}
 )
 
@@ -591,11 +591,18 @@ func (f *Frame) Raw() []byte {
 	if nil == f {
 		return []byte{}
 	}
+	if f.hasDecoded {
+		return f.message
+	}
 	return []byte(f.raw)
 }
 func (f *Frame) RawString() string {
 	if nil == f {
 		return ""
+	}
+	if f.fromBytes && "" == f.raw {
+		// we need to convert
+		f.raw = fmt.Sprintf("%X", f.message)
 	}
 	return f.raw
 }

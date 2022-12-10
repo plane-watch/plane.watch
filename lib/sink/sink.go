@@ -1,8 +1,8 @@
 package sink
 
 import (
-	"encoding/json"
 	"errors"
+	jsoniter "github.com/json-iterator/go"
 	"regexp"
 
 	"github.com/rs/zerolog/log"
@@ -90,8 +90,9 @@ func (s *Sink) trackerMsgJson(le *tracker.PlaneLocationEvent) ([]byte, error) {
 
 	eventStruct := export.NewPlaneLocation(plane, le.New(), le.Removed(), s.config.sourceTag)
 
+	json := jsoniter.ConfigFastest
 	var jsonBuf []byte
-	jsonBuf, err = json.MarshalIndent(&eventStruct, "", "  ")
+	jsonBuf, err = json.Marshal(eventStruct)
 	if nil != err {
 		log.Error().Err(err).Msg("could not create json bytes for sending")
 		return nil, err
@@ -112,6 +113,7 @@ func (s *Sink) sendFrameEvent(queueAvr, queueBeast, queueSbs1 string) func(track
 			if _, ok := s.config.queue[info.RouteKey]; !ok {
 				return nil
 			}
+			json := jsoniter.ConfigFastest
 			body, err = json.Marshal(info)
 			if nil != err {
 				return err
@@ -147,20 +149,11 @@ func (s *Sink) OnEvent(e tracker.Event) {
 		}
 
 	case *tracker.FrameEvent:
-		//println("Got a Frame!")
 		ourFrame := e.(*tracker.FrameEvent).Frame()
 		source := e.(*tracker.FrameEvent).Source()
 		err = s.sendFrameAll(ourFrame, source)
 		if nil != s.config.stats.frame {
 			s.config.stats.frame.Inc()
-		}
-
-	case *tracker.DedupedFrameEvent:
-		ourFrame := e.(*tracker.DedupedFrameEvent).Frame()
-		source := e.(*tracker.DedupedFrameEvent).Source()
-		err = s.sendFrameDedupe(ourFrame, source)
-		if nil != s.config.stats.dedupeFrame {
-			s.config.stats.dedupeFrame.Inc()
 		}
 	}
 
@@ -170,9 +163,9 @@ func (s *Sink) OnEvent(e tracker.Event) {
 			Str("event-type", e.Type()).
 			Str("event", e.String()).
 			Msg("Unable to handle event")
-	}
-	if err == rabbitmq.ErrNilChannel {
-		panic(err)
+		if err == rabbitmq.ErrNilChannel {
+			panic(err)
+		}
 	}
 }
 

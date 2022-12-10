@@ -145,6 +145,12 @@ func (f *ForgetfulSyncMap) HasKey(key interface{}) bool {
 	}
 	return false
 }
+func (f *ForgetfulSyncMap) HasKeyStr(key string) bool {
+	if _, ok := f.lookup.Load(key); ok {
+		return true
+	}
+	return false
+}
 
 // AddKey adds an item to the list without a value
 func (f *ForgetfulSyncMap) AddKey(key interface{}) {
@@ -161,6 +167,13 @@ func (f *ForgetfulSyncMap) AddKey(key interface{}) {
 		if "" == ks {
 			return
 		}
+	}
+	f.Store(key, nil)
+}
+func (f *ForgetfulSyncMap) AddKeyStr(key string) {
+	// avoid storing empty things
+	if "" == key {
+		return
 	}
 	f.Store(key, nil)
 }

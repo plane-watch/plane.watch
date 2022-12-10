@@ -46,7 +46,7 @@ type (
 		createTestQueues bool
 
 		stats struct {
-			dedupeFrame, frame, planeLoc prometheus.Counter
+			frame, planeLoc prometheus.Counter
 		}
 
 		// for remembering if we have recently sent this message
@@ -105,10 +105,9 @@ func WithLogFile(file string) Option {
 	}
 }
 
-func WithPrometheusCounters(frame, dedupeFrame, planeLoc prometheus.Counter) Option {
+func WithPrometheusCounters(frame, planeLoc prometheus.Counter) Option {
 	return func(conf *Config) {
 		conf.stats.frame = frame
-		conf.stats.dedupeFrame = dedupeFrame
 		conf.stats.planeLoc = planeLoc
 	}
 }

@@ -3,7 +3,9 @@ package producer
 import (
 	"bufio"
 	"bytes"
+	"os"
 	"plane.watch/lib/tracker"
+	"plane.watch/lib/tracker/beast"
 	"reflect"
 	"sync"
 	"testing"
@@ -22,6 +24,8 @@ var (
 	beastModeSShortBad = []byte{0xBB, 0x1A, 0x33, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x8D, 0x4D, 0x22, 0x72, 0x99, 0x08, 0x41, 0xB7, 0x90, 0x6C, 0x28, 0x91, 0xA8, 0x1A}
 	//                              | ESC | TYPE| MLAT                              | SIG | MODE S LONG
 	noBeast = []byte{0x31, 0x33, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x8D, 0x4D, 0x22, 0x72, 0x99, 0x08, 0x41, 0xB7, 0x90, 0x6C, 0x28, 0x91, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8}
+
+	emptyBuf = []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
 )
 
 func TestScanBeast(t *testing.T) {
@@ -45,28 +49,35 @@ func TestScanBeast(t *testing.T) {
 		},
 		{
 			name:        "Test One Valid Mode AC",
-			args:        args{data: beastModeAc, atEOF: true},
+			args:        args{data: append(beastModeAc, emptyBuf...), atEOF: true},
 			wantAdvance: len(beastModeAc),
 			wantToken:   beastModeAc,
 			wantErr:     false,
 		},
 		{
+			name:        "Test One Valid Mode AC, padded",
+			args:        args{data: append(emptyBuf, append(beastModeAc, emptyBuf...)...), atEOF: true},
+			wantAdvance: len(beastModeAc) + len(emptyBuf),
+			wantToken:   beastModeAc,
+			wantErr:     false,
+		},
+		{
 			name:        "Test One Valid Mode S Short",
-			args:        args{data: beastModeSShort, atEOF: true},
+			args:        args{data: append(beastModeSShort, emptyBuf...), atEOF: true},
 			wantAdvance: len(beastModeSShort),
 			wantToken:   beastModeSShort,
 			wantErr:     false,
 		},
 		{
 			name:        "Test One Valid Mode S Long",
-			args:        args{data: beastModeSLong, atEOF: true},
+			args:        args{data: append(beastModeSLong, emptyBuf...), atEOF: true},
 			wantAdvance: len(beastModeSLong),
 			wantToken:   beastModeSLong,
 			wantErr:     false,
 		},
 		{
 			name:        "Test One Valid Mode S Long Double Esc",
-			args:        args{data: beastModeSLongDoubleEsc, atEOF: true},
+			args:        args{data: append(beastModeSLongDoubleEsc, emptyBuf...), atEOF: true},
 			wantAdvance: len(beastModeSLongDoubleEsc),
 			wantToken:   beastModeSLongDoubleRemoved,
 			wantErr:     false,
@@ -80,15 +91,29 @@ func TestScanBeast(t *testing.T) {
 		},
 		{
 			name:        "Test Two Valid Mode S Short",
-			args:        args{data: append(beastModeSShort, beastModeSShort...), atEOF: true},
+			args:        args{data: append(append(beastModeSShort, beastModeSShort...), emptyBuf...), atEOF: true},
 			wantAdvance: len(beastModeSShort),
 			wantToken:   beastModeSShort,
 			wantErr:     false,
 		},
 		{
-			name:        "Test Two Valid Mode S Short",
-			args:        args{data: append(beastModeSShort[3:], beastModeSShort...), atEOF: true},
-			wantAdvance: len(beastModeSShort),
+			name:        "Test Two Valid Mode S Long",
+			args:        args{data: append(append(beastModeSLong, beastModeSLong...), emptyBuf...), atEOF: true},
+			wantAdvance: len(beastModeSLong),
+			wantToken:   beastModeSLong,
+			wantErr:     false,
+		},
+		{
+			name:        "Test Two Valid Mode S Long Escaped",
+			args:        args{data: append(append(beastModeSLongDoubleEsc, beastModeSLongDoubleEsc...), emptyBuf...), atEOF: true},
+			wantAdvance: len(beastModeSLongDoubleEsc),
+			wantToken:   beastModeSLongDoubleRemoved,
+			wantErr:     false,
+		},
+		{
+			name:        "Test Most of One Valid Mode S Short and One Valid Mode Short S",
+			args:        args{data: append(append(beastModeSShort[3:], beastModeSShort...), emptyBuf...), atEOF: true},
+			wantAdvance: len(beastModeSShort) + len(beastModeSShort[3:]),
 			wantToken:   beastModeSShort,
 			wantErr:     false,
 		},
@@ -116,15 +141,23 @@ func TestScanBeast(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotAdvance, gotToken, err := ScanBeast(tt.args.data, tt.args.atEOF)
+			scanner := ScanBeast()
+			gotAdvance, gotToken, err := scanner(tt.args.data, tt.args.atEOF)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ScanBeast() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if gotAdvance != tt.wantAdvance {
 				t.Errorf("ScanBeast() gotAdvance = %v, want %v", gotAdvance, tt.wantAdvance)
+				return
 			}
-			if !reflect.DeepEqual(gotToken, tt.wantToken) {
+
+			if gotToken == nil && tt.wantToken == nil {
+				return
+			}
+
+			l := len(tt.wantToken)
+			if !reflect.DeepEqual(gotToken[0:l], tt.wantToken) {
 				t.Errorf("ScanBeast() gotToken (len %d) = %X, want (len %d) %X", len(gotToken), gotToken, len(tt.wantToken), tt.wantToken)
 			}
 		})
@@ -166,5 +199,126 @@ func Test_producer_beastScanner(t *testing.T) {
 	}
 	if unexpectedCounter != 0 {
 		t.Errorf("Got Unexpected Messaged. got %d, expected 1", expectedCounter)
+	}
+}
+
+func TestScanBeastUnique(t *testing.T) {
+	scanner := ScanBeast()
+
+	buf := append(append(beastModeSShort, beastModeSLong...), emptyBuf...)
+
+	// get the first message
+
+	gotAdvance1, gotToken1, err1 := scanner(buf, true)
+	if err1 != nil {
+		t.Errorf("ScanBeast() error = %v", err1)
+		return
+	}
+	if gotAdvance1 != len(beastModeSShort) {
+		t.Errorf("ScanBeast() gotAdvance1 = %v, want %v", gotAdvance1, len(beastModeSShort))
+	}
+	if !reflect.DeepEqual(gotToken1[0:gotAdvance1], beastModeSShort) {
+		t.Errorf("ScanBeast() gotToken1 (len %d) = %X, want (len %d) %X", len(gotToken1), gotToken1, len(beastModeSShort), beastModeSShort)
+	}
+	// get the second message
+
+	gotAdvance2, gotToken2, err2 := scanner(buf[gotAdvance1:], true)
+	if err1 != nil {
+		t.Errorf("ScanBeast() error = %v", err2)
+		return
+	}
+	if gotAdvance2 != len(beastModeSLong) {
+		t.Errorf("ScanBeast() gotAdvance2 = %v, want %v", gotAdvance2, len(beastModeSLong))
+	}
+	if !reflect.DeepEqual(gotToken2[0:gotAdvance2], beastModeSLong) {
+		t.Errorf("ScanBeast() gotToken1 (len %d) = %X, want (len %d) %X", len(gotToken2), gotToken2, len(beastModeSLong), beastModeSLong)
+	}
+
+	// and now make sure they are both different
+
+	if reflect.DeepEqual(gotToken1[0:12], gotToken2[0:12]) {
+		t.Errorf("Token1 and Token2 are the same, did you use the same base slice?")
+	}
+}
+
+func TestScanBeastBufferWorks(t *testing.T) {
+	// create `tokenBufSize` short messages
+	// create `tokenBufSize` long messages
+	// append them, we have `2x tokenBufSize`
+	// gather all messages
+	// make sure the first `tokenBufSize` are short and;
+	// make sure the second `tokenBufSize` are long
+
+	short := bytes.Repeat(beastModeSShort, tokenBufSize)
+	long := bytes.Repeat(beastModeSLong, tokenBufSize)
+	scanner := bufio.NewScanner(bytes.NewReader(append(append(short, long...), emptyBuf...)))
+	scanner.Split(ScanBeast())
+
+	idx := 0
+	tokens := make([][]byte, 2*tokenBufSize)
+	for scanner.Scan() {
+		token := scanner.Bytes()
+
+		tokens[idx] = make([]byte, len(token))
+		copy(tokens[idx], token)
+
+		idx++
+		if idx > len(tokens) {
+			t.Errorf("Token buffer is too short")
+			return
+		}
+	}
+	if (2 * tokenBufSize) != idx {
+		t.Errorf("Incorrect number if items created, expected %d, got %d", 2*tokenBufSize, idx)
+	}
+	for i := 0; i < tokenBufSize; i++ {
+		if !bytes.Equal(beastModeSShort, tokens[i]) {
+			t.Errorf("Idx: %d - expected beastModeSShort, got %02X", i, tokens[i])
+		}
+	}
+	for i := tokenBufSize; i < tokenBufSize*2; i++ {
+		if !bytes.Equal(beastModeSLong, tokens[i]) {
+			t.Errorf("Idx: %d - expected beastModeSLong, got %02X", i, tokens[i])
+		}
+	}
+}
+
+func BenchmarkScanBeast(b *testing.B) {
+	f, err := os.Open("testdata/beast.sample")
+	if nil != err {
+		b.Fatal(err)
+	}
+
+	for n := 0; n < b.N; n++ {
+		f.Seek(0, 0)
+		scanner := bufio.NewScanner(f)
+		scanner.Split(ScanBeast())
+		for scanner.Scan() {
+		}
+	}
+}
+
+func BenchmarkBeastDecode(b *testing.B) {
+	// contains 37 beast messages
+	f, err := os.Open("testdata/beast-smallish.sample")
+	if nil != err {
+		b.Fatal(err)
+	}
+
+	for n := 0; n < b.N; n++ {
+		f.Seek(0, 0)
+		scanner := bufio.NewScanner(f)
+		scanner.Split(ScanBeast())
+		for scanner.Scan() {
+			msg := scanner.Bytes()
+			frame, err := beast.NewFrame(msg, false)
+			if nil != err {
+				continue
+			}
+
+			if err = frame.Decode(); nil != err {
+				continue
+			}
+		}
 	}
 }

@@ -1,6 +1,6 @@
 module plane.watch
 
-go 1.18
+go 1.19
 
 require (
 	github.com/bwmarrin/discordgo v0.23.3-0.20211228023845-29269347e820
@@ -39,6 +39,7 @@ require (
 	github.com/go-faster/errors v0.6.1 // indirect
 	github.com/go-playground/validator/v10 v10.10.1 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/google/btree v1.1.2 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect

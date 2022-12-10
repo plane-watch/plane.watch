@@ -29,6 +29,7 @@ func (f *Frame) decodeAdsb() {
 	// Down Link Format 17 Message Types
 	f.messageType = f.message[4] >> 3
 	f.messageSubType = f.message[4] & 7
+	//panic(f.messageType)
 
 	switch f.messageType {
 	case 1, 2, 3, 4:
@@ -386,11 +387,9 @@ func (f *Frame) decodeAdsb2() (*extendedSquitter, error) {
 	return &es, err
 }
 
-//
-//=========================================================================
+// =========================================================================
 //
 // Decode the 7 bit ground movement field PWL exponential style scale
-//
 func (f *Frame) decodeSurfaceMovementField() {
 	movement := uint64(((f.message[4] << 4) | (f.message[5] >> 4)) & 0x007F)
 

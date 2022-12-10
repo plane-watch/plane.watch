@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 )
@@ -39,11 +40,24 @@ func DecodeString(rawFrame string, t time.Time) (*Frame, error) {
 
 func NewFrame(rawFrame string, t time.Time) *Frame {
 	f := Frame{
-		full:      rawFrame,
-		timeStamp: t,
+		decodeLock: &sync.Mutex{},
+		full:       rawFrame,
+		timeStamp:  t,
 	}
 
 	return &f
+}
+
+func NewFrameFromBytes(beastTicks uint64, message []byte, t time.Time) Frame {
+	return Frame{
+		decodeLock: &sync.Mutex{},
+		full:       "",
+		mode:       "MLAT",
+		beastTicks: beastTicks,
+		timeStamp:  t,
+		message:    message,
+		fromBytes:  true,
+	}
 }
 
 func (f *Frame) Decode() error {
@@ -55,13 +69,14 @@ func (f *Frame) Decode() error {
 	if f.hasDecoded {
 		return nil
 	}
+	if !f.fromBytes {
+		if err := f.parseIntoRaw(); nil != err {
+			return err
+		}
 
-	if err := f.parseIntoRaw(); nil != err {
-		return err
-	}
-
-	if f.isNoOp() {
-		return ErrNoOp
+		if f.isNoOp() {
+			return ErrNoOp
+		}
 	}
 
 	err := f.parse()
@@ -291,16 +306,16 @@ func (f *Frame) decodeCrossLinkCapability() {
 	f.cc = f.message[0] & 0x2 >> 1
 }
 
-//Flight status (FS): 3 bits, shows status of alert, special position pulse (SPI, in Mode A only) and aircraft status (airborne or on-ground). The field is interpreted as:
+// Flight status (FS): 3 bits, shows status of alert, special position pulse (SPI, in Mode A only) and aircraft status (airborne or on-ground). The field is interpreted as:
 //
-//    000: no alert, no SPI, aircraft is airborne
-//    001: no alert, no SPI, aircraft is on-ground
-//    010: alert, no SPI, aircraft is airborne
-//    011: alert, no SPI, aircraft is on-ground
-//    100: alert, SPI, aircraft is airborne or on-ground
-//    101: no alert, SPI, aircraft is airborne or on-ground
-//    110: reserved
-//    111: not assigned
+//	000: no alert, no SPI, aircraft is airborne
+//	001: no alert, no SPI, aircraft is on-ground
+//	010: alert, no SPI, aircraft is airborne
+//	011: alert, no SPI, aircraft is on-ground
+//	100: alert, SPI, aircraft is airborne or on-ground
+//	101: no alert, SPI, aircraft is airborne or on-ground
+//	110: reserved
+//	111: not assigned
 func (f *Frame) decodeFlightStatus() {
 	// first 5 bits are the downlink format
 	// bits 5,6,7 are the flight status
@@ -448,7 +463,7 @@ func (f *Frame) decode13bitAltitudeCode() error {
 func (f *Frame) getMessageLengthBits() uint32 {
 	//if f.downLinkFormat & 0x10 != 0 {
 	if f.downLinkFormat&0x10 != 0 {
-		if len(f.raw) == 14 {
+		if len(f.message) == 14 {
 			return modesShortMsgBits
 		}
 		return modesLongMsgBits

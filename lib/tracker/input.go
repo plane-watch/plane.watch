@@ -57,9 +57,8 @@ type (
 
 	// Middleware has a chance to modify a frame before we send it to the plane Tracker
 	Middleware interface {
-		EventMaker
 		fmt.Stringer
-		Handle(Frame, *FrameSource) Frame
+		Handle(Frame) Frame
 	}
 )
 
@@ -92,10 +91,6 @@ func (t *Tracker) Finish() {
 		log.Debug().Str("producer", p.String()).Msg("Stopping Producer")
 		p.Stop()
 	}
-	for _, m := range t.middlewares {
-		log.Debug().Str("middleware", m.String()).Msg("Stopping middleware")
-		m.Stop()
-	}
 	log.Debug().Msg("Closing Decoding Queue")
 	close(t.decodingQueue)
 	t.planeList.Stop()
@@ -119,9 +114,7 @@ func (t *Tracker) EventListener(eventSource EventMaker, waiter *sync.WaitGroup) 
 		case *FrameEvent:
 			t.decodingQueue <- e.(*FrameEvent)
 			// send this event on!
-			t.AddEvent(e)
-		case *DedupedFrameEvent:
-			t.AddEvent(e)
+			//t.AddEvent(e)
 		}
 	}
 	waiter.Done()
@@ -151,8 +144,6 @@ func (t *Tracker) AddMiddleware(m Middleware) {
 	t.log.Debug().Str("name", m.String()).Msg("Adding middleware")
 	t.middlewares = append(t.middlewares, m)
 
-	t.middlewareWaiter.Add(1)
-	go t.EventListener(m, &t.middlewareWaiter)
 	t.log.Debug().Msg("Just added a middleware")
 }
 
@@ -176,7 +167,7 @@ func (t *Tracker) Stop() {
 	t.middlewareWaiter.Wait()
 }
 
-//StopOnCancel listens for SigInt etc and gracefully stops
+// StopOnCancel listens for SigInt etc and gracefully stops
 func (t *Tracker) StopOnCancel() {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
@@ -228,7 +219,7 @@ func (t *Tracker) decodeQueue() {
 		}
 
 		for _, m := range t.middlewares {
-			frame = m.Handle(frame, f.source)
+			frame = m.Handle(frame)
 			if nil == frame {
 				break
 			}

@@ -8,6 +8,7 @@ import (
 	"plane.watch/lib/tracker/mode_s"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -57,7 +58,7 @@ type (
 	}
 
 	Plane struct {
-		recentFrames *lossyFrameList
+		recentFrames lossyFrameList
 
 		tracker         *Tracker
 		trackedSince    time.Time
@@ -153,16 +154,12 @@ func (p *Plane) setLastSeen(lastSeen time.Time) {
 
 // MsgCount is the number of messages we have received from this plane while we have been tracking it
 func (p *Plane) MsgCount() uint64 {
-	p.rwLock.RLock()
-	defer p.rwLock.RUnlock()
-	return p.msgCount
+	return atomic.LoadUint64(&p.msgCount)
 }
 
 // incMsgCount increments our message count by 1
 func (p *Plane) incMsgCount() {
-	p.rwLock.Lock()
-	defer p.rwLock.Unlock()
-	p.msgCount++
+	atomic.AddUint64(&p.msgCount, 1)
 }
 
 // IcaoIdentifier returns the ICAO identifier this plane is using
@@ -364,7 +361,7 @@ func (p *Plane) AltitudeUnits() string {
 }
 
 // setGroundStatus puts our plane on the ground (or not). Use carefully, planes do not like being put on
-//the ground suddenly.
+// the ground suddenly.
 func (p *Plane) setGroundStatus(onGround bool) bool {
 	p.rwLock.Lock()
 	defer p.rwLock.Unlock()
@@ -785,9 +782,10 @@ func (p *Plane) LocationHistory() []*PlaneLocation {
 }
 
 // Distance function returns the distance (in meters) between two points of
-//     a given longitude and latitude relatively accurately (using a spherical
-//     approximation of the Earth) through the Haversin Distance Formula for
-//     great arc distance on a sphere with accuracy for small distances
+//
+//	a given longitude and latitude relatively accurately (using a spherical
+//	approximation of the Earth) through the Haversin Distance Formula for
+//	great arc distance on a sphere with accuracy for small distances
 //
 // point coordinates are supplied in degrees and converted into rad. in the func
 //
