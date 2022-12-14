@@ -32,7 +32,7 @@ func (chd *ClickHouseData) PlaneLocationHistory(icao, callSign string) []ws_prot
 	history := make([]ws_protocol.LocationHistory, 0, 1000)
 	query := "SELECT DISTINCT Lat, Lon, Velocity, Altitude, Heading " +
 		"FROM location_updates_low " +
-		"WHERE Icao = $1 AND CallSign = $2 AND HasLocation = 1 " +
+		"WHERE Icao = $1 AND CallSign = $2 AND HasLocation = 1 AND TileLocation != 'tileUnknown' " +
 		"AND LastMsg > toStartOfInterval(NOW(), INTERVAL 6 HOUR) " +
 		"ORDER BY LastMsg"
 
