@@ -59,12 +59,16 @@ func (f *Frame) Decode() error {
 	if f.hasDecoded {
 		return nil
 	}
-	err := f.decodedModeS.Decode()
-	if nil == err {
+	if f.msgType == 0x32 || f.msgType == 0x33 {
+		err := f.decodedModeS.Decode()
+		if nil == err {
+			f.hasDecoded = true
+		}
+		return err
+	} else {
 		f.hasDecoded = true
+		return mode_s.ErrNoOp
 	}
-
-	return err
 }
 
 func (f *Frame) TimeStamp() time.Time {
