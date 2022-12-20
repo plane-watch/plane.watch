@@ -16,13 +16,14 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/spf13/viper v1.12.0
 	github.com/streadway/amqp v1.0.0
-	github.com/urfave/cli/v2 v2.23.6
+	github.com/urfave/cli/v2 v2.23.7
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
 	nhooyr.io/websocket v1.8.7
 )
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.4.3
+	github.com/google/btree v1.1.2
 	github.com/json-iterator/go v1.1.12
 )
 
@@ -39,7 +40,6 @@ require (
 	github.com/go-faster/errors v0.6.1 // indirect
 	github.com/go-playground/validator/v10 v10.10.1 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/google/btree v1.1.2 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
