@@ -23,8 +23,6 @@ type (
 	}
 )
 
-var zeroTime time.Time
-
 //var msgLenLookup = map[byte]int{
 //	0x31: 2,
 //	0x32: 7,
@@ -121,7 +119,7 @@ func NewFrame(rawBytes []byte, isRadarCape bool) (Frame, error) {
 	case 0x32, 0x33:
 		// 0x32 = mode-s short 15 bytes
 		// 0x33 = mode-s long 22 bytes
-		f.decodedModeS = mode_s.NewFrameFromBytes(0, f.body, zeroTime)
+		f.decodedModeS = mode_s.NewFrameFromBytes(0, f.body, time.Now())
 	case 0x34:
 		//if len(f.body) != 2 {
 		//	return nil
