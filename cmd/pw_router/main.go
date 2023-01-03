@@ -251,7 +251,7 @@ func run(c *cli.Context) error {
 		cli.ShowAppHelpAndExit(c, 1)
 	}
 
-	var ds *dataStream
+	var ds *DataStream
 	if chUrl := c.String("clickhouse"); "" != chUrl {
 		chs, err := clickhouse.New(chUrl)
 		if nil != err {
