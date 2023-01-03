@@ -11,6 +11,9 @@ type (
 		Heading      time.Time
 		OnGround     time.Time
 		VerticalRate time.Time
+		FlightStatus time.Time
+		Special      time.Time
+		Squawk       time.Time
 	}
 
 	// PlaneLocation is our exported data format. it encodes to JSON

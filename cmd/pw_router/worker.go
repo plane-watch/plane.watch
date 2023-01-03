@@ -33,97 +33,115 @@ func (w *worker) isSignificant(last *export.PlaneLocation, candidate *export.Pla
 
 	// if any of these fields differ, indicate this update is significant
 	if candidate.HasHeading && last.HasHeading && math.Abs(candidate.Heading-last.Heading) > SigHeadingChange {
-		if log.Debug().Enabled() {
-			sigLog.Debug().
-				Float64("last", last.Heading).
-				Float64("current", candidate.Heading).
-				Float64("diff_value", last.Heading-candidate.Heading).
-				Msg("Significant heading change.")
+		if candidate.Updates.Heading.After(last.Updates.Heading) {
+			if log.Debug().Enabled() {
+				sigLog.Debug().
+					Float64("last", last.Heading).
+					Float64("current", candidate.Heading).
+					Float64("diff_value", last.Heading-candidate.Heading).
+					Msg("Significant heading change.")
+			}
+			return true
 		}
-		return true
 	}
 
 	if candidate.HasVelocity && last.HasVelocity && candidate.Velocity != last.Velocity {
-		if log.Debug().Enabled() {
-			sigLog.Debug().
-				Float64("last", last.Velocity).
-				Float64("current", candidate.Velocity).
-				Float64("diff_value", last.Velocity-candidate.Velocity).
-				Msg("Significant velocity change.")
+		if candidate.Updates.Velocity.After(last.Updates.Velocity) {
+			if log.Debug().Enabled() {
+				sigLog.Debug().
+					Float64("last", last.Velocity).
+					Float64("current", candidate.Velocity).
+					Float64("diff_value", last.Velocity-candidate.Velocity).
+					Msg("Significant velocity change.")
+			}
+			return true
 		}
-		return true
 	}
 
 	if candidate.HasVerticalRate && last.HasVerticalRate && math.Abs(float64(candidate.VerticalRate-last.VerticalRate)) > SigVerticalRateChange {
-		if log.Debug().Enabled() {
-			sigLog.Debug().
-				Int("last", last.VerticalRate).
-				Int("current", candidate.VerticalRate).
-				Int("diff_value", last.VerticalRate-candidate.VerticalRate).
-				Msg("Significant vertical rate change.")
+		if candidate.Updates.VerticalRate.After(last.Updates.VerticalRate) {
+			if log.Debug().Enabled() {
+				sigLog.Debug().
+					Int("last", last.VerticalRate).
+					Int("current", candidate.VerticalRate).
+					Int("diff_value", last.VerticalRate-candidate.VerticalRate).
+					Msg("Significant vertical rate change.")
+			}
 		}
 		return true
 	}
 
 	if math.Abs(float64(candidate.Altitude-last.Altitude)) > SigAltitudeChange {
-		if log.Debug().Enabled() {
-			sigLog.Debug().
-				Int("last", last.Altitude).
-				Int("current", candidate.Altitude).
-				Int("diff_value", last.Altitude-candidate.Altitude).
-				Msg("Significant altitude change.")
+		if candidate.Updates.Altitude.After(last.Updates.Altitude) {
+			if log.Debug().Enabled() {
+				sigLog.Debug().
+					Int("last", last.Altitude).
+					Int("current", candidate.Altitude).
+					Int("diff_value", last.Altitude-candidate.Altitude).
+					Msg("Significant altitude change.")
+			}
+			return true
 		}
-		return true
 	}
 
 	if candidate.FlightStatus != last.FlightStatus {
-		if log.Debug().Enabled() {
-			sigLog.Debug().
-				Str("last", last.FlightStatus).
-				Str("current", candidate.FlightStatus).
-				Msg("Significant FlightStatus change.")
+		if candidate.Updates.FlightStatus.After(last.Updates.FlightStatus) {
+			if log.Debug().Enabled() {
+				sigLog.Debug().
+					Str("last", last.FlightStatus).
+					Str("current", candidate.FlightStatus).
+					Msg("Significant FlightStatus change.")
+			}
+			return true
 		}
-		return true
 	}
 
 	if candidate.OnGround != last.OnGround {
-		if log.Debug().Enabled() {
-			sigLog.Debug().
-				Bool("last", last.OnGround).
-				Bool("current", candidate.OnGround).
-				Msg("Significant OnGround change.")
+		if candidate.Updates.OnGround.After(last.Updates.OnGround) {
+			if log.Debug().Enabled() {
+				sigLog.Debug().
+					Bool("last", last.OnGround).
+					Bool("current", candidate.OnGround).
+					Msg("Significant OnGround change.")
+			}
+			return true
 		}
-		return true
 	}
 
 	if candidate.Special != last.Special {
-		if log.Debug().Enabled() {
-			sigLog.Debug().
-				Str("last", last.Special).
-				Str("current", candidate.Special).
-				Msg("Significant Special change.")
+		if candidate.Updates.Special.After(last.Updates.Special) {
+			if log.Debug().Enabled() {
+				sigLog.Debug().
+					Str("last", last.Special).
+					Str("current", candidate.Special).
+					Msg("Significant Special change.")
+			}
+			return true
 		}
-		return true
 	}
 
 	if candidate.Squawk != last.Squawk {
-		if log.Debug().Enabled() {
-			sigLog.Debug().
-				Str("last", last.Squawk).
-				Str("current", candidate.Squawk).
-				Msg("Significant Squawk change.")
+		if candidate.Updates.Squawk.After(last.Updates.Squawk) {
+			if log.Debug().Enabled() {
+				sigLog.Debug().
+					Str("last", last.Squawk).
+					Str("current", candidate.Squawk).
+					Msg("Significant Squawk change.")
+			}
+			return true
 		}
-		return true
 	}
 
 	if candidate.TileLocation != last.TileLocation {
-		if log.Debug().Enabled() {
-			sigLog.Debug().
-				Str("last", last.TileLocation).
-				Str("current", candidate.TileLocation).
-				Msg("Significant TileLocation change.")
+		if candidate.Updates.Location.After(last.Updates.Location) {
+			if log.Debug().Enabled() {
+				sigLog.Debug().
+					Str("last", last.TileLocation).
+					Str("current", candidate.TileLocation).
+					Msg("Significant TileLocation change.")
+			}
+			return true
 		}
-		return true
 	}
 
 	if log.Trace().Enabled() {

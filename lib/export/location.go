@@ -44,6 +44,9 @@ func NewPlaneLocation(plane *tracker.Plane, isNew, isRemoved bool, source string
 			Heading:      plane.HeadingUpdatedAt().UTC(),
 			VerticalRate: plane.VerticalRateUpdatedAt().UTC(),
 			OnGround:     plane.OnGroundUpdatedAt().UTC(),
+			FlightStatus: plane.FlightStatusUpdatedAt().UTC(),
+			Special:      plane.SpecialUpdatedAt().UTC(),
+			Squawk:       plane.SquawkUpdatedAt(),
 		},
 	}
 }

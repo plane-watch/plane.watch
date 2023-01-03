@@ -53,6 +53,8 @@ type (
 		identifier string
 		status     string
 		statusId   byte
+
+		flightStatusTs time.Time
 	}
 
 	airframe struct {
@@ -77,9 +79,11 @@ type (
 		location        *PlaneLocation
 		cprLocation     CprLocation
 		special         map[string]string
-		frameTimes      []time.Time
 		msgCount        uint64
 		airframe        airframe
+
+		squawkTs  time.Time
+		specialTs time.Time
 
 		signalLevel *float64 // RSSI dBFS
 
@@ -174,6 +178,21 @@ func (p *Plane) VerticalRateUpdatedAt() time.Time {
 	defer p.rwLock.RUnlock()
 	return p.location.verticalRateTs
 }
+func (p *Plane) FlightStatusUpdatedAt() time.Time {
+	p.rwLock.RLock()
+	defer p.rwLock.RUnlock()
+	return p.flight.flightStatusTs
+}
+func (p *Plane) SpecialUpdatedAt() time.Time {
+	p.rwLock.RLock()
+	defer p.rwLock.RUnlock()
+	return p.specialTs
+}
+func (p *Plane) SquawkUpdatedAt() time.Time {
+	p.rwLock.RLock()
+	defer p.rwLock.RUnlock()
+	return p.squawkTs
+}
 
 // LastSeen is when we last received a message from this Plane
 func (p *Plane) LastSeen() time.Time {
@@ -229,11 +248,12 @@ func (p *Plane) resetLocationHistory() {
 }
 
 // setSpecial allows us to set any special status this plane is transmitting
-func (p *Plane) setSpecial(what, status string) bool {
+func (p *Plane) setSpecial(what, status string, ts time.Time) bool {
 	p.rwLock.Lock()
 	defer p.rwLock.Unlock()
 	hasChanged := p.special[what] != status
 	p.special[what] = status
+	p.specialTs = ts
 	return hasChanged
 }
 
@@ -410,7 +430,7 @@ func (p *Plane) OnGround() bool {
 }
 
 // setFlightStatus sets the flight status of the aircraft, the string is one from mode_s.flightStatusTable
-func (p *Plane) setFlightStatus(statusId byte, statusString string) bool {
+func (p *Plane) setFlightStatus(statusId byte, statusString string, ts time.Time) bool {
 	p.rwLock.Lock()
 	defer p.rwLock.Unlock()
 
@@ -418,6 +438,7 @@ func (p *Plane) setFlightStatus(statusId byte, statusString string) bool {
 
 	p.flight.statusId = statusId
 	p.flight.status = statusString
+	p.flight.flightStatusTs = ts
 	return hasChanged
 }
 
@@ -464,11 +485,12 @@ func (p *Plane) setRegistration(reg *string, err error) bool {
 }
 
 // setSquawkIdentity Sets the planes squawk. A squawk is set by the pilots for various reasons (including flight control)
-func (p *Plane) setSquawkIdentity(ident uint32) bool {
+func (p *Plane) setSquawkIdentity(ident uint32, ts time.Time) bool {
 	p.rwLock.Lock()
 	defer p.rwLock.Unlock()
 	hasChanged := p.squawk != ident
 	p.squawk = ident
+	p.squawkTs = ts
 	return hasChanged
 }
 

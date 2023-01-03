@@ -202,7 +202,7 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 			hasChanged = p.setGroundStatus(frame.MustOnGround(), frame.TimeStamp()) || hasChanged
 		}
 		if frame.Alert() {
-			hasChanged = p.setSpecial("alert", "Alert") || hasChanged
+			hasChanged = p.setSpecial("alert", "Alert", frame.TimeStamp()) || hasChanged
 		}
 	case 6, 7, 8, 9, 10, 12, 13, 14, 15, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31:
 		debugMessage(" \033[38;5;52mIgnoring Mode S Frame: %d (%s)\033[0m\n", frame.DownLinkType(), frame.DownLinkFormat())
@@ -216,16 +216,16 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 			hasChanged = p.setGroundStatus(frame.MustOnGround(), frame.TimeStamp()) || hasChanged
 		}
 		if frame.Alert() {
-			hasChanged = p.setSpecial("alert", "Alert") || hasChanged
+			hasChanged = p.setSpecial("alert", "Alert", frame.TimeStamp()) || hasChanged
 		}
 		if frame.AltitudeValid() {
 			alt, _ := frame.Altitude()
 			hasChanged = p.setAltitude(alt, frame.AltitudeUnits(), frame.TimeStamp()) || hasChanged
 		}
-		hasChanged = p.setFlightStatus(frame.FlightStatus(), frame.FlightStatusString()) || hasChanged
+		hasChanged = p.setFlightStatus(frame.FlightStatus(), frame.FlightStatusString(), frame.TimeStamp()) || hasChanged
 
 		if 5 == frame.DownLinkType() { // || 21 == frame.DownLinkType()
-			hasChanged = p.setSquawkIdentity(frame.SquawkIdentity()) || hasChanged
+			hasChanged = p.setSquawkIdentity(frame.SquawkIdentity(), frame.TimeStamp()) || hasChanged
 		}
 
 		debugMessage(" is at %d %s and flight status is: %s. \033[2mMode S Frame: %d \033[0m",
@@ -315,9 +315,9 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 				}
 
 				if frame.HasSurveillanceStatus() {
-					hasChanged = p.setSpecial("surveillance", frame.SurveillanceStatus()) || hasChanged
+					hasChanged = p.setSpecial("surveillance", frame.SurveillanceStatus(), frame.TimeStamp()) || hasChanged
 				} else {
-					hasChanged = p.setSpecial("surveillance", "") || hasChanged
+					hasChanged = p.setSpecial("surveillance", "", frame.TimeStamp()) || hasChanged
 				}
 
 				break
@@ -352,7 +352,7 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 		case mode_s.DF17FrameTestMessageSquawk: //, "Test Message":
 			{
 				if frame.SquawkIdentity() > 0 {
-					hasChanged = p.setSquawkIdentity(frame.SquawkIdentity()) || hasChanged
+					hasChanged = p.setSquawkIdentity(frame.SquawkIdentity(), frame.TimeStamp()) || hasChanged
 				}
 				break
 			}
@@ -365,10 +365,10 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 			{
 				debugMessage("\033[2m %s\033[0m", messageType)
 				if frame.Alert() {
-					hasChanged = p.setSpecial("special", frame.Special()) || hasChanged
-					hasChanged = p.setSpecial("emergency", frame.Emergency()) || hasChanged
+					hasChanged = p.setSpecial("special", frame.Special(), frame.TimeStamp()) || hasChanged
+					hasChanged = p.setSpecial("emergency", frame.Emergency(), frame.TimeStamp()) || hasChanged
 				}
-				hasChanged = p.setSquawkIdentity(frame.SquawkIdentity()) || hasChanged
+				hasChanged = p.setSquawkIdentity(frame.SquawkIdentity(), frame.TimeStamp()) || hasChanged
 				break
 			}
 		case mode_s.DF17FrameTcasRA: //, "Extended Squitter Aircraft status (1090ES TCAS RA)":
@@ -395,7 +395,7 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 	case 20, 21:
 		switch frame.BdsMessageType() {
 		case mode_s.BdsElsDataLinkCap: // 1.0
-			hasChanged = p.setSquawkIdentity(frame.SquawkIdentity()) || hasChanged
+			hasChanged = p.setSquawkIdentity(frame.SquawkIdentity(), frame.TimeStamp()) || hasChanged
 		case mode_s.BdsElsGicbCap: // 1.7
 			if frame.AltitudeValid() {
 				hasChanged = p.setAltitude(frame.MustAltitude(), frame.AltitudeUnits(), frame.TimeStamp()) || hasChanged
