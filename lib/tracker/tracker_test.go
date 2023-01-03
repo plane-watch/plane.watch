@@ -264,7 +264,7 @@ func TestPlane_HasHeading(t *testing.T) {
 		t.Error("Did not expect to have a heading")
 	}
 
-	changed := p.setHeading(99)
+	changed := p.setHeading(99, time.Now())
 	if !changed {
 		t.Error("Expected that setting our heading got a change")
 	}
@@ -281,7 +281,7 @@ func TestPlane_HasVerticalRate(t *testing.T) {
 		t.Error("Did not expect to have a vertical rate")
 	}
 
-	changed := p.setVerticalRate(99)
+	changed := p.setVerticalRate(99, time.Now())
 	if !changed {
 		t.Error("Expected that setting our vertical rate got a change")
 	}
@@ -298,7 +298,7 @@ func TestPlane_HasVelocity(t *testing.T) {
 		t.Error("Did not expect to have a velocity")
 	}
 
-	changed := p.setVelocity(99)
+	changed := p.setVelocity(99, time.Now())
 	if !changed {
 		t.Error("Expected that setting our velocity got a change")
 	}

@@ -37,5 +37,13 @@ func NewPlaneLocation(plane *tracker.Plane, isNew, isRemoved bool, source string
 		LastMsg:         plane.LastSeen().UTC(),
 		TrackedSince:    plane.TrackedSince().UTC(),
 		SignalRssi:      plane.SignalLevel(),
+		Updates: Updates{
+			Location:     plane.LocationUpdatedAt().UTC(),
+			Altitude:     plane.AltitudeUpdatedAt().UTC(),
+			Velocity:     plane.VelocityUpdatedAt().UTC(),
+			Heading:      plane.HeadingUpdatedAt().UTC(),
+			VerticalRate: plane.VerticalRateUpdatedAt().UTC(),
+			OnGround:     plane.OnGroundUpdatedAt().UTC(),
+		},
 	}
 }

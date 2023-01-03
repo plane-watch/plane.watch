@@ -3,6 +3,15 @@ package export
 import "time"
 
 type (
+	// Updates Contains the last updated timestamps for their related fields
+	Updates struct {
+		Location     time.Time
+		Altitude     time.Time
+		Velocity     time.Time
+		Heading      time.Time
+		OnGround     time.Time
+		VerticalRate time.Time
+	}
 
 	// PlaneLocation is our exported data format. it encodes to JSON
 	PlaneLocation struct {
@@ -26,8 +35,15 @@ type (
 		Squawk            string
 		Special           string
 		TileLocation      string
-		TrackedSince      time.Time
-		LastMsg           time.Time
+
+		// TrackedSince is when we first started tracking this aircraft *this time*
+		TrackedSince time.Time
+
+		// LastMsg is the last time we heard from this aircraft
+		LastMsg time.Time
+
+		// Updates contains the list of individual fields that contain updated time stamps for various fields
+		Updates Updates
 
 		SignalRssi *float64
 

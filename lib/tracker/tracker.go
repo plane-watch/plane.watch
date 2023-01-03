@@ -190,19 +190,17 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 		// grab the altitude
 		if frame.AltitudeValid() {
 			alt, _ := frame.Altitude()
-			hasChanged = p.setAltitude(alt, frame.AltitudeUnits()) || hasChanged
+			hasChanged = p.setAltitude(alt, frame.AltitudeUnits(), frame.TimeStamp()) || hasChanged
 		}
 		if frame.VerticalStatusValid() {
-			hasChanged = p.setGroundStatus(frame.MustOnGround()) || hasChanged
+			hasChanged = p.setGroundStatus(frame.MustOnGround(), frame.TimeStamp()) || hasChanged
 		}
-		p.setLocationUpdateTime(frame.TimeStamp())
 		debugMessage(" is at %d %s \033[0m", p.Altitude(), p.AltitudeUnits())
 
 	case 1, 2, 3:
 		if frame.VerticalStatusValid() {
-			hasChanged = p.setGroundStatus(frame.MustOnGround()) || hasChanged
+			hasChanged = p.setGroundStatus(frame.MustOnGround(), frame.TimeStamp()) || hasChanged
 		}
-		p.setLocationUpdateTime(frame.TimeStamp())
 		if frame.Alert() {
 			hasChanged = p.setSpecial("alert", "Alert") || hasChanged
 		}
@@ -211,18 +209,18 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 		break
 	case 11:
 		if frame.VerticalStatusValid() {
-			hasChanged = p.setGroundStatus(frame.MustOnGround()) || hasChanged
+			hasChanged = p.setGroundStatus(frame.MustOnGround(), frame.TimeStamp()) || hasChanged
 		}
 	case 4, 5:
 		if frame.VerticalStatusValid() {
-			hasChanged = p.setGroundStatus(frame.MustOnGround()) || hasChanged
+			hasChanged = p.setGroundStatus(frame.MustOnGround(), frame.TimeStamp()) || hasChanged
 		}
 		if frame.Alert() {
 			hasChanged = p.setSpecial("alert", "Alert") || hasChanged
 		}
 		if frame.AltitudeValid() {
 			alt, _ := frame.Altitude()
-			hasChanged = p.setAltitude(alt, frame.AltitudeUnits()) || hasChanged
+			hasChanged = p.setAltitude(alt, frame.AltitudeUnits(), frame.TimeStamp()) || hasChanged
 		}
 		hasChanged = p.setFlightStatus(frame.FlightStatus(), frame.FlightStatusString()) || hasChanged
 
@@ -230,20 +228,17 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 			hasChanged = p.setSquawkIdentity(frame.SquawkIdentity()) || hasChanged
 		}
 
-		p.setLocationUpdateTime(frame.TimeStamp())
-
 		debugMessage(" is at %d %s and flight status is: %s. \033[2mMode S Frame: %d \033[0m",
 			p.Altitude(), p.AltitudeUnits(), p.FlightStatus(), frame.DownLinkType())
 		break
 	case 16:
 		if frame.AltitudeValid() {
 			alt, _ := frame.Altitude()
-			hasChanged = p.setAltitude(alt, frame.AltitudeUnits()) || hasChanged
+			hasChanged = p.setAltitude(alt, frame.AltitudeUnits(), frame.TimeStamp()) || hasChanged
 		}
 		if frame.VerticalStatusValid() {
-			hasChanged = p.setGroundStatus(frame.MustOnGround()) || hasChanged
+			hasChanged = p.setGroundStatus(frame.MustOnGround(), frame.TimeStamp()) || hasChanged
 		}
-		p.setLocationUpdateTime(frame.TimeStamp())
 
 	case 17, 18, 19: // ADS-B
 		//if debug {
@@ -265,16 +260,16 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 		case mode_s.DF17FrameSurfacePos: // "Surface Position"
 			{
 				if frame.HeadingValid() {
-					hasChanged = p.setHeading(frame.MustHeading()) || hasChanged
+					hasChanged = p.setHeading(frame.MustHeading(), frame.TimeStamp()) || hasChanged
 				}
 				if frame.VelocityValid() {
-					hasChanged = p.setVelocity(frame.MustVelocity()) || hasChanged
+					hasChanged = p.setVelocity(frame.MustVelocity(), time.Now()) || hasChanged
 				}
 				if !p.OnGround() {
 					p.zeroCpr()
 				}
 				if frame.VerticalStatusValid() {
-					hasChanged = p.setGroundStatus(frame.MustOnGround()) || hasChanged
+					hasChanged = p.setGroundStatus(frame.MustOnGround(), frame.TimeStamp()) || hasChanged
 				}
 
 				if frame.IsEven() {
@@ -287,7 +282,6 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 				} else {
 					hasChanged = true
 				}
-				p.setLocationUpdateTime(frame.TimeStamp())
 
 				debugMessage(" is on the ground and has heading %s and is travelling at %0.2f knots\033[0m", p.HeadingStr(), p.Velocity())
 				break
@@ -295,12 +289,12 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 		case mode_s.DF17FrameAirPositionBarometric, mode_s.DF17FrameAirPositionGnss: // "Airborne Position (with Barometric altitude)"
 			{
 				if p.OnGround() {
+					// this is valid since we should only get this type of message when we are off the ground
 					p.zeroCpr()
 				}
 				if frame.VerticalStatusValid() {
-					hasChanged = p.setGroundStatus(frame.MustOnGround()) || hasChanged
+					hasChanged = p.setGroundStatus(frame.MustOnGround(), frame.TimeStamp()) || hasChanged
 				}
-				p.setLocationUpdateTime(frame.TimeStamp())
 
 				if frame.IsEven() {
 					_ = p.setCprEvenLocation(float64(frame.Latitude()), float64(frame.Longitude()), frame.TimeStamp())
@@ -309,7 +303,7 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 				}
 
 				altitude, _ := frame.Altitude()
-				p.setAltitude(altitude, frame.AltitudeUnits())
+				p.setAltitude(altitude, frame.AltitudeUnits(), frame.TimeStamp())
 				if err := p.decodeCpr(0, 0, frame.TimeStamp()); nil != err {
 					debugMessage("%s", err)
 				} else {
@@ -331,18 +325,17 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 		case mode_s.DF17FrameAirVelocity: // "Airborne velocity"
 			{
 				if frame.HeadingValid() {
-					hasChanged = p.setHeading(frame.MustHeading()) || hasChanged
+					hasChanged = p.setHeading(frame.MustHeading(), frame.TimeStamp()) || hasChanged
 				}
 				if frame.VelocityValid() {
-					hasChanged = p.setVelocity(frame.MustVelocity()) || hasChanged
+					hasChanged = p.setVelocity(frame.MustVelocity(), frame.TimeStamp()) || hasChanged
 				}
 				if frame.VerticalStatusValid() {
-					hasChanged = p.setGroundStatus(frame.MustOnGround()) || hasChanged
+					hasChanged = p.setGroundStatus(frame.MustOnGround(), frame.TimeStamp()) || hasChanged
 				}
 				if frame.VerticalRateValid() {
-					hasChanged = p.setVerticalRate(frame.MustVerticalRate()) || hasChanged
+					hasChanged = p.setVerticalRate(frame.MustVerticalRate(), frame.TimeStamp()) || hasChanged
 				}
-				p.setLocationUpdateTime(frame.TimeStamp())
 
 				if zerolog.GlobalLevel() >= zerolog.DebugLevel {
 					headingStr := "unknown heading"
@@ -391,7 +384,7 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 		case mode_s.DF17FrameAircraftOperational: //, "Aircraft Operational status Message":
 			{
 				if frame.VerticalStatusValid() {
-					hasChanged = p.setGroundStatus(frame.MustOnGround()) || hasChanged
+					hasChanged = p.setGroundStatus(frame.MustOnGround(), frame.TimeStamp()) || hasChanged
 				}
 				hasChanged = p.setAirFrameWidthLength(frame.GetAirplaneLengthWidth()) || hasChanged
 
@@ -405,7 +398,7 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 			hasChanged = p.setSquawkIdentity(frame.SquawkIdentity()) || hasChanged
 		case mode_s.BdsElsGicbCap: // 1.7
 			if frame.AltitudeValid() {
-				hasChanged = p.setAltitude(frame.MustAltitude(), frame.AltitudeUnits()) || hasChanged
+				hasChanged = p.setAltitude(frame.MustAltitude(), frame.AltitudeUnits(), frame.TimeStamp()) || hasChanged
 			}
 		case mode_s.BdsElsAircraftIdent: // 2.0
 			hasChanged = p.setFlightNumber(frame.FlightNumber()) || hasChanged
