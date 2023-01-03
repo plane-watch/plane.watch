@@ -14,7 +14,7 @@ type (
 		destRoutingKey string
 		spreadUpdates  bool
 
-		ds *dataStream
+		ds *DataStream
 	}
 )
 

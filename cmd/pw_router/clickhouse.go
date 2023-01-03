@@ -10,7 +10,7 @@ import (
 )
 
 type (
-	dataStream struct {
+	DataStream struct {
 		low, high chan *export.PlaneLocation
 		chs       *clickhouse.Server
 		log       zerolog.Logger
@@ -39,8 +39,8 @@ type (
 		SourceTag       string
 		Squawk          uint32
 		Special         string
-		TrackedSince    int64
-		LastMsg         int64
+		TrackedSince    string
+		LastMsg         string
 		FlagCode        string
 		Operator        string
 		RegisteredOwner string
@@ -52,8 +52,8 @@ type (
 	}
 )
 
-func NewDataStreams(chs *clickhouse.Server) *dataStream {
-	ds := &dataStream{
+func NewDataStreams(chs *clickhouse.Server) *DataStream {
+	ds := &DataStream{
 		low:  make(chan *export.PlaneLocation, 1000),
 		high: make(chan *export.PlaneLocation, 2000),
 		chs:  chs,
@@ -65,17 +65,18 @@ func NewDataStreams(chs *clickhouse.Server) *dataStream {
 	return ds
 }
 
-func (ds *dataStream) AddLow(frame *export.PlaneLocation) {
+func (ds *DataStream) AddLow(frame *export.PlaneLocation) {
 	ds.low <- frame
 }
 
-func (ds *dataStream) AddHigh(frame *export.PlaneLocation) {
+func (ds *DataStream) AddHigh(frame *export.PlaneLocation) {
 	ds.high <- frame
 }
 
-func (ds *dataStream) handleQueue(q chan *export.PlaneLocation, table string) {
+// handleQueue single threadedly accumulates and sends data to clickhouse for the given queue/table
+func (ds *DataStream) handleQueue(q chan *export.PlaneLocation, table string) {
 	ticker := time.NewTicker(time.Second)
-	max := 50000
+	max := 50_000
 	updates := make([]any, max)
 	updateId := 0
 	bool2int := func(x bool) uint8 {
@@ -126,8 +127,8 @@ func (ds *dataStream) handleQueue(q chan *export.PlaneLocation, table string) {
 				SourceTag:       loc.SourceTag,
 				Squawk:          uint32(squawk),
 				Special:         loc.Special,
-				TrackedSince:    loc.TrackedSince.UTC().UnixNano(),
-				LastMsg:         loc.LastMsg.UTC().UnixNano(),
+				TrackedSince:    loc.TrackedSince.UTC().Format("2006-01-02 15:04:05.999999999"),
+				LastMsg:         loc.LastMsg.UTC().Format("2006-01-02 15:04:05.999999999"),
 				FlagCode:        unPtr(loc.FlagCode),
 				Operator:        unPtr(loc.Operator),
 				RegisteredOwner: unPtr(loc.RegisteredOwner),

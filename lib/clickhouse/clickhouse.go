@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"context"
+	"errors"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/rs/zerolog"
@@ -21,6 +22,8 @@ type (
 		log zerolog.Logger
 	}
 )
+
+var ErrNotConnected = errors.New("not connected to clickhouse server")
 
 func New(url string) (*Server, error) {
 	chs := &Server{
@@ -94,17 +97,24 @@ func (chs *Server) Inserts(table string, d []any, max int) error {
 			return err
 		}
 	}
-	chs.log.Debug().
-		TimeDiff("Time Taken", time.Now(), t).
-		Str("table", table).
-		Int("Num Rows", max).
-		Msg("Insert Batch")
+	defer func() {
+		chs.log.Debug().
+			TimeDiff("Time Taken", time.Now(), t).
+			Str("table", table).
+			Int("Num Rows", max).
+			Msg("Insert Batch")
+	}()
+
 	return batch.Send()
 }
 
 func (chs *Server) Select(ctx context.Context, dest any, query string, args ...any) error {
 	if chs.log.Trace().Enabled() {
 		chs.log.Trace().Str("query", query).Msg("query")
+	}
+	if !chs.connected {
+		chs.log.Error().Msg("Not connected to Clickhouse")
+		return ErrNotConnected
 	}
 
 	return chs.conn.Select(ctx, dest, query, args...)
