@@ -89,7 +89,7 @@ func main() {
 	app.Name = "Plane Watch Router (pw_router)"
 	app.Usage = "Reads location updates from AMQP and publishes only significant updates."
 
-	app.Description = `This program takes a stream of plane tracking data (location updates) from an AMQP message bus  ` +
+	app.Description = `This program takes a stream of plane tracking data (location updates) from a message bus  ` +
 		`and filters messages and only returns significant changes for each aircraft.` +
 		"\n\n" +
 		`example: ./pw_router --rabbitmq="amqp://guest:guest@localhost:5672" --source-route-key=location-updates --num-workers=8 --prom-metrics-port=9601`
