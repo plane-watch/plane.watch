@@ -22,7 +22,7 @@ const SigHeadingChange = 1.0        // at least 1.0 degrees change.
 const SigVerticalRateChange = 180.0 // at least 180 fpm change (3ft in 1min)
 const SigAltitudeChange = 10.0      // at least 10 ft in altitude change.
 
-func (w *worker) isSignificant(last *export.PlaneLocation, candidate *export.PlaneLocation) bool {
+func (w *worker) isSignificant(last, candidate export.PlaneLocation) bool {
 	// check the candidate vs last, if any of the following have changed
 	// - Heading, VerticalRate, Velocity, Altitude, FlightNumber, FlightStatus, OnGround, Special, Squawk
 
@@ -190,37 +190,34 @@ func (w *worker) handleMsg(msg []byte) error {
 		return nil
 	}
 
-	// this is considered "processed" at this point as it's valid JSON
-	if err == nil {
-		updatesProcessed.Inc()
-	}
+	updatesProcessed.Inc()
 
 	// lookup what we know about this plane.
 	item, ok := w.router.syncSamples.Load(update.Icao)
 
 	// if this Icao is not in the cache, it's new.
 	if !ok {
-		w.handleNewUpdate(&update, msg)
+		w.handleNewUpdate(update, msg)
 		return nil // finish here, no significance check as we have nothing to compare.
 	}
 
 	// upstream signals that this plane has been removed / lost.
 	if update.Removed {
-		w.handleRemovedUpdate(update, msg)
+		// TODO: we need to do our own reaping, since we can have multiple upstreams and one upstream losing track of
+		// TODO: a plane does not mean it should be lost entirely
+		//w.handleRemovedUpdate(update, msg)
 		return nil // don't need to do anything else with this.
 	}
 
 	// is this update significant versus the previous one
-	lastRecord := item.(*export.PlaneLocation)
-	if w.isSignificant(lastRecord, &update) {
-		w.handleSignificantUpdate(&update, msg)
-		return nil
+	lastRecord := item.(export.PlaneLocation)
+	if w.isSignificant(lastRecord, update) {
+		w.handleSignificantUpdate(update, msg)
 	} else {
-		w.handleInsignificantUpdate(&update, msg)
-		return nil
+		w.handleInsignificantUpdate(update, msg)
 	}
 
-	//return ErrUnhandledMessage
+	return nil
 }
 
 func (w *worker) handleRemovedUpdate(update export.PlaneLocation, msg []byte) {
@@ -240,7 +237,7 @@ func (w *worker) handleRemovedUpdate(update export.PlaneLocation, msg []byte) {
 	}
 }
 
-func (w *worker) handleSignificantUpdate(update *export.PlaneLocation, msg []byte) {
+func (w *worker) handleSignificantUpdate(update export.PlaneLocation, msg []byte) {
 	// store the new update in-place of the old one
 	w.router.syncSamples.Store(update.Icao, update)
 	updatesSignificant.Inc()
@@ -256,7 +253,7 @@ func (w *worker) handleSignificantUpdate(update *export.PlaneLocation, msg []byt
 	}
 }
 
-func (w *worker) handleNewUpdate(update *export.PlaneLocation, msg []byte) {
+func (w *worker) handleNewUpdate(update export.PlaneLocation, msg []byte) {
 	// store the new update
 	w.router.syncSamples.Store(update.Icao, update)
 	cacheEntries.Inc()
@@ -275,7 +272,7 @@ func (w *worker) handleNewUpdate(update *export.PlaneLocation, msg []byte) {
 	}
 }
 
-func (w *worker) handleInsignificantUpdate(update *export.PlaneLocation, msg []byte) {
+func (w *worker) handleInsignificantUpdate(update export.PlaneLocation, msg []byte) {
 	updatesInsignificant.Inc()
 
 	if w.spreadUpdates {
