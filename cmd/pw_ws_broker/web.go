@@ -626,18 +626,92 @@ func (cl *ClientList) removeClient(c *WsClient) {
 	//log.Debug().Msg("Remove Client Done")
 }
 
-func (cl *ClientList) globalListUpdate(loc *export.PlaneLocation) {
+func (cl *ClientList) globalListUpdate(loc *export.PlaneLocation) *export.PlaneLocation {
 	if nil == loc {
-		return
+		return nil
 	}
-	cl.globalList.Store(loc.Icao, loc)
+
+	existing, found := cl.globalList.Load(loc.Icao)
+	if !found {
+		cl.globalList.Store(loc.Icao, loc)
+		return loc
+	} else {
+		item := existing.(*export.PlaneLocation)
+		merged := mergeRecords(item, loc)
+		cl.globalList.Store(loc.Icao, merged)
+		return merged
+	}
+}
+
+func mergeRecords(current, next *export.PlaneLocation) *export.PlaneLocation {
+	merged := current
+	merged.New = next.New
+	merged.Removed = false
+	if next.Updates.Location.After(current.Updates.Location) {
+		merged.Lat = next.Lat
+		merged.Lon = next.Lon
+		merged.HasLocation = next.HasLocation
+		merged.Updates.Location = next.Updates.Location
+	}
+	if next.Updates.Heading.After(current.Updates.Heading) {
+		merged.Heading = next.Heading
+		merged.HasHeading = next.HasHeading
+		merged.Updates.Heading = current.Updates.Heading
+	}
+	if next.Updates.Velocity.After(current.Updates.Velocity) {
+		merged.Velocity = next.Velocity
+		merged.Updates.Velocity = next.Updates.Velocity
+		merged.HasVelocity = next.HasVelocity
+	}
+	if next.Updates.Altitude.After(current.Updates.Altitude) {
+		merged.Altitude = next.Altitude
+		merged.AltitudeUnits = next.AltitudeUnits
+		merged.Updates.Altitude = next.Updates.Altitude
+	}
+	if next.Updates.VerticalRate.After(current.Updates.VerticalRate) {
+		merged.VerticalRate = next.VerticalRate
+		merged.HasVerticalRate = next.HasVerticalRate
+		merged.Updates.VerticalRate = next.Updates.VerticalRate
+	}
+	if next.Updates.FlightStatus.After(current.Updates.FlightStatus) {
+		merged.FlightStatus = next.FlightStatus
+		merged.Updates.FlightStatus = next.Updates.FlightStatus
+	}
+	if next.Updates.OnGround.After(current.Updates.OnGround) {
+		merged.OnGround = next.OnGround
+		merged.Updates.OnGround = next.Updates.OnGround
+	}
+	if "" != merged.Airframe {
+		merged.Airframe = next.Airframe
+	}
+	if "" != merged.AirframeType {
+		merged.Airframe = next.AirframeType
+	}
+	// TODO: in the future we probably want a list of sources that contributed to this data
+	merged.SourceTag = "merged"
+
+	if next.Updates.Squawk.After(current.Updates.Squawk) {
+		merged.Squawk = next.Squawk
+		merged.Updates.Squawk = next.Updates.Squawk
+	}
+
+	if next.Updates.Special.After(current.Updates.Special) {
+		merged.Special = next.Special
+		merged.Updates.Special = next.Updates.Special
+	}
+
+	if "" != next.TileLocation {
+		merged.TileLocation = next.TileLocation
+	}
+
+	return merged
 }
 
 // SendLocationUpdate sends an update to each listening client
 // todo: make this threaded?
 func (cl *ClientList) SendLocationUpdate(highLow, tile string, loc *export.PlaneLocation) {
 	// Add our update to our global list
-	cl.globalListUpdate(loc)
+	loc = cl.globalListUpdate(loc)
 
 	// send the update to each of our clients
 	cl.clients.Range(func(key, value interface{}) bool {
