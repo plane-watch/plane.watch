@@ -11,7 +11,7 @@ import (
 
 type (
 	DataStream struct {
-		low, high chan *export.PlaneLocation
+		low, high chan export.PlaneLocation
 		chs       *clickhouse.Server
 		log       zerolog.Logger
 	}
@@ -54,8 +54,8 @@ type (
 
 func NewDataStreams(chs *clickhouse.Server) *DataStream {
 	ds := &DataStream{
-		low:  make(chan *export.PlaneLocation, 1000),
-		high: make(chan *export.PlaneLocation, 2000),
+		low:  make(chan export.PlaneLocation, 1000),
+		high: make(chan export.PlaneLocation, 2000),
 		chs:  chs,
 		log:  log.With().Str("section", "ch data stream").Logger(),
 	}
@@ -65,16 +65,16 @@ func NewDataStreams(chs *clickhouse.Server) *DataStream {
 	return ds
 }
 
-func (ds *DataStream) AddLow(frame *export.PlaneLocation) {
+func (ds *DataStream) AddLow(frame export.PlaneLocation) {
 	ds.low <- frame
 }
 
-func (ds *DataStream) AddHigh(frame *export.PlaneLocation) {
+func (ds *DataStream) AddHigh(frame export.PlaneLocation) {
 	ds.high <- frame
 }
 
 // handleQueue single threadedly accumulates and sends data to clickhouse for the given queue/table
-func (ds *DataStream) handleQueue(q chan *export.PlaneLocation, table string) {
+func (ds *DataStream) handleQueue(q chan export.PlaneLocation, table string) {
 	ticker := time.NewTicker(time.Second)
 	max := 50_000
 	updates := make([]any, max)
