@@ -403,6 +403,14 @@ func (p *Plane) Altitude() int32 {
 	return p.location.altitude
 }
 
+// HasAltitude is true when we know the planes height
+func (p *Plane) HasAltitude() bool {
+	p.rwLock.RLock()
+	defer p.rwLock.RUnlock()
+	// set the current altitude
+	return !p.location.altitudeTs.IsZero()
+}
+
 // AltitudeUnits how we are measuring altitude (feet / metres)
 func (p *Plane) AltitudeUnits() string {
 	p.rwLock.RLock()
@@ -429,6 +437,13 @@ func (p *Plane) OnGround() bool {
 	return p.location.onGround
 }
 
+// HasOnGround is set true if we know for sure if we are on the ground or in the air
+func (p *Plane) HasOnGround() bool {
+	p.rwLock.RLock()
+	defer p.rwLock.RUnlock()
+	return !p.location.onGroundTs.IsZero()
+}
+
 // setFlightStatus sets the flight status of the aircraft, the string is one from mode_s.flightStatusTable
 func (p *Plane) setFlightStatus(statusId byte, statusString string, ts time.Time) bool {
 	p.rwLock.Lock()
@@ -447,6 +462,13 @@ func (p *Plane) FlightStatus() string {
 	p.rwLock.RLock()
 	defer p.rwLock.RUnlock()
 	return p.flight.status
+}
+
+// HasFlightStatus indicates if we have a flight status
+func (p *Plane) HasFlightStatus() bool {
+	p.rwLock.RLock()
+	defer p.rwLock.RUnlock()
+	return !p.flight.flightStatusTs.IsZero()
 }
 
 // FlightNumber is the planes self identifier for the route it is flying. e.g. QF1, SPTR644

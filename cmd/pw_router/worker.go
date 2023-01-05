@@ -10,9 +10,10 @@ import (
 
 type (
 	worker struct {
-		router         *pwRouter
-		destRoutingKey string
-		spreadUpdates  bool
+		router             *pwRouter
+		destRoutingKeyLow  string
+		destRoutingKeyHigh string
+		spreadUpdates      bool
 
 		ds *DataStream
 	}
@@ -211,10 +212,12 @@ func (w *worker) handleMsg(msg []byte) error {
 
 	// is this update significant versus the previous one
 	lastRecord := item.(export.PlaneLocation)
+	merged := export.MergePlaneLocations(lastRecord, update)
+
 	if w.isSignificant(lastRecord, update) {
-		w.handleSignificantUpdate(update, msg)
+		w.handleSignificantUpdate(merged, msg)
 	} else {
-		w.handleInsignificantUpdate(update, msg)
+		w.handleInsignificantUpdate(merged, msg)
 	}
 
 	return nil
@@ -229,7 +232,8 @@ func (w *worker) handleRemovedUpdate(update export.PlaneLocation, msg []byte) {
 	cacheEvictions.Inc()
 
 	// emit the event to both queues
-	w.publishLocationUpdate(w.destRoutingKey, msg) // to the reduced full-feed queue
+	w.publishLocationUpdate(w.destRoutingKeyLow, msg)  // to the reduced feed queue
+	w.publishLocationUpdate(w.destRoutingKeyHigh, msg) // to the full-feed queue
 
 	if w.spreadUpdates {
 		w.publishLocationUpdate(update.TileLocation+qSuffixLow, msg)  // to the low-speed tile-queue.
@@ -243,7 +247,8 @@ func (w *worker) handleSignificantUpdate(update export.PlaneLocation, msg []byte
 	updatesSignificant.Inc()
 
 	// emit the new lastSignificant
-	w.publishLocationUpdate(w.destRoutingKey, msg) // all low speed messages
+	w.publishLocationUpdate(w.destRoutingKeyLow, msg)  // all low speed messages
+	w.publishLocationUpdate(w.destRoutingKeyHigh, msg) // all high speed messages
 	if w.spreadUpdates {
 		w.publishLocationUpdate(update.TileLocation+qSuffixLow, msg)
 		w.publishLocationUpdate(update.TileLocation+qSuffixHigh, msg)
@@ -262,8 +267,9 @@ func (w *worker) handleNewUpdate(update export.PlaneLocation, msg []byte) {
 		Str("aircraft", update.Icao).
 		Msg("First time seeing aircraft.")
 
-	// always publish to the main output queue
-	w.publishLocationUpdate(w.destRoutingKey, msg)
+	// new messages go to both queues
+	w.publishLocationUpdate(w.destRoutingKeyLow, msg)  // all low speed messages
+	w.publishLocationUpdate(w.destRoutingKeyHigh, msg) // all high speed messages
 
 	// if spreading updates is enabled, output to spread queues
 	if w.spreadUpdates {
@@ -274,6 +280,8 @@ func (w *worker) handleNewUpdate(update export.PlaneLocation, msg []byte) {
 
 func (w *worker) handleInsignificantUpdate(update export.PlaneLocation, msg []byte) {
 	updatesInsignificant.Inc()
+
+	w.publishLocationUpdate(w.destRoutingKeyHigh, msg) // all high speed messages
 
 	if w.spreadUpdates {
 		// always publish updates to the high queue.

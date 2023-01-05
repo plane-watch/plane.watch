@@ -30,10 +30,13 @@ type (
 		OnGround          bool
 		Airframe          string
 		AirframeType      string
+		HasAltitude       bool
 		HasLocation       bool
 		HasHeading        bool
 		HasVerticalRate   bool
 		HasVelocity       bool
+		HasOnGround       bool
+		HasFlightStatus   bool
 		SourceTag         string
 		Squawk            string
 		Special           string
@@ -86,4 +89,101 @@ func (pl *PlaneLocation) Plane() string {
 	}
 
 	return "ICAO: " + pl.Icao
+}
+
+func unPtr[t any](what *t) t {
+	var def t
+	if nil == what {
+		return def
+	}
+	return *what
+}
+
+func ptr[t any](what t) *t {
+	return &what
+}
+
+func MergePlaneLocations(current, next PlaneLocation) PlaneLocation {
+	merged := current
+	merged.New = false
+	merged.Removed = false
+	merged.LastMsg = next.LastMsg
+	merged.SignalRssi = nil // makes no sense to merge this value as it is for the individual receiver
+	if next.TrackedSince.Before(current.TrackedSince) {
+		merged.TrackedSince = next.TrackedSince
+	}
+
+	if next.HasLocation && next.Updates.Location.After(current.Updates.Location) {
+		merged.Lat = next.Lat
+		merged.Lon = next.Lon
+		merged.Updates.Location = next.Updates.Location
+		merged.HasLocation = true
+	}
+	if next.HasHeading && next.Updates.Heading.After(current.Updates.Heading) {
+		merged.Heading = next.Heading
+		merged.Updates.Heading = current.Updates.Heading
+		merged.HasHeading = true
+	}
+	if next.HasVelocity && next.Updates.Velocity.After(current.Updates.Velocity) {
+		merged.Velocity = next.Velocity
+		merged.Updates.Velocity = next.Updates.Velocity
+		merged.HasVelocity = true
+	}
+	if next.HasAltitude && next.Updates.Altitude.After(current.Updates.Altitude) {
+		merged.Altitude = next.Altitude
+		merged.AltitudeUnits = next.AltitudeUnits
+		merged.Updates.Altitude = next.Updates.Altitude
+		merged.HasAltitude = true
+	}
+	if next.HasVerticalRate && next.Updates.VerticalRate.After(current.Updates.VerticalRate) {
+		merged.VerticalRate = next.VerticalRate
+		merged.Updates.VerticalRate = next.Updates.VerticalRate
+		merged.HasVerticalRate = true
+	}
+	if next.HasFlightStatus && next.Updates.FlightStatus.After(current.Updates.FlightStatus) {
+		merged.FlightStatus = next.FlightStatus
+		merged.Updates.FlightStatus = next.Updates.FlightStatus
+	}
+	if next.HasOnGround && next.Updates.OnGround.After(current.Updates.OnGround) {
+		merged.OnGround = next.OnGround
+		merged.Updates.OnGround = next.Updates.OnGround
+	}
+	if "" == merged.Airframe {
+		merged.Airframe = next.Airframe
+	}
+	if "" == merged.AirframeType {
+		merged.Airframe = next.AirframeType
+	}
+
+	if "" != unPtr(next.Registration) {
+		merged.Registration = ptr(unPtr(next.Registration))
+	}
+	if "" != unPtr(next.CallSign) {
+		merged.CallSign = ptr(unPtr(next.CallSign))
+	}
+	// TODO: in the future we probably want a list of sources that contributed to this data
+	merged.SourceTag = "merged"
+
+	if next.Updates.Squawk.After(current.Updates.Squawk) {
+		merged.Squawk = next.Squawk
+		merged.Updates.Squawk = next.Updates.Squawk
+	}
+
+	if next.Updates.Special.After(current.Updates.Special) {
+		merged.Special = next.Special
+		merged.Updates.Special = next.Updates.Special
+	}
+
+	if "" != next.TileLocation {
+		merged.TileLocation = next.TileLocation
+	}
+
+	if 0 != unPtr(next.AircraftWidth) {
+		merged.AircraftWidth = ptr(unPtr(next.AircraftWidth))
+	}
+	if 0 != unPtr(next.AircraftLength) {
+		merged.AircraftLength = ptr(unPtr(next.AircraftLength))
+	}
+
+	return merged
 }

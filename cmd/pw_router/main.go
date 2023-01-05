@@ -140,8 +140,14 @@ func main() {
 		},
 		&cli.StringFlag{
 			Name:    "destination-route-key",
-			Usage:   "Name of the routing key to publish significant updates to.",
+			Usage:   "Name of the routing key to publish significant updates to. (low)",
 			Value:   "location-updates-enriched-reduced",
+			EnvVars: []string{"DEST_ROUTE_KEY"},
+		},
+		&cli.StringFlag{
+			Name:    "destination-route-key-merged",
+			Usage:   "Name of the routing key to publish merged updates to. (high)",
+			Value:   "location-updates-enriched-merged",
 			EnvVars: []string{"DEST_ROUTE_KEY"},
 		},
 		&cli.IntFlag{
@@ -279,16 +285,18 @@ func run(c *cli.Context) error {
 	monitoring.AddHealthCheck(r)
 
 	numWorkers := c.Int("num-workers")
-	destRouteKey := c.String("destination-route-key")
+	destRouteKeyLow := c.String("destination-route-key")
+	destRouteKeyMerged := c.String("destination-route-key-merged")
 	spreadUpdates := c.Bool("spread-updates")
 
 	log.Info().Msgf("Starting with %d workers...", numWorkers)
 	for i := 0; i < numWorkers; i++ {
 		wkr := worker{
-			router:         &r,
-			destRoutingKey: destRouteKey,
-			spreadUpdates:  spreadUpdates,
-			ds:             ds,
+			router:             &r,
+			destRoutingKeyLow:  destRouteKeyLow,
+			destRoutingKeyHigh: destRouteKeyMerged,
+			spreadUpdates:      spreadUpdates,
+			ds:                 ds,
 		}
 		wg.Add(1)
 		go func() {

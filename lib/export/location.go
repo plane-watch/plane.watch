@@ -28,10 +28,13 @@ func NewPlaneLocation(plane *tracker.Plane, isNew, isRemoved bool, source string
 		AircraftWidth:   plane.AirFrameWidth(),
 		AircraftLength:  plane.AirFrameLength(),
 		Registration:    plane.Registration(),
+		HasAltitude:     plane.HasAltitude(),
 		HasLocation:     plane.HasLocation(),
 		HasHeading:      plane.HasHeading(),
 		HasVerticalRate: plane.HasVerticalRate(),
 		HasVelocity:     plane.HasVelocity(),
+		HasFlightStatus: plane.HasFlightStatus(),
+		HasOnGround:     plane.HasOnGround(),
 		SourceTag:       source,
 		TileLocation:    plane.GridTileLocation(),
 		LastMsg:         plane.LastSeen().UTC(),
@@ -46,7 +49,7 @@ func NewPlaneLocation(plane *tracker.Plane, isNew, isRemoved bool, source string
 			OnGround:     plane.OnGroundUpdatedAt().UTC(),
 			FlightStatus: plane.FlightStatusUpdatedAt().UTC(),
 			Special:      plane.SpecialUpdatedAt().UTC(),
-			Squawk:       plane.SquawkUpdatedAt(),
+			Squawk:       plane.SquawkUpdatedAt().UTC(),
 		},
 	}
 }
