@@ -4,6 +4,8 @@ import (
 	"errors"
 	jsoniter "github.com/json-iterator/go"
 	"regexp"
+	"sync"
+	"time"
 
 	"github.com/rs/zerolog/log"
 	"plane.watch/lib/dedupe/forgetfulmap"
@@ -32,6 +34,11 @@ type (
 
 		sendFrameAll    func(tracker.Frame, *tracker.FrameSource) error
 		sendFrameDedupe func(tracker.Frame, *tracker.FrameSource) error
+
+		sendDelay     time.Duration
+		sendList      map[string]*tracker.PlaneLocationEvent
+		sendListMutex sync.Mutex
+		sendTicker    *time.Ticker
 	}
 )
 
@@ -45,11 +52,16 @@ func stripAnsi(str string) string {
 
 func NewSink(conf *Config, dest Destination) tracker.Sink {
 	s := Sink{
-		fsm:    forgetfulmap.NewForgetfulSyncMap(),
-		config: conf,
-		dest:   dest,
-		events: make(chan tracker.Event),
+		fsm:       forgetfulmap.NewForgetfulSyncMap(),
+		config:    conf,
+		dest:      dest,
+		events:    make(chan tracker.Event),
+		sendDelay: time.Millisecond * 300,
+		sendList:  make(map[string]*tracker.PlaneLocationEvent),
 	}
+
+	s.sendTicker = time.NewTicker(s.sendDelay)
+	go s.doSend()
 
 	s.sendFrameAll = s.sendFrameEvent(QueueTypeAvrAll, QueueTypeBeastAll, QueueTypeSbs1All)
 	s.sendFrameDedupe = s.sendFrameEvent(QueueTypeAvrReduce, QueueTypeBeastReduce, QueueTypeSbs1Reduce)
@@ -65,6 +77,7 @@ func (s *Sink) Stop() {
 	s.config.Finish()
 	s.dest.Stop()
 	s.fsm.Stop()
+	s.sendTicker.Stop()
 }
 
 func (s *Sink) sendLocationEvent(routingKey string, le *tracker.PlaneLocationEvent) error {
@@ -134,11 +147,18 @@ func (s *Sink) sendFrameEvent(queueAvr, queueBeast, queueSbs1 string) func(track
 	}
 }
 
-func (s *Sink) OnEvent(e tracker.Event) {
+func (s *Sink) doSend() {
+	for range s.sendTicker.C {
+		s.sendLocationList()
+	}
+}
+func (s *Sink) sendLocationList() {
 	var err error
-	switch e.(type) {
-	case *tracker.PlaneLocationEvent:
-		le := e.(*tracker.PlaneLocationEvent)
+	s.sendListMutex.Lock()
+	list := s.sendList
+	s.sendList = make(map[string]*tracker.PlaneLocationEvent)
+	s.sendListMutex.Unlock()
+	for _, le := range list {
 		var jsonBuf []byte
 		jsonBuf, err = s.trackerMsgJson(le)
 		if nil != jsonBuf && nil == err {
@@ -147,6 +167,19 @@ func (s *Sink) OnEvent(e tracker.Event) {
 				s.config.stats.planeLoc.Inc()
 			}
 		}
+	}
+}
+
+// OnEvent gets called once for each message we want to send on the bus
+func (s *Sink) OnEvent(e tracker.Event) {
+	var err error
+	switch e.(type) {
+	case *tracker.PlaneLocationEvent:
+		le := e.(*tracker.PlaneLocationEvent)
+
+		s.sendListMutex.Lock()
+		s.sendList[le.Plane().IcaoIdentifierStr()] = le
+		s.sendListMutex.Unlock()
 
 	case *tracker.FrameEvent:
 		ourFrame := e.(*tracker.FrameEvent).Frame()
