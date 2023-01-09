@@ -6,6 +6,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"os"
 	"sync"
+	"time"
 )
 
 const (
@@ -49,6 +50,8 @@ type (
 			frame, planeLoc prometheus.Counter
 		}
 
+		sendDelay time.Duration
+
 		// for remembering if we have recently sent this message
 	}
 
@@ -56,6 +59,8 @@ type (
 )
 
 func (c *Config) setupConfig(opts []Option) {
+	c.sendDelay = 300 * time.Millisecond
+
 	c.queue = map[string]string{}
 	for _, opt := range opts {
 		opt(c)
@@ -140,6 +145,13 @@ func WithQueues(queues []string) Option {
 		}
 	}
 }
+
+func WithSendDelay(delay time.Duration) Option {
+	return func(conf *Config) {
+		conf.sendDelay = delay
+	}
+}
+
 func WithAllQueues() Option {
 	return func(conf *Config) {
 		conf.queue[QueueTypeAvrAll] = QueueTypeAvrAll

@@ -12,6 +12,7 @@ import (
 	"plane.watch/lib/tracker"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var (
@@ -47,18 +48,26 @@ func IncludeSinkFlags(app *cli.App) {
 			Value: 60,
 			Usage: "Instruct our sinks to hold onto generated messages this long. In Seconds",
 		},
+		&cli.DurationFlag{
+			Name:    "sink-collect-delay",
+			Value:   300 * time.Millisecond,
+			Usage:   "Instead of emitting an update for every update we get, collect updates and send a deduplicated list (based on icao) every period",
+			EnvVars: []string{"SINK_COLLECT_DELAY"},
+		},
 	}...)
 }
 
 func HandleSinkFlags(c *cli.Context, connName string) ([]tracker.Sink, error) {
 	defaultTTl := c.Int("sink-message-ttl")
+	defaultDelay := c.Duration("sink-collect-delay")
 	defaultTag := c.String("tag")
 	defaultQueues := c.StringSlice("publish-types")
 	sinks := make([]tracker.Sink, 0)
+	testQueues := c.Bool("rabbitmq-test-queues")
 
 	for _, sinkUrl := range c.StringSlice("sink") {
 		log.Debug().Str("sink-url", sinkUrl).Msg("With Sink")
-		s, err := handleSink(connName, sinkUrl, defaultTag, defaultTTl, defaultQueues, c.Bool("rabbitmq-test-queues"))
+		s, err := handleSink(connName, sinkUrl, defaultTag, defaultTTl, defaultQueues, testQueues, defaultDelay)
 		if nil != err {
 			log.Error().Err(err).Str("url", sinkUrl).Str("what", "sink").Msg("Failed setup sink")
 			return nil, err
@@ -69,7 +78,7 @@ func HandleSinkFlags(c *cli.Context, connName string) ([]tracker.Sink, error) {
 	return sinks, nil
 }
 
-func handleSink(connName, urlSink, defaultTag string, defaultTtl int, defaultQueues []string, rabbitmqTestQueues bool) (tracker.Sink, error) {
+func handleSink(connName, urlSink, defaultTag string, defaultTtl int, defaultQueues []string, rabbitmqTestQueues bool, sendDelay time.Duration) (tracker.Sink, error) {
 	parsedUrl, err := url.Parse(urlSink)
 	if nil != err {
 		return nil, err
@@ -92,6 +101,7 @@ func handleSink(connName, urlSink, defaultTag string, defaultTtl int, defaultQue
 		sink.WithSourceTag(getTag(parsedUrl, defaultTag)),
 		sink.WithMessageTtl(messageTtl),
 		sink.WithPrometheusCounters(prometheusOutputFrame, prometheusOutputPlaneLocation),
+		sink.WithSendDelay(sendDelay),
 	}
 
 	switch strings.ToLower(parsedUrl.Scheme) {

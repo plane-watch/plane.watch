@@ -35,7 +35,6 @@ type (
 		sendFrameAll    func(tracker.Frame, *tracker.FrameSource) error
 		sendFrameDedupe func(tracker.Frame, *tracker.FrameSource) error
 
-		sendDelay     time.Duration
 		sendList      map[string]*tracker.PlaneLocationEvent
 		sendListMutex sync.Mutex
 		sendTicker    *time.Ticker
@@ -52,15 +51,14 @@ func stripAnsi(str string) string {
 
 func NewSink(conf *Config, dest Destination) tracker.Sink {
 	s := Sink{
-		fsm:       forgetfulmap.NewForgetfulSyncMap(),
-		config:    conf,
-		dest:      dest,
-		events:    make(chan tracker.Event),
-		sendDelay: time.Millisecond * 300,
-		sendList:  make(map[string]*tracker.PlaneLocationEvent),
+		fsm:      forgetfulmap.NewForgetfulSyncMap(),
+		config:   conf,
+		dest:     dest,
+		events:   make(chan tracker.Event),
+		sendList: make(map[string]*tracker.PlaneLocationEvent),
 	}
 
-	s.sendTicker = time.NewTicker(s.sendDelay)
+	s.sendTicker = time.NewTicker(s.config.sendDelay)
 	go s.doSend()
 
 	s.sendFrameAll = s.sendFrameEvent(QueueTypeAvrAll, QueueTypeBeastAll, QueueTypeSbs1All)
@@ -95,23 +93,13 @@ func (s *Sink) sendLocationEvent(routingKey string, le *tracker.PlaneLocationEve
 }
 
 func (s *Sink) trackerMsgJson(le *tracker.PlaneLocationEvent) ([]byte, error) {
-	var err error
 	plane := le.Plane()
 	if nil == plane {
 		return nil, errors.New("no plane")
 	}
 
 	eventStruct := export.NewPlaneLocation(plane, le.New(), le.Removed(), s.config.sourceTag)
-
-	json := jsoniter.ConfigFastest
-	var jsonBuf []byte
-	jsonBuf, err = json.Marshal(eventStruct)
-	if nil != err {
-		log.Error().Err(err).Msg("could not create json bytes for sending")
-		return nil, err
-	} else {
-		return jsonBuf, nil
-	}
+	return eventStruct.ToJsonBytes()
 }
 
 func (s *Sink) sendFrameEvent(queueAvr, queueBeast, queueSbs1 string) func(tracker.Frame, *tracker.FrameSource) error {
@@ -159,6 +147,7 @@ func (s *Sink) sendLocationList() {
 	s.sendList = make(map[string]*tracker.PlaneLocationEvent)
 	s.sendListMutex.Unlock()
 	for _, le := range list {
+		// warning, this code is a duplicate of the OnEvent handling
 		var jsonBuf []byte
 		jsonBuf, err = s.trackerMsgJson(le)
 		if nil != jsonBuf && nil == err {
@@ -177,9 +166,21 @@ func (s *Sink) OnEvent(e tracker.Event) {
 	case *tracker.PlaneLocationEvent:
 		le := e.(*tracker.PlaneLocationEvent)
 
-		s.sendListMutex.Lock()
-		s.sendList[le.Plane().IcaoIdentifierStr()] = le
-		s.sendListMutex.Unlock()
+		if 0 == s.config.sendDelay {
+			// warning, this code is a duplicate of the sendLocationList handling
+			var jsonBuf []byte
+			jsonBuf, err = s.trackerMsgJson(le)
+			if nil != jsonBuf && nil == err {
+				err = s.dest.PublishJson(QueueLocationUpdates, jsonBuf)
+				if nil != s.config.stats.planeLoc {
+					s.config.stats.planeLoc.Inc()
+				}
+			}
+		} else {
+			s.sendListMutex.Lock()
+			s.sendList[le.Plane().IcaoIdentifierStr()] = le
+			s.sendListMutex.Unlock()
+		}
 
 	case *tracker.FrameEvent:
 		ourFrame := e.(*tracker.FrameEvent).Frame()
