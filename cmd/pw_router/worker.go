@@ -198,6 +198,12 @@ func (w *worker) handleMsg(msg []byte) error {
 
 	// if this Icao is not in the cache, it's new.
 	if !ok {
+		if nil == update.SourceTags {
+			update.SourceTags = make(map[string]uint)
+		}
+		update.SourceTags[update.SourceTag]++
+		w.router.syncSamples.Store(update.Icao, update)
+
 		w.handleNewUpdate(update, msg)
 		return nil // finish here, no significance check as we have nothing to compare.
 	}
@@ -212,12 +218,21 @@ func (w *worker) handleMsg(msg []byte) error {
 
 	// is this update significant versus the previous one
 	lastRecord := item.(export.PlaneLocation)
-	merged := export.MergePlaneLocations(lastRecord, update)
+	merged, err := export.MergePlaneLocations(lastRecord, update)
+	if nil != err {
+		return nil
+	}
+	w.router.syncSamples.Store(merged.Icao, merged)
+
+	mergedMsg, err := merged.ToJsonBytes()
+	if nil != err {
+		return err
+	}
 
 	if w.isSignificant(lastRecord, update) {
-		w.handleSignificantUpdate(merged, msg)
+		w.handleSignificantUpdate(merged, mergedMsg)
 	} else {
-		w.handleInsignificantUpdate(merged, msg)
+		w.handleInsignificantUpdate(merged, mergedMsg)
 	}
 
 	return nil
@@ -243,7 +258,7 @@ func (w *worker) handleRemovedUpdate(update export.PlaneLocation, msg []byte) {
 
 func (w *worker) handleSignificantUpdate(update export.PlaneLocation, msg []byte) {
 	// store the new update in-place of the old one
-	w.router.syncSamples.Store(update.Icao, update)
+	//w.router.syncSamples.Store(update.Icao, update)
 	updatesSignificant.Inc()
 
 	// emit the new lastSignificant
@@ -260,7 +275,6 @@ func (w *worker) handleSignificantUpdate(update export.PlaneLocation, msg []byte
 
 func (w *worker) handleNewUpdate(update export.PlaneLocation, msg []byte) {
 	// store the new update
-	w.router.syncSamples.Store(update.Icao, update)
 	cacheEntries.Inc()
 
 	log.Debug().
