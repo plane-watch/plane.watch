@@ -268,9 +268,7 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 				if !p.OnGround() {
 					p.zeroCpr()
 				}
-				if frame.VerticalStatusValid() {
-					hasChanged = p.setGroundStatus(frame.MustOnGround(), frame.TimeStamp()) || hasChanged
-				}
+				hasChanged = p.setGroundStatus(true, frame.TimeStamp()) || hasChanged
 
 				if frame.IsEven() {
 					_ = p.setCprEvenLocation(float64(frame.Latitude()), float64(frame.Longitude()), frame.TimeStamp())
@@ -287,65 +285,60 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 				break
 			}
 		case mode_s.DF17FrameAirPositionBarometric, mode_s.DF17FrameAirPositionGnss: // "Airborne Position (with Barometric altitude)"
-			{
-				if p.OnGround() {
-					// this is valid since we should only get this type of message when we are off the ground
-					p.zeroCpr()
-				}
-				if frame.VerticalStatusValid() {
-					hasChanged = p.setGroundStatus(frame.MustOnGround(), frame.TimeStamp()) || hasChanged
-				}
-
-				if frame.IsEven() {
-					_ = p.setCprEvenLocation(float64(frame.Latitude()), float64(frame.Longitude()), frame.TimeStamp())
-				} else {
-					_ = p.setCprOddLocation(float64(frame.Latitude()), float64(frame.Longitude()), frame.TimeStamp())
-				}
-
-				altitude, _ := frame.Altitude()
-				p.setAltitude(altitude, frame.AltitudeUnits(), frame.TimeStamp())
-				if err := p.decodeCpr(0, 0, frame.TimeStamp()); nil != err {
-					debugMessage("%s", err)
-				} else {
-					hasChanged = true
-				}
-
-				if dt := p.DistanceTravelled(); dt.Valid() {
-					debugMessage(" travelled %0.2f metres %0.2f seconds", dt.metres, dt.duration)
-				}
-
-				if frame.HasSurveillanceStatus() {
-					hasChanged = p.setSpecial("surveillance", frame.SurveillanceStatus(), frame.TimeStamp()) || hasChanged
-				} else {
-					hasChanged = p.setSpecial("surveillance", "", frame.TimeStamp()) || hasChanged
-				}
-
-				break
+			if p.OnGround() {
+				// this is valid since we should only get this type of message when we are off the ground
+				p.zeroCpr()
 			}
+			hasChanged = p.setGroundStatus(false, frame.TimeStamp()) || hasChanged
+
+			if frame.IsEven() {
+				_ = p.setCprEvenLocation(float64(frame.Latitude()), float64(frame.Longitude()), frame.TimeStamp())
+			} else {
+				_ = p.setCprOddLocation(float64(frame.Latitude()), float64(frame.Longitude()), frame.TimeStamp())
+			}
+
+			altitude, _ := frame.Altitude()
+			p.setAltitude(altitude, frame.AltitudeUnits(), frame.TimeStamp())
+			if err := p.decodeCpr(0, 0, frame.TimeStamp()); nil != err {
+				debugMessage("%s", err)
+			} else {
+				hasChanged = true
+			}
+
+			if dt := p.DistanceTravelled(); dt.Valid() {
+				debugMessage(" travelled %0.2f metres %0.2f seconds", dt.metres, dt.duration)
+			}
+
+			if frame.HasSurveillanceStatus() {
+				hasChanged = p.setSpecial("surveillance", frame.SurveillanceStatus(), frame.TimeStamp()) || hasChanged
+			} else {
+				hasChanged = p.setSpecial("surveillance", "", frame.TimeStamp()) || hasChanged
+			}
+
+			break
+
 		case mode_s.DF17FrameAirVelocity: // "Airborne velocity"
-			{
-				if frame.HeadingValid() {
-					hasChanged = p.setHeading(frame.MustHeading(), frame.TimeStamp()) || hasChanged
-				}
-				if frame.VelocityValid() {
-					hasChanged = p.setVelocity(frame.MustVelocity(), frame.TimeStamp()) || hasChanged
-				}
-				if frame.VerticalStatusValid() {
-					hasChanged = p.setGroundStatus(frame.MustOnGround(), frame.TimeStamp()) || hasChanged
-				}
-				if frame.VerticalRateValid() {
-					hasChanged = p.setVerticalRate(frame.MustVerticalRate(), frame.TimeStamp()) || hasChanged
-				}
+			hasChanged = p.setGroundStatus(false, frame.TimeStamp()) || hasChanged
 
-				if zerolog.GlobalLevel() >= zerolog.DebugLevel {
-					headingStr := "unknown heading"
-					if p.HasHeading() {
-						headingStr = fmt.Sprintf("heading %0.2f", p.Heading())
-					}
-					debugMessage(" has %s and is travelling at %0.2f knots\033[0m", headingStr, p.Velocity())
-				}
-				break
+			if frame.HeadingValid() {
+				hasChanged = p.setHeading(frame.MustHeading(), frame.TimeStamp()) || hasChanged
 			}
+			if frame.VelocityValid() {
+				hasChanged = p.setVelocity(frame.MustVelocity(), frame.TimeStamp()) || hasChanged
+			}
+			if frame.VerticalRateValid() {
+				hasChanged = p.setVerticalRate(frame.MustVerticalRate(), frame.TimeStamp()) || hasChanged
+			}
+
+			if zerolog.GlobalLevel() >= zerolog.DebugLevel {
+				headingStr := "unknown heading"
+				if p.HasHeading() {
+					headingStr = fmt.Sprintf("heading %0.2f", p.Heading())
+				}
+				debugMessage(" has %s and is travelling at %0.2f knots\033[0m", headingStr, p.Velocity())
+			}
+			break
+
 		case mode_s.DF17FrameTestMessage: //, "Test Message":
 			debugMessage("\033[2m Ignoring: DF%d %s\033[0m", frame.DownLinkType(), messageType)
 			break
@@ -357,10 +350,10 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 				break
 			}
 		case mode_s.DF17FrameSurfaceSystemStatus: //, "Surface System status":
-			{
-				debugMessage("\033[2m Ignoring: DF%d %s\033[0m", frame.DownLinkType(), messageType)
-				break
-			}
+			hasChanged = p.setGroundStatus(true, frame.TimeStamp()) || hasChanged
+			debugMessage("\033[2m Ignoring: DF%d %s\033[0m", frame.DownLinkType(), messageType)
+			break
+
 		case mode_s.DF17FrameEmergencyPriority: //, "Extended Squitter Aircraft status (Emergency)":
 			{
 				debugMessage("\033[2m %s\033[0m", messageType)
