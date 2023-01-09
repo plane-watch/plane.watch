@@ -630,15 +630,7 @@ func (cl *ClientList) globalListUpdate(loc *export.PlaneLocation) {
 	if nil == loc {
 		return
 	}
-
-	existing, found := cl.globalList.Load(loc.Icao)
-	if !found {
-		cl.globalList.Store(loc.Icao, loc)
-	} else {
-		item := existing.(*export.PlaneLocation)
-		merged := export.MergePlaneLocations(*item, *loc)
-		cl.globalList.Store(loc.Icao, &merged)
-	}
+	cl.globalList.Store(loc.Icao, loc)
 }
 
 // SendLocationUpdate sends an update to each listening client
