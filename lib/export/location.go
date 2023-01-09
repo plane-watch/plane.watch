@@ -1,6 +1,8 @@
 package export
 
 import (
+	jsoniter "github.com/json-iterator/go"
+	"github.com/rs/zerolog/log"
 	"plane.watch/lib/tracker"
 	"strings"
 )
@@ -52,4 +54,16 @@ func NewPlaneLocation(plane *tracker.Plane, isNew, isRemoved bool, source string
 			Squawk:       plane.SquawkUpdatedAt().UTC(),
 		},
 	}
+}
+
+func (pl *PlaneLocation) ToJsonBytes() ([]byte, error) {
+	json := jsoniter.ConfigFastest
+	jsonBuf, err := json.Marshal(pl)
+	if nil != err {
+		log.Error().Err(err).Msg("could not create json bytes for sending")
+		return nil, err
+	} else {
+		return jsonBuf, nil
+	}
+
 }
