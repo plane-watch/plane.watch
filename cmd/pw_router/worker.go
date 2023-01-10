@@ -269,7 +269,7 @@ func (w *worker) handleSignificantUpdate(update export.PlaneLocation, msg []byte
 		w.publishLocationUpdate(update.TileLocation+qSuffixHigh, msg)
 	}
 	if nil != w.ds {
-		w.ds.AddLow(update)
+		w.ds.AddLow(&update)
 	}
 }
 
@@ -303,7 +303,7 @@ func (w *worker) handleInsignificantUpdate(update export.PlaneLocation, msg []by
 	}
 
 	if nil != w.ds {
-		w.ds.AddHigh(update)
+		w.ds.AddHigh(&update)
 	}
 }
 
