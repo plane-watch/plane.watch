@@ -189,8 +189,17 @@ func MergePlaneLocations(prev, next PlaneLocation) (PlaneLocation, error) {
 	merged.SourceTag = "merged"
 
 	if next.Updates.Squawk.After(prev.Updates.Squawk) {
-		merged.Squawk = next.Squawk
-		merged.Updates.Squawk = next.Updates.Squawk
+		if `0` == next.Squawk {
+			// setting 0 as the squawk is valid, just when we have badly timed data it can jump around
+			// only update to 0 *if* it's been a few seconds to account for delayed feeds
+			if next.Updates.Squawk.After(prev.Updates.Squawk.Add(5 * time.Second)) {
+				merged.Squawk = next.Squawk
+				merged.Updates.Squawk = next.Updates.Squawk
+			}
+		} else {
+			merged.Squawk = next.Squawk
+			merged.Updates.Squawk = next.Updates.Squawk
+		}
 	}
 
 	if next.Updates.Special.After(prev.Updates.Special) {
