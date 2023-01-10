@@ -494,7 +494,7 @@ func (p *Plane) setFlightNumber(flightIdentifier string) bool {
 	return hasChanged
 }
 
-// setCallSign sets our flights call sign
+// setRegistration sets our flights call sign
 func (p *Plane) setRegistration(reg *string, err error) bool {
 	if nil != err {
 		return false
@@ -545,7 +545,7 @@ func (p *Plane) AirFrame() string {
 	return p.airframe.category
 }
 
-// setAirFrameCategory is the type of airframe for this aircraft
+// setAirFrameCategoryType is the type of airframe for this aircraft
 func (p *Plane) setAirFrameCategoryType(categoryType string) bool {
 	p.rwLock.Lock()
 	defer p.rwLock.Unlock()
@@ -560,7 +560,7 @@ func (p *Plane) AirFrameType() string {
 	return p.airframe.categoryType
 }
 
-// setAirFrameCategory is the type of airframe for this aircraft
+// setAirFrameWidthLength
 func (p *Plane) setAirFrameWidthLength(w, l *float32, err error) bool {
 	if nil != err {
 		return false

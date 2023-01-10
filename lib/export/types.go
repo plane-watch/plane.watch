@@ -177,7 +177,7 @@ func MergePlaneLocations(prev, next PlaneLocation) (PlaneLocation, error) {
 		merged.Airframe = next.Airframe
 	}
 	if "" == merged.AirframeType {
-		merged.Airframe = next.AirframeType
+		merged.AirframeType = next.AirframeType
 	}
 
 	if "" != unPtr(next.Registration) {
@@ -186,7 +186,6 @@ func MergePlaneLocations(prev, next PlaneLocation) (PlaneLocation, error) {
 	if "" != unPtr(next.CallSign) {
 		merged.CallSign = ptr(unPtr(next.CallSign))
 	}
-	// TODO: in the future we probably want a list of sources that contributed to this data
 	merged.SourceTag = "merged"
 
 	if next.Updates.Squawk.After(prev.Updates.Squawk) {
