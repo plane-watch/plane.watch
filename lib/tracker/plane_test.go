@@ -494,3 +494,26 @@ func Test_headingInfo_getCompassLabel(t *testing.T) {
 		})
 	}
 }
+
+func TestPlane_setGroundStatus(t *testing.T) {
+	trk := NewTracker()
+	plane := trk.GetPlane(7778)
+	n := time.Now()
+	plane.setGroundStatus(false, n)
+	if plane.OnGround() {
+		t.Errorf("Failed to set on ground status to false")
+	}
+
+	plane.setVerticalRate(10, n)
+	if plane.VerticalRate() != 10 {
+		t.Errorf("Failed to set veritical rate correctly")
+	}
+
+	plane.setGroundStatus(true, n)
+	if !plane.OnGround() {
+		t.Errorf("plane should be on ground")
+	}
+	if plane.VerticalRate() != 0 {
+		t.Errorf("Vertical rate should have been 0")
+	}
+}

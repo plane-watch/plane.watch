@@ -422,6 +422,11 @@ func (p *Plane) AltitudeUnits() string {
 // setGroundStatus puts our plane on the ground (or not). Use carefully, planes do not like being put on
 // the ground suddenly.
 func (p *Plane) setGroundStatus(onGround bool, ts time.Time) bool {
+	defer func() {
+		if onGround {
+			p.setVerticalRate(0, ts)
+		}
+	}()
 	p.rwLock.Lock()
 	defer p.rwLock.Unlock()
 	hasChanged := p.location.onGround != onGround
