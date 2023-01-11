@@ -49,8 +49,9 @@ func (f *Frame) decodeAdsb() {
 		f.decodeAdsbLatLon()
 		f.decodeSurfaceMovementField()
 
+		// if the 4th bit is set, the heading is valid
 		if f.message[5]&0x08 != 0 {
-			f.heading = float64(((((f.message[5] << 4) | (f.message[6] >> 4)) & 0x007F) * 45) >> 4)
+			f.heading = float64(((f.message[5]<<4)|(f.message[6]>>4))&0x007F) * 360.0 / 128.0
 			f.validHeading = true
 		}
 
