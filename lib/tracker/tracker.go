@@ -269,6 +269,7 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 					p.zeroCpr()
 				}
 				hasChanged = p.setGroundStatus(true, frame.TimeStamp()) || hasChanged
+				hasChanged = p.setVerticalRate(0, frame.TimeStamp()) || hasChanged
 
 				if frame.IsEven() {
 					_ = p.setCprEvenLocation(float64(frame.Latitude()), float64(frame.Longitude()), frame.TimeStamp())
