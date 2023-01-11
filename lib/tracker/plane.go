@@ -390,6 +390,7 @@ func (p *Plane) setAltitude(altitude int32, altitudeUnits string, ts time.Time) 
 	}
 	if p.location.altitudeUnits != altitudeUnits {
 		hasChanged = true
+		p.location.altitudeUnits = altitudeUnits
 	}
 	p.location.altitudeTs = ts
 	return hasChanged

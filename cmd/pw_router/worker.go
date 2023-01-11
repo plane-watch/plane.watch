@@ -32,6 +32,14 @@ func (w *worker) isSignificant(last, candidate export.PlaneLocation) bool {
 		Dur("diff_time", candidate.LastMsg.Sub(last.LastMsg)).
 		Logger()
 
+	if candidate.HasOnGround && candidate.OnGround {
+		if log.Debug().Enabled() {
+			sigLog.Debug().
+				Msg("Aircraft is on ground")
+		}
+		return true
+	}
+
 	// if any of these fields differ, indicate this update is significant
 	if candidate.HasHeading && last.HasHeading && math.Abs(candidate.Heading-last.Heading) > SigHeadingChange {
 		if candidate.Updates.Heading.After(last.Updates.Heading) {

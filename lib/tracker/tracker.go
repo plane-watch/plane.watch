@@ -298,7 +298,7 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 			}
 
 			altitude, _ := frame.Altitude()
-			p.setAltitude(altitude, frame.AltitudeUnits(), frame.TimeStamp())
+			hasChanged = p.setAltitude(altitude, frame.AltitudeUnits(), frame.TimeStamp()) || hasChanged
 			if err := p.decodeCpr(0, 0, frame.TimeStamp()); nil != err {
 				debugMessage("%s", err)
 			} else {
