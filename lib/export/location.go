@@ -1,6 +1,8 @@
 package export
 
 import (
+	jsoniter "github.com/json-iterator/go"
+	"github.com/rs/zerolog/log"
 	"plane.watch/lib/tracker"
 	"strings"
 )
@@ -28,14 +30,40 @@ func NewPlaneLocation(plane *tracker.Plane, isNew, isRemoved bool, source string
 		AircraftWidth:   plane.AirFrameWidth(),
 		AircraftLength:  plane.AirFrameLength(),
 		Registration:    plane.Registration(),
+		HasAltitude:     plane.HasAltitude(),
 		HasLocation:     plane.HasLocation(),
 		HasHeading:      plane.HasHeading(),
 		HasVerticalRate: plane.HasVerticalRate(),
 		HasVelocity:     plane.HasVelocity(),
+		HasFlightStatus: plane.HasFlightStatus(),
+		HasOnGround:     plane.HasOnGround(),
 		SourceTag:       source,
 		TileLocation:    plane.GridTileLocation(),
 		LastMsg:         plane.LastSeen().UTC(),
 		TrackedSince:    plane.TrackedSince().UTC(),
 		SignalRssi:      plane.SignalLevel(),
+		Updates: Updates{
+			Location:     plane.LocationUpdatedAt().UTC(),
+			Altitude:     plane.AltitudeUpdatedAt().UTC(),
+			Velocity:     plane.VelocityUpdatedAt().UTC(),
+			Heading:      plane.HeadingUpdatedAt().UTC(),
+			VerticalRate: plane.VerticalRateUpdatedAt().UTC(),
+			OnGround:     plane.OnGroundUpdatedAt().UTC(),
+			FlightStatus: plane.FlightStatusUpdatedAt().UTC(),
+			Special:      plane.SpecialUpdatedAt().UTC(),
+			Squawk:       plane.SquawkUpdatedAt().UTC(),
+		},
 	}
+}
+
+func (pl *PlaneLocation) ToJsonBytes() ([]byte, error) {
+	json := jsoniter.ConfigFastest
+	jsonBuf, err := json.Marshal(pl)
+	if nil != err {
+		log.Error().Err(err).Msg("could not create json bytes for sending")
+		return nil, err
+	} else {
+		return jsonBuf, nil
+	}
+
 }

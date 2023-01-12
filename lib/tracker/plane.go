@@ -33,12 +33,18 @@ type (
 		verticalRate         int
 		altitudeUnits        string
 		heading, velocity    float64
-		timeStamp, decodedTs time.Time
 		onGround, hasHeading bool
 		hasLatLon            bool
 		distanceTravelled    float64
 		durationTravelled    float64
 		TrackFinished        bool
+
+		cprDecodedTs   time.Time // when the planes position was last updated
+		altitudeTs     time.Time
+		headingTs      time.Time
+		velocityTs     time.Time
+		onGroundTs     time.Time
+		verticalRateTs time.Time
 
 		gridTileLocation string
 	}
@@ -47,6 +53,8 @@ type (
 		identifier string
 		status     string
 		statusId   byte
+
+		flightStatusTs time.Time
 	}
 
 	airframe struct {
@@ -71,9 +79,11 @@ type (
 		location        *PlaneLocation
 		cprLocation     CprLocation
 		special         map[string]string
-		frameTimes      []time.Time
 		msgCount        uint64
 		airframe        airframe
+
+		squawkTs  time.Time
+		specialTs time.Time
 
 		signalLevel *float64 // RSSI dBFS
 
@@ -138,6 +148,52 @@ func (p *Plane) TrackedSince() time.Time {
 	return p.trackedSince
 }
 
+func (p *Plane) LocationUpdatedAt() time.Time {
+	p.rwLock.RLock()
+	defer p.rwLock.RUnlock()
+	return p.location.cprDecodedTs
+}
+func (p *Plane) AltitudeUpdatedAt() time.Time {
+	p.rwLock.RLock()
+	defer p.rwLock.RUnlock()
+	return p.location.altitudeTs
+}
+func (p *Plane) VelocityUpdatedAt() time.Time {
+	p.rwLock.RLock()
+	defer p.rwLock.RUnlock()
+	return p.location.velocityTs
+}
+func (p *Plane) HeadingUpdatedAt() time.Time {
+	p.rwLock.RLock()
+	defer p.rwLock.RUnlock()
+	return p.location.headingTs
+}
+func (p *Plane) OnGroundUpdatedAt() time.Time {
+	p.rwLock.RLock()
+	defer p.rwLock.RUnlock()
+	return p.location.onGroundTs
+}
+func (p *Plane) VerticalRateUpdatedAt() time.Time {
+	p.rwLock.RLock()
+	defer p.rwLock.RUnlock()
+	return p.location.verticalRateTs
+}
+func (p *Plane) FlightStatusUpdatedAt() time.Time {
+	p.rwLock.RLock()
+	defer p.rwLock.RUnlock()
+	return p.flight.flightStatusTs
+}
+func (p *Plane) SpecialUpdatedAt() time.Time {
+	p.rwLock.RLock()
+	defer p.rwLock.RUnlock()
+	return p.specialTs
+}
+func (p *Plane) SquawkUpdatedAt() time.Time {
+	p.rwLock.RLock()
+	defer p.rwLock.RUnlock()
+	return p.squawkTs
+}
+
 // LastSeen is when we last received a message from this Plane
 func (p *Plane) LastSeen() time.Time {
 	p.rwLock.RLock()
@@ -192,11 +248,12 @@ func (p *Plane) resetLocationHistory() {
 }
 
 // setSpecial allows us to set any special status this plane is transmitting
-func (p *Plane) setSpecial(what, status string) bool {
+func (p *Plane) setSpecial(what, status string, ts time.Time) bool {
 	p.rwLock.Lock()
 	defer p.rwLock.Unlock()
 	hasChanged := p.special[what] != status
 	p.special[what] = status
+	p.specialTs = ts
 	return hasChanged
 }
 
@@ -321,15 +378,8 @@ func (p *Plane) String() string {
 	}
 }
 
-// setLocationUpdateTime sets the last time the location was updated
-func (p *Plane) setLocationUpdateTime(t time.Time) {
-	p.rwLock.Lock()
-	defer p.rwLock.Unlock()
-	p.location.timeStamp = t
-}
-
 // setAltitude puts our plane in the sky
-func (p *Plane) setAltitude(altitude int32, altitudeUnits string) bool {
+func (p *Plane) setAltitude(altitude int32, altitudeUnits string, ts time.Time) bool {
 	p.rwLock.Lock()
 	defer p.rwLock.Unlock()
 	// set the current altitude
@@ -340,7 +390,9 @@ func (p *Plane) setAltitude(altitude int32, altitudeUnits string) bool {
 	}
 	if p.location.altitudeUnits != altitudeUnits {
 		hasChanged = true
+		p.location.altitudeUnits = altitudeUnits
 	}
+	p.location.altitudeTs = ts
 	return hasChanged
 }
 
@@ -350,6 +402,14 @@ func (p *Plane) Altitude() int32 {
 	defer p.rwLock.RUnlock()
 	// set the current altitude
 	return p.location.altitude
+}
+
+// HasAltitude is true when we know the planes height
+func (p *Plane) HasAltitude() bool {
+	p.rwLock.RLock()
+	defer p.rwLock.RUnlock()
+	// set the current altitude
+	return !p.location.altitudeTs.IsZero()
 }
 
 // AltitudeUnits how we are measuring altitude (feet / metres)
@@ -362,11 +422,17 @@ func (p *Plane) AltitudeUnits() string {
 
 // setGroundStatus puts our plane on the ground (or not). Use carefully, planes do not like being put on
 // the ground suddenly.
-func (p *Plane) setGroundStatus(onGround bool) bool {
+func (p *Plane) setGroundStatus(onGround bool, ts time.Time) bool {
+	defer func() {
+		if onGround {
+			p.setVerticalRate(0, ts)
+		}
+	}()
 	p.rwLock.Lock()
 	defer p.rwLock.Unlock()
 	hasChanged := p.location.onGround != onGround
 	p.location.onGround = onGround
+	p.location.onGroundTs = ts
 	return hasChanged
 }
 
@@ -377,8 +443,15 @@ func (p *Plane) OnGround() bool {
 	return p.location.onGround
 }
 
+// HasOnGround is set true if we know for sure if we are on the ground or in the air
+func (p *Plane) HasOnGround() bool {
+	p.rwLock.RLock()
+	defer p.rwLock.RUnlock()
+	return !p.location.onGroundTs.IsZero()
+}
+
 // setFlightStatus sets the flight status of the aircraft, the string is one from mode_s.flightStatusTable
-func (p *Plane) setFlightStatus(statusId byte, statusString string) bool {
+func (p *Plane) setFlightStatus(statusId byte, statusString string, ts time.Time) bool {
 	p.rwLock.Lock()
 	defer p.rwLock.Unlock()
 
@@ -386,6 +459,7 @@ func (p *Plane) setFlightStatus(statusId byte, statusString string) bool {
 
 	p.flight.statusId = statusId
 	p.flight.status = statusString
+	p.flight.flightStatusTs = ts
 	return hasChanged
 }
 
@@ -394,6 +468,13 @@ func (p *Plane) FlightStatus() string {
 	p.rwLock.RLock()
 	defer p.rwLock.RUnlock()
 	return p.flight.status
+}
+
+// HasFlightStatus indicates if we have a flight status
+func (p *Plane) HasFlightStatus() bool {
+	p.rwLock.RLock()
+	defer p.rwLock.RUnlock()
+	return !p.flight.flightStatusTs.IsZero()
 }
 
 // FlightNumber is the planes self identifier for the route it is flying. e.g. QF1, SPTR644
@@ -419,7 +500,7 @@ func (p *Plane) setFlightNumber(flightIdentifier string) bool {
 	return hasChanged
 }
 
-// setCallSign sets our flights call sign
+// setRegistration sets our flights call sign
 func (p *Plane) setRegistration(reg *string, err error) bool {
 	if nil != err {
 		return false
@@ -432,11 +513,12 @@ func (p *Plane) setRegistration(reg *string, err error) bool {
 }
 
 // setSquawkIdentity Sets the planes squawk. A squawk is set by the pilots for various reasons (including flight control)
-func (p *Plane) setSquawkIdentity(ident uint32) bool {
+func (p *Plane) setSquawkIdentity(ident uint32, ts time.Time) bool {
 	p.rwLock.Lock()
 	defer p.rwLock.Unlock()
 	hasChanged := p.squawk != ident
 	p.squawk = ident
+	p.squawkTs = ts
 	return hasChanged
 }
 
@@ -469,7 +551,7 @@ func (p *Plane) AirFrame() string {
 	return p.airframe.category
 }
 
-// setAirFrameCategory is the type of airframe for this aircraft
+// setAirFrameCategoryType is the type of airframe for this aircraft
 func (p *Plane) setAirFrameCategoryType(categoryType string) bool {
 	p.rwLock.Lock()
 	defer p.rwLock.Unlock()
@@ -484,7 +566,7 @@ func (p *Plane) AirFrameType() string {
 	return p.airframe.categoryType
 }
 
-// setAirFrameCategory is the type of airframe for this aircraft
+// setAirFrameWidthLength
 func (p *Plane) setAirFrameWidthLength(w, l *float32, err error) bool {
 	if nil != err {
 		return false
@@ -510,7 +592,7 @@ func (p *Plane) AirFrameLength() *float32 {
 }
 
 // setHeading gives our plane some direction in life
-func (p *Plane) setHeading(heading float64) bool {
+func (p *Plane) setHeading(heading float64, ts time.Time) bool {
 	p.rwLock.Lock()
 	defer p.rwLock.Unlock()
 	// set the current altitude
@@ -518,6 +600,7 @@ func (p *Plane) setHeading(heading float64) bool {
 
 	p.location.heading = heading
 	p.location.hasHeading = true
+	p.location.headingTs = ts
 	return hasChanged
 }
 
@@ -548,7 +631,7 @@ func (p *Plane) HasHeading() bool {
 }
 
 // setVelocity allows us to set the speed the plane is heading
-func (p *Plane) setVelocity(velocity float64) bool {
+func (p *Plane) setVelocity(velocity float64, ts time.Time) bool {
 	p.rwLock.Lock()
 	defer p.rwLock.Unlock()
 	// set the current altitude
@@ -556,6 +639,7 @@ func (p *Plane) setVelocity(velocity float64) bool {
 
 	p.location.hasVelocity = true
 	p.location.velocity = velocity
+	p.location.velocityTs = ts
 	return hasChanged
 }
 
@@ -587,12 +671,13 @@ func (p *Plane) DistanceTravelled() DistanceTravelled {
 }
 
 // setVerticalRate shows us how fast the plane is going up and down and uuupp aaannndd doooowwn
-func (p *Plane) setVerticalRate(rate int) bool {
+func (p *Plane) setVerticalRate(rate int, ts time.Time) bool {
 	p.rwLock.Lock()
 	defer p.rwLock.Unlock()
 	hasChanged := p.location.hasVerticalRate != true || p.location.verticalRate != rate
 	p.location.hasVerticalRate = true
 	p.location.verticalRate = rate
+	p.location.verticalRateTs = ts
 	return hasChanged
 }
 
@@ -642,7 +727,7 @@ func (p *Plane) decodeCprFilledRefLatLon(refLat, refLon *float64, ts time.Time) 
 		// all we need for our reference lat/lon is a location within 45 nautical miles
 		for _, loc := range p.locationHistory {
 			// assume our aircraft is travelling < mach 4 and that it will not cover > 45mn in 1 minute
-			if nil != loc && loc.hasLatLon && loc.timeStamp.After(time.Now().Add(-time.Minute)) {
+			if nil != loc && loc.hasLatLon && loc.cprDecodedTs.After(time.Now().Add(-time.Minute)) {
 				lat := loc.latitude
 				refLat = &lat
 				lon := loc.longitude
@@ -672,7 +757,7 @@ func (p *Plane) addLatLong(lat, lon float64, ts time.Time) (warn error) {
 	numHistoryItems := len(p.locationHistory)
 	// determine speed?
 	if numHistoryItems > 0 && p.location.latitude != 0 && p.location.longitude != 0 {
-		referenceTime := p.locationHistory[numHistoryItems-1].decodedTs
+		referenceTime := p.locationHistory[numHistoryItems-1].cprDecodedTs
 		if !referenceTime.IsZero() && referenceTime.Before(ts) {
 			durationTravelled = float64(ts.Sub(referenceTime)) / float64(time.Second)
 			if 0.0 == durationTravelled {
@@ -726,7 +811,7 @@ func (p *Plane) addLatLong(lat, lon float64, ts time.Time) (warn error) {
 	p.location.latitude = lat
 	p.location.longitude = lon
 	p.location.hasLatLon = true
-	p.location.decodedTs = ts
+	p.location.cprDecodedTs = ts
 
 	needsLookup := true
 	if "" != p.location.gridTileLocation {
@@ -771,7 +856,7 @@ func (p *Plane) decodeCpr(refLat, refLon float64, ts time.Time) error {
 		return err
 	}
 
-	return p.addLatLong(loc.latitude, loc.longitude, loc.decodedTs)
+	return p.addLatLong(loc.latitude, loc.longitude, loc.cprDecodedTs)
 }
 
 // LocationHistory returns the track history of the Plane
@@ -846,8 +931,12 @@ func (pl *PlaneLocation) Copy() *PlaneLocation {
 		altitudeUnits:     pl.altitudeUnits,
 		heading:           pl.heading,
 		velocity:          pl.velocity,
-		timeStamp:         pl.timeStamp,
-		decodedTs:         pl.decodedTs,
+		cprDecodedTs:      pl.cprDecodedTs,
+		altitudeTs:        pl.altitudeTs,
+		headingTs:         pl.headingTs,
+		velocityTs:        pl.velocityTs,
+		onGroundTs:        pl.onGroundTs,
+		verticalRateTs:    pl.verticalRateTs,
 		onGround:          pl.onGround,
 		hasHeading:        pl.hasHeading,
 		hasLatLon:         pl.hasLatLon,

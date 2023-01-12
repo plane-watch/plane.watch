@@ -1,6 +1,9 @@
 package tracker
 
-import "plane.watch/lib/tracker/mode_s"
+import (
+	"plane.watch/lib/tracker/mode_s"
+	"sync"
+)
 
 type (
 	lossyFrame struct {
@@ -8,6 +11,7 @@ type (
 		next, prev *lossyFrame
 	}
 	lossyFrameList struct {
+		mu         sync.Mutex
 		head, tail *lossyFrame
 		capacity   int
 		numItems   int
@@ -24,6 +28,16 @@ func newLossyFrameList(numItems int) lossyFrameList {
 }
 
 func (fl *lossyFrameList) Push(f *mode_s.Frame) {
+	// defer is a stack, last in -> first out
+	// called second to avoid lock contention
+	defer func() {
+		if fl.numItems > fl.capacity {
+			_ = fl.Unshift()
+		}
+	}()
+
+	fl.mu.Lock()
+	defer fl.mu.Unlock()
 	item := lossyFrame{
 		item: f,
 		next: fl.head,
@@ -37,13 +51,12 @@ func (fl *lossyFrameList) Push(f *mode_s.Frame) {
 		fl.tail = fl.head
 	}
 	fl.numItems++
-	if fl.numItems > fl.capacity {
-		_ = fl.Unshift()
-	}
 }
 
 // Unshift shortens the queue by 1, taking from the tail.
 func (fl *lossyFrameList) Unshift() *mode_s.Frame {
+	fl.mu.Lock()
+	defer fl.mu.Unlock()
 	if nil == fl.tail {
 		return nil
 	}
@@ -68,6 +81,8 @@ func (fl *lossyFrameList) Unshift() *mode_s.Frame {
 }
 
 func (fl *lossyFrameList) Pop() *mode_s.Frame {
+	fl.mu.Lock()
+	defer fl.mu.Unlock()
 	if nil == fl.head {
 		return nil
 	}
@@ -93,6 +108,8 @@ func (fl *lossyFrameList) Len() int {
 }
 
 func (fl *lossyFrameList) Range(f func(f *mode_s.Frame) bool) {
+	fl.mu.Lock()
+	defer fl.mu.Unlock()
 	t := fl.head
 	for t.next != nil {
 		if !f(t.item) {

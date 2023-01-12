@@ -129,6 +129,12 @@ func (f *Filter) IsOk(avr *mode_s.Frame) bool {
 	if len(f.listDfMeType) > 0 && !bytes.Contains(f.listDfMeType, []byte{avr.MessageType()}) {
 		return false
 	}
-	f.log.Info().Bytes("AVR", avr.Raw()).Str("icao", avr.IcaoStr()).Msgf("Found Frame")
+	f.log.Info().
+		Str("AVR", avr.RawString()).
+		Int("DF", int(avr.DownLinkType())).
+		Int("DF17MT", int(avr.MessageType())).
+		Int("DF17MT Sub", int(avr.MessageSubType())).
+		Str("icao", avr.IcaoStr()).
+		Msg("Found Frame")
 	return true
 }

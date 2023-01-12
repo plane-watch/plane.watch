@@ -494,3 +494,49 @@ func Test_headingInfo_getCompassLabel(t *testing.T) {
 		})
 	}
 }
+
+func TestPlane_setGroundStatus(t *testing.T) {
+	trk := NewTracker()
+	plane := trk.GetPlane(7778)
+	n := time.Now()
+	plane.setGroundStatus(false, n)
+	if plane.OnGround() {
+		t.Errorf("Failed to set on ground status to false")
+	}
+
+	plane.setVerticalRate(10, n)
+	if plane.VerticalRate() != 10 {
+		t.Errorf("Failed to set veritical rate correctly")
+	}
+
+	plane.setGroundStatus(true, n)
+	if !plane.OnGround() {
+		t.Errorf("plane should be on ground")
+	}
+	if plane.VerticalRate() != 0 {
+		t.Errorf("Vertical rate should have been 0")
+	}
+}
+
+func TestPlane_Altitude(t *testing.T) {
+	trk := NewTracker()
+	plane := trk.GetPlane(7778)
+
+	if plane.HasAltitude() {
+		t.Errorf("new aircraft without altitude set should not have HasAltitude=true")
+	}
+	n := time.Now()
+
+	plane.setAltitude(1545, "donkeys", n)
+	if !plane.HasAltitude() {
+		t.Errorf("Should have an altitude after setting it")
+	}
+
+	if 1545 != plane.Altitude() {
+		t.Errorf("incorrect altitude set")
+	}
+
+	if "donkeys" != plane.AltitudeUnits() {
+		t.Errorf("incorrect altitude units")
+	}
+}

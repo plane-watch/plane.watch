@@ -89,7 +89,7 @@ func main() {
 	app.Name = "Plane Watch Router (pw_router)"
 	app.Usage = "Reads location updates from AMQP and publishes only significant updates."
 
-	app.Description = `This program takes a stream of plane tracking data (location updates) from an AMQP message bus  ` +
+	app.Description = `This program takes a stream of plane tracking data (location updates) from a message bus  ` +
 		`and filters messages and only returns significant changes for each aircraft.` +
 		"\n\n" +
 		`example: ./pw_router --rabbitmq="amqp://guest:guest@localhost:5672" --source-route-key=location-updates --num-workers=8 --prom-metrics-port=9601`
@@ -140,8 +140,14 @@ func main() {
 		},
 		&cli.StringFlag{
 			Name:    "destination-route-key",
-			Usage:   "Name of the routing key to publish significant updates to.",
+			Usage:   "Name of the routing key to publish significant updates to. (low)",
 			Value:   "location-updates-enriched-reduced",
+			EnvVars: []string{"DEST_ROUTE_KEY"},
+		},
+		&cli.StringFlag{
+			Name:    "destination-route-key-merged",
+			Usage:   "Name of the routing key to publish merged updates to. (high)",
+			Value:   "location-updates-enriched-merged",
 			EnvVars: []string{"DEST_ROUTE_KEY"},
 		},
 		&cli.IntFlag{
@@ -279,16 +285,18 @@ func run(c *cli.Context) error {
 	monitoring.AddHealthCheck(r)
 
 	numWorkers := c.Int("num-workers")
-	destRouteKey := c.String("destination-route-key")
+	destRouteKeyLow := c.String("destination-route-key")
+	destRouteKeyMerged := c.String("destination-route-key-merged")
 	spreadUpdates := c.Bool("spread-updates")
 
 	log.Info().Msgf("Starting with %d workers...", numWorkers)
 	for i := 0; i < numWorkers; i++ {
 		wkr := worker{
-			router:         &r,
-			destRoutingKey: destRouteKey,
-			spreadUpdates:  spreadUpdates,
-			ds:             ds,
+			router:             &r,
+			destRoutingKeyLow:  destRouteKeyLow,
+			destRoutingKeyHigh: destRouteKeyMerged,
+			spreadUpdates:      spreadUpdates,
+			ds:                 ds,
 		}
 		wg.Add(1)
 		go func() {
