@@ -85,7 +85,9 @@ func Test_pwAlertBot_alertUser(t *testing.T) {
 			DiscordUserId: "testerer",
 		},
 		update: &export.PlaneLocation{
-			Icao: "01AB23",
+			PlaneLocationPB: export.PlaneLocationPB{
+				Icao: 0x01AB23,
+			},
 		},
 		distanceMtr: 23,
 	}

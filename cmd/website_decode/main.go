@@ -144,9 +144,9 @@ func runHttpServer(c *cli.Context) error {
 			for _, icao := range icaoList {
 				_, _ = fmt.Fprintln(w, "")
 				plane := pt.GetPlane(icao)
-				pl := export.NewPlaneLocation(plane, true, false, "")
+				pl := export.NewPlaneLocation(plane, "")
 
-				encoded, _ := json.MarshalIndent(pl, "", "  ")
+				encoded, _ := json.MarshalIndent(&pl, "", "  ")
 
 				_, _ = fmt.Fprint(w, string(encoded))
 			}

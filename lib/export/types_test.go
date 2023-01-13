@@ -1,6 +1,7 @@
 package export
 
 import (
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"testing"
 	"time"
 )
@@ -13,8 +14,8 @@ func TestIsLocationPossible(t *testing.T) {
 		t.Error("I don't understand time")
 	}
 
-	pos1 := PlaneLocation{Lat: -31.942017, Lon: 115.964594, Heading: 14.116942, HasLocation: true, HasHeading: true, LastMsg: msg1t}
-	pos2 := PlaneLocation{Lat: -31.940887, Lon: 115.964897, Heading: 14.116942, HasLocation: true, HasHeading: true, LastMsg: msg2t}
+	pos1 := &PlaneLocation{PlaneLocationPB: PlaneLocationPB{Lat: -31.942017, Lon: 115.964594, Heading: 14.116942, HasLocation: true, HasHeading: true, LastMsg: timestamppb.New(msg1t)}}
+	pos2 := &PlaneLocation{PlaneLocationPB: PlaneLocationPB{Lat: -31.940887, Lon: 115.964897, Heading: 14.116942, HasLocation: true, HasHeading: true, LastMsg: timestamppb.New(msg2t)}}
 
 	if !IsLocationPossible(pos1, pos2) {
 		t.Error("Pos1 -> Pos2 is possible")

@@ -91,7 +91,7 @@ func (f *Frame) decodeAdsb() {
 		f.nacV = (f.message[5] & 0x38) >> 3
 
 		var verticalRateSign = int((f.message[8] & 0x8) >> 3)
-		f.verticalRate = (int(f.message[8]&7) << 6) | (int(f.message[9]&0xfc) >> 2)
+		f.verticalRate = (int32(f.message[8]&7) << 6) | (int32(f.message[9]&0xfc) >> 2)
 		if f.verticalRate != 0 {
 			f.verticalRate--
 			if verticalRateSign != 0 {

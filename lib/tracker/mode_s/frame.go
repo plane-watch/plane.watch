@@ -49,8 +49,8 @@ type (
 		velocity            float64 /* Computed from EW and NS velocity. */
 		superSonic          bool
 
-		verticalRateSource int /* Vertical rate source. */
-		verticalRate       int /* Vertical rate. */
+		verticalRateSource int   /* Vertical rate source. */
+		verticalRate       int32 /* Vertical rate. */
 		validVerticalRate  bool
 
 		onGround            bool /* VS Bit */
@@ -713,13 +713,13 @@ func (f *Frame) HeadingValid() bool {
 	return f.validHeading
 }
 
-func (f *Frame) VerticalRate() (int, error) {
+func (f *Frame) VerticalRate() (int32, error) {
 	if f.VerticalRateValid() {
 		return f.verticalRate, nil
 	}
 	return 0, fmt.Errorf("vertical rate (VR) is not valid")
 }
-func (f *Frame) MustVerticalRate() int {
+func (f *Frame) MustVerticalRate() int32 {
 	if f.VerticalRateValid() {
 		return f.verticalRate
 	}

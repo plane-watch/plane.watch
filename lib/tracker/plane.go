@@ -30,7 +30,7 @@ type (
 		altitude             int32
 		hasVerticalRate      bool
 		hasVelocity          bool
-		verticalRate         int
+		verticalRate         int32
 		altitudeUnits        string
 		heading, velocity    float64
 		onGround, hasHeading bool
@@ -469,6 +469,11 @@ func (p *Plane) FlightStatus() string {
 	defer p.rwLock.RUnlock()
 	return p.flight.status
 }
+func (p *Plane) FlightStatusId() byte {
+	p.rwLock.RLock()
+	defer p.rwLock.RUnlock()
+	return p.flight.statusId
+}
 
 // HasFlightStatus indicates if we have a flight status
 func (p *Plane) HasFlightStatus() bool {
@@ -671,7 +676,7 @@ func (p *Plane) DistanceTravelled() DistanceTravelled {
 }
 
 // setVerticalRate shows us how fast the plane is going up and down and uuupp aaannndd doooowwn
-func (p *Plane) setVerticalRate(rate int, ts time.Time) bool {
+func (p *Plane) setVerticalRate(rate int32, ts time.Time) bool {
 	p.rwLock.Lock()
 	defer p.rwLock.Unlock()
 	hasChanged := p.location.hasVerticalRate != true || p.location.verticalRate != rate
@@ -682,7 +687,7 @@ func (p *Plane) setVerticalRate(rate int, ts time.Time) bool {
 }
 
 // VerticalRate tells us how fast the plane is going up and down
-func (p *Plane) VerticalRate() int {
+func (p *Plane) VerticalRate() int32 {
 	p.rwLock.RLock()
 	defer p.rwLock.RUnlock()
 	return p.location.verticalRate

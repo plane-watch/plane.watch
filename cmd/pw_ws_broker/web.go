@@ -224,17 +224,17 @@ func (bw *PwWsBrokerWeb) servePlanes(w http.ResponseWriter, r *http.Request) {
 	log.Debug().Str("New Connection", r.RemoteAddr).Msg("New /planes WS")
 
 	compress := r.URL.Query().Get("compress")
-	ws_compression := websocket.CompressionContextTakeover
+	wsCompression := websocket.CompressionContextTakeover
 
 	if "false" == compress || "False" == compress {
-		ws_compression = websocket.CompressionDisabled
+		wsCompression = websocket.CompressionDisabled
 	}
 
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		Subprotocols:       []string{ws_protocol.WsProtocolPlanes},
 		InsecureSkipVerify: false,
 		OriginPatterns:     bw.domainsToServe,
-		CompressionMode:    ws_compression,
+		CompressionMode:    wsCompression,
 	})
 	if nil != err {
 		log.Error().Err(err).Msg("Failed to setup websocket connection")
@@ -395,7 +395,7 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 	}
 
 	locationMessages := make([]*export.PlaneLocation, 0, 1000)
-	icaoIdLookup := make(map[string]int, 1000)
+	icaoIdLookup := make(map[uint32]int, 1000)
 
 	d := sendTickDuration
 	if 0 == d {
@@ -505,7 +505,7 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 				})
 				// reset the slice and lookup map
 				locationMessages = make([]*export.PlaneLocation, 0, 1000)
-				icaoIdLookup = make(map[string]int, 1000)
+				icaoIdLookup = make(map[uint32]int, 1000)
 			}
 		}
 
@@ -600,7 +600,7 @@ func newClientList() *ClientList {
 					oldest = time.Now().Add(-time.Hour)
 				}
 				// remove  the plane from the list if it is older than our oldest allowable
-				result = loc.LastMsg.Before(oldest)
+				result = loc.LastMsg.AsTime().Before(oldest)
 			}
 			// remove anything that is not a *export.PlaneLocation
 			return result

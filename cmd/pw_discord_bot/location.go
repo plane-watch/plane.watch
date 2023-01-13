@@ -20,7 +20,7 @@ const alertLocationsFile = "alert-locations.json"
 
 type (
 	alertConfig struct {
-		HeightLowFt, HeightHighFt int
+		HeightLowFt, HeightHighFt int32
 		AlertRadiusMtr            int
 		Enabled                   bool
 	}
@@ -216,7 +216,7 @@ func saveLocationsList() error {
 		}
 	}
 
-	err = ioutil.WriteFile(saveLoc, b, 0644)
+	err = os.WriteFile(saveLoc, b, 0644)
 	if nil != err {
 		return fmt.Errorf("failed to save locations to %s. %s", saveLoc, err)
 	}
@@ -238,7 +238,7 @@ func forLocation(tileName string, matchFunc locationMatchFunc) {
 	}
 }
 
-func (ac *alertConfigs) configForHeight(altitude int) *alertConfig {
+func (ac *alertConfigs) configForHeight(altitude int32) *alertConfig {
 	for _, config := range *ac {
 		if altitude >= config.HeightLowFt && altitude < config.HeightHighFt {
 			return config

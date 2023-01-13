@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"math"
@@ -74,7 +75,7 @@ func (a *pwAlertBot) handleUpdate(update *export.PlaneLocation) {
 		distance := getDistanceBetween(update.Lat, update.Lon, alert.Lat, alert.Lon)
 		ac := alert.AlertConfig.configForHeight(update.Altitude)
 		if nil == ac {
-			log.Error().Int("altitude", update.Altitude).Msg("Failed to get alert config")
+			log.Error().Int32("altitude", update.Altitude).Msg("Failed to get alert config")
 			return
 		}
 		if !ac.Enabled {
@@ -126,9 +127,7 @@ func (a *pwAlertBot) alertUser(pa *proximityAlert) {
 }
 
 func (pa *proximityAlert) Key() string {
-	key := pa.alert.DiscordUserId + pa.alert.LocationName + pa.update.Icao
-
-	return key
+	return fmt.Sprintf("%s%s%06X", pa.alert.DiscordUserId, pa.alert.LocationName, pa.update.Icao)
 }
 
 // getDistanceBetween takes 2 Lat/Lon pairs and calculates the distance between them, in metres

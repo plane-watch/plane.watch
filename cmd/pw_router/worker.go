@@ -23,13 +23,13 @@ const SigHeadingChange = 1.0        // at least 1.0 degrees change.
 const SigVerticalRateChange = 180.0 // at least 180 fpm change (3ft in 1min)
 const SigAltitudeChange = 10.0      // at least 10 ft in altitude change.
 
-func (w *worker) isSignificant(last, candidate export.PlaneLocation) bool {
+func (w *worker) isSignificant(last, candidate *export.PlaneLocation) bool {
 	// check the candidate vs last, if any of the following have changed
 	// - Heading, VerticalRate, Velocity, Altitude, FlightNumber, FlightStatus, OnGround, Special, Squawk
 
 	sigLog := log.With().
-		Str("aircraft", candidate.Icao).
-		Dur("diff_time", candidate.LastMsg.Sub(last.LastMsg)).
+		Uint32("aircraft", candidate.Icao).
+		Dur("diff_time", candidate.LastMsg.AsTime().Sub(last.LastMsg.AsTime())).
 		Logger()
 
 	if candidate.HasOnGround && candidate.OnGround {
@@ -42,7 +42,7 @@ func (w *worker) isSignificant(last, candidate export.PlaneLocation) bool {
 
 	// if any of these fields differ, indicate this update is significant
 	if candidate.HasHeading && last.HasHeading && math.Abs(candidate.Heading-last.Heading) > SigHeadingChange {
-		if candidate.Updates.Heading.After(last.Updates.Heading) {
+		if candidate.Updates.Heading.AsTime().After(last.Updates.Heading.AsTime()) {
 			if log.Debug().Enabled() {
 				sigLog.Debug().
 					Float64("last", last.Heading).
@@ -55,7 +55,7 @@ func (w *worker) isSignificant(last, candidate export.PlaneLocation) bool {
 	}
 
 	if candidate.HasVelocity && last.HasVelocity && candidate.Velocity != last.Velocity {
-		if candidate.Updates.Velocity.After(last.Updates.Velocity) {
+		if candidate.Updates.Velocity.AsTime().After(last.Updates.Velocity.AsTime()) {
 			if log.Debug().Enabled() {
 				sigLog.Debug().
 					Float64("last", last.Velocity).
@@ -68,12 +68,12 @@ func (w *worker) isSignificant(last, candidate export.PlaneLocation) bool {
 	}
 
 	if candidate.HasVerticalRate && last.HasVerticalRate && math.Abs(float64(candidate.VerticalRate-last.VerticalRate)) > SigVerticalRateChange {
-		if candidate.Updates.VerticalRate.After(last.Updates.VerticalRate) {
+		if candidate.Updates.VerticalRate.AsTime().After(last.Updates.VerticalRate.AsTime()) {
 			if log.Debug().Enabled() {
 				sigLog.Debug().
-					Int("last", last.VerticalRate).
-					Int("current", candidate.VerticalRate).
-					Int("diff_value", last.VerticalRate-candidate.VerticalRate).
+					Int32("last", last.VerticalRate).
+					Int32("current", candidate.VerticalRate).
+					Int32("diff_value", last.VerticalRate-candidate.VerticalRate).
 					Msg("Significant vertical rate change.")
 			}
 		}
@@ -81,12 +81,12 @@ func (w *worker) isSignificant(last, candidate export.PlaneLocation) bool {
 	}
 
 	if math.Abs(float64(candidate.Altitude-last.Altitude)) > SigAltitudeChange {
-		if candidate.Updates.Altitude.After(last.Updates.Altitude) {
+		if candidate.Updates.Altitude.AsTime().After(last.Updates.Altitude.AsTime()) {
 			if log.Debug().Enabled() {
 				sigLog.Debug().
-					Int("last", last.Altitude).
-					Int("current", candidate.Altitude).
-					Int("diff_value", last.Altitude-candidate.Altitude).
+					Int32("last", last.Altitude).
+					Int32("current", candidate.Altitude).
+					Int32("diff_value", last.Altitude-candidate.Altitude).
 					Msg("Significant altitude change.")
 			}
 			return true
@@ -94,11 +94,11 @@ func (w *worker) isSignificant(last, candidate export.PlaneLocation) bool {
 	}
 
 	if candidate.FlightStatus != last.FlightStatus {
-		if candidate.Updates.FlightStatus.After(last.Updates.FlightStatus) {
+		if candidate.Updates.FlightStatus.AsTime().After(last.Updates.FlightStatus.AsTime()) {
 			if log.Debug().Enabled() {
 				sigLog.Debug().
-					Str("last", last.FlightStatus).
-					Str("current", candidate.FlightStatus).
+					Str("last", last.FlightStatus.Describe()).
+					Str("current", candidate.FlightStatus.Describe()).
 					Msg("Significant FlightStatus change.")
 			}
 			return true
@@ -106,7 +106,7 @@ func (w *worker) isSignificant(last, candidate export.PlaneLocation) bool {
 	}
 
 	if candidate.OnGround != last.OnGround {
-		if candidate.Updates.OnGround.After(last.Updates.OnGround) {
+		if candidate.Updates.OnGround.AsTime().After(last.Updates.OnGround.AsTime()) {
 			if log.Debug().Enabled() {
 				sigLog.Debug().
 					Bool("last", last.OnGround).
@@ -118,7 +118,7 @@ func (w *worker) isSignificant(last, candidate export.PlaneLocation) bool {
 	}
 
 	if candidate.Special != last.Special {
-		if candidate.Updates.Special.After(last.Updates.Special) {
+		if candidate.Updates.Special.AsTime().After(last.Updates.Special.AsTime()) {
 			if log.Debug().Enabled() {
 				sigLog.Debug().
 					Str("last", last.Special).
@@ -130,11 +130,11 @@ func (w *worker) isSignificant(last, candidate export.PlaneLocation) bool {
 	}
 
 	if candidate.Squawk != last.Squawk {
-		if candidate.Updates.Squawk.After(last.Updates.Squawk) {
+		if candidate.Updates.Squawk.AsTime().After(last.Updates.Squawk.AsTime()) {
 			if log.Debug().Enabled() {
 				sigLog.Debug().
-					Str("last", last.Squawk).
-					Str("current", candidate.Squawk).
+					Uint32("last", last.Squawk).
+					Uint32("current", candidate.Squawk).
 					Msg("Significant Squawk change.")
 			}
 			return true
@@ -142,7 +142,7 @@ func (w *worker) isSignificant(last, candidate export.PlaneLocation) bool {
 	}
 
 	if candidate.TileLocation != last.TileLocation {
-		if candidate.Updates.Location.After(last.Updates.Location) {
+		if candidate.Updates.Location.AsTime().After(last.Updates.Location.AsTime()) {
 			if log.Debug().Enabled() {
 				sigLog.Debug().
 					Str("last", last.TileLocation).
@@ -186,14 +186,14 @@ func (w *worker) handleMsg(msg []byte) error {
 	var json = jsoniter.ConfigFastest
 	// unmarshal the JSON and ensure it's valid.
 	// report the error if not and skip this message.
-	update := export.PlaneLocation{}
-	if err = json.Unmarshal(msg, &update); nil != err {
+	update := &export.PlaneLocation{}
+	if err = json.Unmarshal(msg, update); nil != err {
 		log.Error().Err(err).Msg("Unable to unmarshal JSON")
 		updatesError.Inc()
 		return err
 	}
 
-	if "" == update.Icao {
+	if 0 == update.Icao {
 		log.Debug().Str("payload", string(msg)).Msg("empty ICAO")
 		updatesError.Inc()
 		return nil
@@ -207,25 +207,17 @@ func (w *worker) handleMsg(msg []byte) error {
 	// if this Icao is not in the cache, it's new.
 	if !ok {
 		if nil == update.SourceTags {
-			update.SourceTags = make(map[string]uint)
+			update.SourceTags = make(map[string]uint32)
 		}
 		update.SourceTags[update.SourceTag]++
-		w.router.syncSamples.Store(update.Icao, update)
+		w.router.syncSamples.Store(update.Icao, &update)
 
 		w.handleNewUpdate(update, msg)
 		return nil // finish here, no significance check as we have nothing to compare.
 	}
 
-	// upstream signals that this plane has been removed / lost.
-	if update.Removed {
-		// TODO: we need to do our own reaping, since we can have multiple upstreams and one upstream losing track of
-		// TODO: a plane does not mean it should be lost entirely
-		//w.handleRemovedUpdate(update, msg)
-		return nil // don't need to do anything else with this.
-	}
-
 	// is this update significant versus the previous one
-	lastRecord := item.(export.PlaneLocation)
+	lastRecord := item.(*export.PlaneLocation)
 	merged, err := export.MergePlaneLocations(lastRecord, update)
 	if nil != err {
 		return nil
@@ -246,7 +238,7 @@ func (w *worker) handleMsg(msg []byte) error {
 	return nil
 }
 
-func (w *worker) handleRemovedUpdate(update export.PlaneLocation, msg []byte) {
+func (w *worker) handleRemovedUpdate(update *export.PlaneLocation, msg []byte) {
 	//check if this is a removed record and purge it from the cache and emit an event
 	// this ensures downstream pipeline components always know about a removed record.
 	// we get the removed flag from pw_ingest - this shortcuts our cache expiry for efficiency.
@@ -264,7 +256,7 @@ func (w *worker) handleRemovedUpdate(update export.PlaneLocation, msg []byte) {
 	}
 }
 
-func (w *worker) handleSignificantUpdate(update export.PlaneLocation, msg []byte) {
+func (w *worker) handleSignificantUpdate(update *export.PlaneLocation, msg []byte) {
 	// store the new update in-place of the old one
 	//w.router.syncSamples.Store(update.Icao, update)
 	updatesSignificant.Inc()
@@ -277,16 +269,16 @@ func (w *worker) handleSignificantUpdate(update export.PlaneLocation, msg []byte
 		w.publishLocationUpdate(update.TileLocation+qSuffixHigh, msg)
 	}
 	if nil != w.ds {
-		w.ds.AddLow(&update)
+		w.ds.AddLow(update)
 	}
 }
 
-func (w *worker) handleNewUpdate(update export.PlaneLocation, msg []byte) {
+func (w *worker) handleNewUpdate(update *export.PlaneLocation, msg []byte) {
 	// store the new update
 	cacheEntries.Inc()
 
 	log.Debug().
-		Str("aircraft", update.Icao).
+		Uint32("aircraft", update.Icao).
 		Msg("First time seeing aircraft.")
 
 	// new messages go to both queues
@@ -300,7 +292,7 @@ func (w *worker) handleNewUpdate(update export.PlaneLocation, msg []byte) {
 	}
 }
 
-func (w *worker) handleInsignificantUpdate(update export.PlaneLocation, msg []byte) {
+func (w *worker) handleInsignificantUpdate(update *export.PlaneLocation, msg []byte) {
 	updatesInsignificant.Inc()
 
 	w.publishLocationUpdate(w.destRoutingKeyHigh, msg) // all high speed messages
@@ -311,7 +303,7 @@ func (w *worker) handleInsignificantUpdate(update export.PlaneLocation, msg []by
 	}
 
 	if nil != w.ds {
-		w.ds.AddHigh(&update)
+		w.ds.AddHigh(update)
 	}
 }
 

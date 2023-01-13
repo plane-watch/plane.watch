@@ -85,12 +85,12 @@ func (ds *DataStream) handleQueue(q chan *export.PlaneLocation, table string) {
 		}
 		return 0
 	}
-	unPtr := func(s *string) string {
-		if nil == s {
-			return ""
-		}
-		return *s
-	}
+	//unPtr := func(s *string) string {
+	//	if nil == s {
+	//		return ""
+	//	}
+	//	return *s
+	//}
 	send := func() {
 		ds.log.Debug().Int("num", updateId).Msg("Sending Batch To Clickhouse")
 		if err := ds.chs.Inserts(table, updates, updateId); nil != err {
@@ -103,40 +103,38 @@ func (ds *DataStream) handleQueue(q chan *export.PlaneLocation, table string) {
 		case <-ticker.C:
 			send()
 		case loc := <-q:
-			squawk, _ := strconv.ParseUint(loc.Squawk, 10, 32)
 			updates[updateId] = &chRow{
-				New:             bool2int(loc.New),
-				Removed:         bool2int(loc.Removed),
-				Icao:            loc.Icao,
+				New:             0,
+				Removed:         0,
+				Icao:            strconv.FormatUint(uint64(loc.Icao), 10),
 				Lat:             loc.Lat,
 				Lon:             loc.Lon,
 				Heading:         loc.Heading,
 				Velocity:        loc.Velocity,
-				Altitude:        int32(loc.Altitude),
-				VerticalRate:    int32(loc.VerticalRate),
-				AltitudeUnits:   loc.AltitudeUnits,
-				CallSign:        unPtr(loc.CallSign),
-				FlightStatus:    loc.FlightStatus,
+				Altitude:        loc.Altitude,
+				VerticalRate:    loc.VerticalRate,
+				AltitudeUnits:   loc.AltitudeUnits.Describe(),
+				CallSign:        loc.CallSign,
+				FlightStatus:    loc.FlightStatus.Describe(),
 				OnGround:        bool2int(loc.OnGround),
-				Airframe:        loc.Airframe,
-				AirframeType:    loc.AirframeType,
+				AirframeType:    loc.AirframeType.Describe(),
 				HasLocation:     bool2int(loc.HasLocation),
 				HasHeading:      bool2int(loc.HasHeading),
 				HasVerticalRate: bool2int(loc.HasVerticalRate),
 				HasVelocity:     bool2int(loc.HasVelocity),
 				SourceTag:       loc.SourceTag,
-				Squawk:          uint32(squawk),
+				Squawk:          loc.Squawk,
 				Special:         loc.Special,
-				TrackedSince:    loc.TrackedSince.UTC().Format("2006-01-02 15:04:05.999999999"),
-				LastMsg:         loc.LastMsg.UTC().Format("2006-01-02 15:04:05.999999999"),
-				FlagCode:        unPtr(loc.FlagCode),
-				Operator:        unPtr(loc.Operator),
-				RegisteredOwner: unPtr(loc.RegisteredOwner),
-				Registration:    unPtr(loc.Registration),
-				RouteCode:       unPtr(loc.RouteCode),
-				Serial:          unPtr(loc.Serial),
+				TrackedSince:    loc.TrackedSince.AsTime().Format("2006-01-02 15:04:05.999999999"),
+				LastMsg:         loc.LastMsg.AsTime().Format("2006-01-02 15:04:05.999999999"),
+				FlagCode:        loc.FlagCode,
+				Operator:        loc.Operator,
+				RegisteredOwner: loc.RegisteredOwner,
+				Registration:    loc.Registration,
+				RouteCode:       loc.RouteCode,
+				Serial:          loc.Serial,
 				TileLocation:    loc.TileLocation,
-				TypeCode:        unPtr(loc.TypeCode),
+				TypeCode:        loc.TypeCode,
 			}
 
 			updateId++
