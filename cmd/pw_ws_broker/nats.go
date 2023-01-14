@@ -1,7 +1,6 @@
 package main
 
 import (
-	jsoniter "github.com/json-iterator/go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
@@ -56,14 +55,12 @@ func (n *PwWsBrokerNats) consume(exitChan chan bool, subject, what string) {
 	var wg sync.WaitGroup
 	worker := func() {
 		for msg := range ch {
-			planeData := export.PlaneLocation{}
-			var json = jsoniter.ConfigFastest
-			errJson := json.Unmarshal(msg.Data, &planeData)
-			if nil != errJson {
+			planeData, errDecode := export.FromProtobufBytes(msg.Data)
+			if nil != errDecode {
 				log.Debug().Err(err).Msg("did not understand msg")
 				continue
 			}
-			n.processMessage(what, &planeData)
+			n.processMessage(what, planeData)
 		}
 		wg.Done()
 	}

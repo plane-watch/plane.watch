@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	jsoniter "github.com/json-iterator/go"
 	"github.com/rs/zerolog/log"
 	"math"
 	"plane.watch/lib/export"
@@ -183,12 +182,11 @@ func (w *worker) run(ctx context.Context, ch <-chan []byte) {
 func (w *worker) handleMsg(msg []byte) error {
 	var err error
 
-	var json = jsoniter.ConfigFastest
-	// unmarshal the JSON and ensure it's valid.
+	// unmarshal the message and ensure it's valid.
 	// report the error if not and skip this message.
-	update := &export.PlaneLocation{}
-	if err = json.Unmarshal(msg, update); nil != err {
-		log.Error().Err(err).Msg("Unable to unmarshal JSON")
+	update, err := export.FromProtobufBytes(msg)
+	if nil != err {
+		log.Error().Err(err).Msg("Unable to unmarshal message")
 		updatesError.Inc()
 		return err
 	}
@@ -206,11 +204,8 @@ func (w *worker) handleMsg(msg []byte) error {
 
 	// if this Icao is not in the cache, it's new.
 	if !ok {
-		if nil == update.SourceTags {
-			update.SourceTags = make(map[string]uint32)
-		}
-		update.SourceTags[update.SourceTag]++
-		w.router.syncSamples.Store(update.Icao, &update)
+		update.IncSourceTag(update.SourceTag)
+		w.router.syncSamples.Store(update.Icao, update)
 
 		w.handleNewUpdate(update, msg)
 		return nil // finish here, no significance check as we have nothing to compare.
@@ -224,7 +219,7 @@ func (w *worker) handleMsg(msg []byte) error {
 	}
 	w.router.syncSamples.Store(merged.Icao, merged)
 
-	mergedMsg, err := merged.ToJsonBytes()
+	mergedMsg, err := merged.ToProtobufBytes()
 	if nil != err {
 		return err
 	}

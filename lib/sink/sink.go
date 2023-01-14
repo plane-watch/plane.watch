@@ -99,7 +99,7 @@ func (s *Sink) trackerMsgJson(le *tracker.PlaneLocationEvent) ([]byte, error) {
 	}
 
 	eventStruct := export.NewPlaneLocation(plane, s.config.sourceTag)
-	return eventStruct.ToJsonBytes()
+	return eventStruct.ToProtobufBytes()
 }
 
 func (s *Sink) sendFrameEvent(queueAvr, queueBeast, queueSbs1 string) func(tracker.Frame, *tracker.FrameSource) error {

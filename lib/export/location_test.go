@@ -4,9 +4,13 @@ import (
 	"encoding/json"
 	"github.com/golang/protobuf/proto"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"testing"
 )
+
+// Note: DateTime's are not encoded as RFC3339 strings in these tests.
+//
 
 func getRefLocation() *PlaneLocation {
 	return &PlaneLocation{
@@ -76,6 +80,30 @@ func BenchmarkPlaneLocationEncode(b *testing.B) {
 	}
 }
 
+// ToJsonIterBytes is a faster JSON encoder, but with Protobuf messages produces incorrect output for the timestamps
+func (pl *PlaneLocation) ToJsonIterBytes() ([]byte, error) {
+	jsonFast := jsoniter.ConfigFastest
+	jsonBuf, err := jsonFast.Marshal(&pl.PlaneLocationPB)
+	if nil != err {
+		log.Error().Err(err).Msg("could not create json bytes for sending")
+		return nil, err
+	} else {
+		return jsonBuf, nil
+	}
+}
+
+// BenchmarkPlaneLocationJsoniterEncode benches with the protobuf based message outputs the wrong thing for timestamps
+func BenchmarkPlaneLocationJsoniterEncode(b *testing.B) {
+	loc := getRefLocation()
+	for i := 0; i < b.N; i++ {
+		_, err := loc.ToJsonIterBytes()
+		if err != nil {
+			b.Fail()
+			return
+		}
+	}
+}
+
 func BenchmarkPlaneLocationStdJsonEncode(b *testing.B) {
 	loc := getRefLocation()
 	for i := 0; i < b.N; i++ {
@@ -106,13 +134,11 @@ func BenchmarkPlaneLocationDecode(b *testing.B) {
 		b.Fail()
 		return
 	}
-	b.Logf("Encoded Length: %d", len(msg))
-	update := PlaneLocation{}
+	//b.Logf("Encoded Length: %d", len(msg))
 
-	var jsonFast = jsoniter.ConfigFastest
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if err = jsonFast.Unmarshal(msg, &update); nil != err {
+		if _, err = FromJsonBytes(msg); nil != err {
 			b.Fail()
 			return
 		}
@@ -121,12 +147,13 @@ func BenchmarkPlaneLocationDecode(b *testing.B) {
 
 func BenchmarkPlaneLocationStdJsonDecode(b *testing.B) {
 	loc := getRefLocation()
-	msg, err := loc.ToJsonBytes()
+
+	msg, err := json.Marshal(loc)
 	if err != nil {
 		b.Fail()
 		return
 	}
-	b.Logf("Encoded Length: %d", len(msg))
+	//b.Logf("StdJson Encoded Length: %d", len(msg))
 	update := PlaneLocation{}
 
 	b.ResetTimer()
@@ -138,9 +165,27 @@ func BenchmarkPlaneLocationStdJsonDecode(b *testing.B) {
 	}
 }
 
+func BenchmarkPlaneLocationJsoniterDecode(b *testing.B) {
+	loc := getRefLocation()
+	msg, err := loc.ToJsonIterBytes()
+	if err != nil {
+		b.Fail()
+		return
+	}
+	update := PlaneLocation{}
+	jsonFast := jsoniter.ConfigFastest
+	for i := 0; i < b.N; i++ {
+		err = jsonFast.Unmarshal(msg, &update)
+		if err != nil {
+			b.Fail()
+			return
+		}
+	}
+}
+
 func BenchmarkPlaneLocationProtobufDecode(b *testing.B) {
 	loc := getRefLocation()
-	protobufBytes, err := proto.Marshal(loc)
+	protobufBytes, err := loc.ToProtobufBytes()
 	if err != nil {
 		b.Fail()
 		return
@@ -157,84 +202,84 @@ func BenchmarkPlaneLocationProtobufDecode(b *testing.B) {
 	}
 }
 
-func BenchmarkPlaneLocationEncodeJsonArray100(b *testing.B) {
-	loc := getRefLocation()
-	list := make([]*PlaneLocation, 100)
-	for i := 0; i < 100; i++ {
-		list[i] = loc
-	}
-	var jsonFast = jsoniter.ConfigFastest
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, err := jsonFast.Marshal(list)
-		if err != nil {
-			b.Fail()
-			return
-		}
-	}
-}
-
-func BenchmarkPlaneLocationDecodeJsonArray100(b *testing.B) {
-	loc := getRefLocation()
-	list := make([]*PlaneLocation, 100)
-	list2 := make([]*PlaneLocation, 0)
-	for i := 0; i < 100; i++ {
-		list[i] = loc
-	}
-	var jsonFast = jsoniter.ConfigFastest
-	listBytes, err := jsonFast.Marshal(list)
-	if err != nil {
-		b.Fail()
-		return
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		err = jsonFast.Unmarshal(listBytes, &list2)
-		if err != nil {
-			b.Errorf("Failed to decode: %s", err)
-			return
-		}
-	}
-}
-
-func BenchmarkPlaneLocationEncodeProtobufArray100(b *testing.B) {
-	loc := getRefLocation()
-	list := PlaneLocations{
-		PlaneLocation: make([]*PlaneLocationPB, 100),
-	}
-	for i := 0; i < 100; i++ {
-		list.PlaneLocation[i] = &loc.PlaneLocationPB
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, err := proto.Marshal(&list)
-		if err != nil {
-			b.Fail()
-			return
-		}
-	}
-}
-
-func BenchmarkPlaneLocationDecodeProtobufArray100(b *testing.B) {
-	loc := getRefLocation()
-	list := PlaneLocations{
-		PlaneLocation: make([]*PlaneLocationPB, 100),
-	}
-	list2 := PlaneLocations{}
-	for i := 0; i < 100; i++ {
-		list.PlaneLocation[i] = &loc.PlaneLocationPB
-	}
-	listBytes, err := proto.Marshal(&list)
-	if err != nil {
-		b.Fail()
-		return
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		err = proto.Unmarshal(listBytes, &list2)
-		if err != nil {
-			b.Errorf("Failed to decode: %s", err)
-			return
-		}
-	}
-}
+//func BenchmarkPlaneLocationEncodeJsonArray100(b *testing.B) {
+//	loc := getRefLocation()
+//	list := make([]*PlaneLocation, 100)
+//	for i := 0; i < 100; i++ {
+//		list[i] = loc
+//	}
+//	var jsonFast = jsoniter.ConfigFastest
+//	b.ResetTimer()
+//	for i := 0; i < b.N; i++ {
+//		_, err := jsonFast.Marshal(list)
+//		if err != nil {
+//			b.Fail()
+//			return
+//		}
+//	}
+//}
+//
+//func BenchmarkPlaneLocationDecodeJsonArray100(b *testing.B) {
+//	loc := getRefLocation()
+//	list := make([]*PlaneLocation, 100)
+//	list2 := make([]*PlaneLocation, 0)
+//	for i := 0; i < 100; i++ {
+//		list[i] = loc
+//	}
+//	var jsonFast = jsoniter.ConfigFastest
+//	listBytes, err := jsonFast.Marshal(list)
+//	if err != nil {
+//		b.Fail()
+//		return
+//	}
+//	b.ResetTimer()
+//	for i := 0; i < b.N; i++ {
+//		err = jsonFast.Unmarshal(listBytes, &list2)
+//		if err != nil {
+//			b.Errorf("Failed to decode: %s", err)
+//			return
+//		}
+//	}
+//}
+//
+//func BenchmarkPlaneLocationEncodeProtobufArray100(b *testing.B) {
+//	loc := getRefLocation()
+//	list := PlaneLocations{
+//		PlaneLocation: make([]*PlaneLocationPB, 100),
+//	}
+//	for i := 0; i < 100; i++ {
+//		list.PlaneLocation[i] = &loc.PlaneLocationPB
+//	}
+//	b.ResetTimer()
+//	for i := 0; i < b.N; i++ {
+//		_, err := loc.ToProtobufBytes()
+//		if err != nil {
+//			b.Fail()
+//			return
+//		}
+//	}
+//}
+//
+//func BenchmarkPlaneLocationDecodeProtobufArray100(b *testing.B) {
+//	loc := getRefLocation()
+//	list := PlaneLocations{
+//		PlaneLocation: make([]*PlaneLocationPB, 100),
+//	}
+//	list2 := PlaneLocations{}
+//	for i := 0; i < 100; i++ {
+//		list.PlaneLocation[i] = &loc.PlaneLocationPB
+//	}
+//	listBytes, err := loc.ToProtobufBytes()
+//	if err != nil {
+//		b.Fail()
+//		return
+//	}
+//	b.ResetTimer()
+//	for i := 0; i < b.N; i++ {
+//		err = proto.Unmarshal(listBytes, &list2)
+//		if err != nil {
+//			b.Errorf("Failed to decode: %s", err)
+//			return
+//		}
+//	}
+//}

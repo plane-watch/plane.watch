@@ -1,10 +1,12 @@
 package export
 
 import (
-	jsoniter "github.com/json-iterator/go"
+	"github.com/golang/protobuf/proto"
 	"github.com/rs/zerolog/log"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"plane.watch/lib/tracker"
+	"sync"
 )
 
 var airframeTypeLookup = map[string]AirframeType{
@@ -107,14 +109,51 @@ func NewPlaneLocation(plane *tracker.Plane, source string) PlaneLocation {
 	}
 }
 
+// ToJsonBytes is SO SLOW using the protobuf message encoder, but it is correct output for the Timestamps
+// DO NOT USE for anything other than debugging
 func (pl *PlaneLocation) ToJsonBytes() ([]byte, error) {
-	json := jsoniter.ConfigFastest
-	jsonBuf, err := json.Marshal(pl)
+	jsonBuf, err := protojson.Marshal(&pl.PlaneLocationPB)
 	if nil != err {
 		log.Error().Err(err).Msg("could not create json bytes for sending")
 		return nil, err
 	} else {
 		return jsonBuf, nil
 	}
+}
 
+func FromJsonBytes(jsonBytes []byte) (*PlaneLocation, error) {
+	var msg PlaneLocation
+	msg.sourceTagsMutex = &sync.Mutex{}
+	err := protojson.Unmarshal(jsonBytes, &msg.PlaneLocationPB)
+	return &msg, err
+}
+
+func (pl *PlaneLocation) ToProtobufBytes() ([]byte, error) {
+	protobufBytes, err := proto.Marshal(&pl.PlaneLocationPB)
+	if nil != err {
+		log.Error().Err(err).Msg("could not create json bytes for sending")
+		return nil, err
+	} else {
+		return protobufBytes, nil
+	}
+}
+
+func (pl *PlaneLocation) IncSourceTag(source string) {
+	pl.sourceTagsMutex.Lock()
+	defer pl.sourceTagsMutex.Unlock()
+	if nil == pl.SourceTags {
+		pl.SourceTags = make(map[string]uint32)
+	}
+	pl.SourceTags[source]++
+}
+
+func FromProtobufBytes(protobufBytes []byte) (*PlaneLocation, error) {
+	var msg PlaneLocation
+	msg.sourceTagsMutex = &sync.Mutex{}
+	var err error
+	err = proto.Unmarshal(protobufBytes, &msg)
+	if nil == msg.SourceTags {
+		msg.SourceTags = make(map[string]uint32)
+	}
+	return &msg, err
 }

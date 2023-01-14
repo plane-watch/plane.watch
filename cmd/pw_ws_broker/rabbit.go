@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	jsoniter "github.com/json-iterator/go"
 	"github.com/rs/zerolog/log"
 	"math/rand"
 	"plane.watch/lib/export"
@@ -92,14 +91,12 @@ func (br *PwWsBrokerRabbit) consume(exitChan chan bool, queue, what string) {
 	}
 
 	for msg := range ch {
-		planeData := export.PlaneLocation{}
-		json := jsoniter.ConfigFastest
-		errJson := json.Unmarshal(msg.Body, &planeData)
-		if nil != errJson {
+		planeData, errDecode := export.FromProtobufBytes(msg.Body)
+		if nil != errDecode {
 			log.Debug().Err(err).Msg("did not understand msg")
 			continue
 		}
-		br.processMessage(what, &planeData)
+		br.processMessage(what, planeData)
 
 	}
 	log.Info().

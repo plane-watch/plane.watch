@@ -162,12 +162,7 @@ func MergePlaneLocations(prev, next *PlaneLocation) (*PlaneLocation, error) {
 	if nil == merged.sourceTagsMutex {
 		merged.sourceTagsMutex = &sync.Mutex{}
 	}
-	merged.sourceTagsMutex.Lock()
-	if nil == merged.SourceTags {
-		merged.SourceTags = make(map[string]uint32)
-	}
-	merged.SourceTags[next.SourceTag]++
-	merged.sourceTagsMutex.Unlock()
+	merged.IncSourceTag(next.SourceTag)
 
 	if next.TrackedSince.AsTime().Before(prev.TrackedSince.AsTime()) {
 		merged.TrackedSince = next.TrackedSince

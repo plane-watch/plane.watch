@@ -585,7 +585,7 @@ func newClientList() *ClientList {
 	cl.globalList = forgetfulmap.NewForgetfulSyncMap(
 		forgetfulmap.WithPrometheusCounters(prometheusKnownPlanes),
 		forgetfulmap.WithPreEvictionAction(func(key, value any) {
-			log.Debug().Str("ICAO", key.(string)).Msg("Removing Aircraft due to inactivity")
+			log.Debug().Uint32("ICAO", key.(uint32)).Msg("Removing Aircraft due to inactivity")
 		}),
 		forgetfulmap.WithForgettableAction(func(key, value any, added time.Time) bool {
 			result := true
