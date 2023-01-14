@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,8 +27,17 @@ import (
 // this is a website where you put in one or more Mode S frames and they are decoded
 // in a way that is informational
 
+type (
+	decodeResponse struct {
+		Err         string
+		Description string
+		Payloads    []string
+	}
+)
+
 func main() {
 	app := cli.NewApp()
+	app.Description = "Decode your AVR frames, on the web!"
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
 			Name:    "listen-http",
@@ -70,6 +80,14 @@ func main() {
 	}
 }
 
+func (dr *decodeResponse) Bytes() []byte {
+	msg, err := json.Marshal(dr)
+	if nil != err {
+		log.Error().Err(err).Msg("Failed Encoding response")
+	}
+	return msg
+}
+
 func runHttpServer(c *cli.Context) error {
 	cert := c.String("tls-cert")
 	certKey := c.String("tls-cert-key")
@@ -95,69 +113,7 @@ func runHttpServer(c *cli.Context) error {
 
 	http.Handle("/", http.FileServer(http.FS(files)))
 
-	http.HandleFunc("/decode", func(w http.ResponseWriter, r *http.Request) {
-		defer func() {
-			if r := recover(); r != nil {
-				_, _ = fmt.Fprintln(w, "<pre>Failed big time...")
-				_, _ = fmt.Fprintln(w, r)
-				log.Error().
-					Stack().
-					Err(errors.New("failed to handle request")).
-					Interface("recover", r)
-			}
-		}()
-		switch r.URL.Path {
-		case "/decode":
-			pt := tracker.NewTracker()
-			var submittedPackets string
-			_ = r.ParseForm()
-
-			refLat := getAsFloat(r.FormValue("refLat"))
-			refLon := getAsFloat(r.FormValue("refLon"))
-			submittedPackets = r.FormValue("packet")
-			if "" == submittedPackets {
-				_, _ = fmt.Fprintln(w, "No Packet Provided")
-				return
-			}
-			packets := strings.Split(submittedPackets, ";")
-			icaoList := make(map[uint32]uint32)
-			for _, packet := range packets {
-				packet = strings.TrimSpace(packet)
-				if "" == packet {
-					continue
-				}
-				log.Debug().Str("frame", packet).Msg("Decoding Frame")
-				frame, err := mode_s.DecodeString(packet, time.Now())
-				if err != nil {
-					_, _ = fmt.Fprintln(w, "Failed to decode.", html.EscapeString(err.Error()))
-					return
-				}
-				if nil == frame {
-					_, _ = fmt.Fprintln(w, "Not an AVR Frame", html.EscapeString(err.Error()))
-					return
-				}
-				pt.GetPlane(frame.Icao()).HandleModeSFrame(frame, refLat, refLon)
-				icaoList[frame.Icao()] = frame.Icao()
-				frame.Describe(w)
-			}
-
-			for _, icao := range icaoList {
-				_, _ = fmt.Fprintln(w, "")
-				plane := pt.GetPlane(icao)
-				pl := export.NewPlaneLocation(plane, "")
-
-				encoded, _ := json.MarshalIndent(&pl, "", "  ")
-
-				_, _ = fmt.Fprint(w, string(encoded))
-			}
-
-			pt = nil
-		default:
-			http.NotFound(w, r)
-			_, _ = fmt.Fprintln(w, "<br/>\n"+r.RequestURI)
-		}
-
-	})
+	http.HandleFunc("/decode", decode)
 
 	exitChan := make(chan bool)
 	go listenHttp(exitChan, c.String("listen-http"))
@@ -174,6 +130,83 @@ func runHttpServer(c *cli.Context) error {
 	}
 
 	return nil
+}
+
+func decode(w http.ResponseWriter, r *http.Request) {
+	resp := decodeResponse{
+		Payloads: make([]string, 0),
+	}
+	defer func() {
+		w.Header().Set("Content-Type", "application/json")
+		_, errResp := w.Write(resp.Bytes())
+		if errResp != nil {
+			log.Error().Err(errResp).Msg("Failed to write response")
+			return
+		}
+	}()
+	defer func() {
+		if rec := recover(); rec != nil {
+			resp.Err = "Failed massively!"
+			_, _ = w.Write(resp.Bytes())
+			log.Error().
+				Stack().
+				Err(errors.New("failed to handle request")).
+				Interface("recover", rec)
+		}
+	}()
+	switch r.URL.Path {
+	case "/decode":
+		pt := tracker.NewTracker()
+		var submittedPackets string
+		_ = r.ParseForm()
+
+		refLat := getAsFloat(r.FormValue("refLat"))
+		refLon := getAsFloat(r.FormValue("refLon"))
+		submittedPackets = r.FormValue("packet")
+		if "" == submittedPackets {
+			resp.Err = "No Packet Provided"
+			return
+		}
+		packets := strings.Split(submittedPackets, ";")
+		icaoList := make(map[uint32]uint32)
+
+		var desc string
+		buf := bytes.NewBufferString(desc)
+		for _, packet := range packets {
+			packet = strings.TrimSpace(packet)
+			if "" == packet {
+				continue
+			}
+			log.Debug().Str("frame", packet).Msg("Decoding Frame")
+			frame, err := mode_s.DecodeString(packet, time.Now())
+			if err != nil {
+				resp.Err = fmt.Sprintf("Failed to decode: %s", html.EscapeString(err.Error()))
+				return
+			}
+			if nil == frame {
+				resp.Err = fmt.Sprintf("Not an AVR Frame: %s", html.EscapeString(err.Error()))
+				return
+			}
+			pt.GetPlane(frame.Icao()).HandleModeSFrame(frame, refLat, refLon)
+			icaoList[frame.Icao()] = frame.Icao()
+			frame.Describe(buf)
+		}
+		resp.Description = buf.String()
+
+		for _, icao := range icaoList {
+			plane := pt.GetPlane(icao)
+			pl := export.NewPlaneLocation(plane, "")
+			encoded, _ := pl.ToJsonBytes() //json.MarshalIndent(&pl, "", "  ")
+
+			resp.Payloads = append(resp.Payloads, string(encoded))
+		}
+
+		pt = nil
+	default:
+		http.NotFound(w, r)
+		_, _ = fmt.Fprintln(w, "<br/>\n"+r.RequestURI)
+	}
+
 }
 
 func listenHttp(exitChan chan bool, port string) {

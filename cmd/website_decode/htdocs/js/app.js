@@ -1,23 +1,44 @@
 $(document).ready(function () {
-    let packet = $('#packet');
-    let inputForm =$('#input-form');
+    const packet = $('#packet');
+    const inputForm =$('#input-form');
+    const errDiv = $('#errors')
+    const results = $('#result')
+    const payloads = $('#json-payloads')
+
     inputForm.submit(function (event) {
         event.preventDefault();
-        let packet = $('#packet').val();
-        let refLat = $('#refLat').val();
-        let refLon = $('#refLon').val();
+        const packet = $('#packet').val();
+        const refLat = $('#refLat').val();
+        const refLon = $('#refLon').val();
         $.get("/decode", {'packet': packet, 'refLat': refLat, 'refLon': refLon})
-            .done(function (data) {
-                $('#result').html(data)
+            .done(function (js) {
+                if ("" !== js.Err) {
+                    errDiv.text(js.Err)
+                    errDiv.show()
+                } else {
+                    errDiv.hide()
+                }
+                results.html(js.Description)
+
+                payloads.empty()
+                js.Payloads.forEach(pl => {
+                    const payload = JSON.parse(pl)
+                    console.log(payload)
+                    delete payload.Updates
+                    let pre = $('<pre/>')
+                    pre.html(syntaxHighlight(payload));
+                    payloads.append(pre)
+                })
             })
             .fail(function () {
-                $('#result').html("Failed to get data")
+                errDiv.text("Failed to get data")
+                errDiv.show();
             });
     });
 
     let search = new URLSearchParams(window.location.search)
     const requestedDecode = search.get("q")
-    if ("" !== requestedDecode) {
+    if ("" !== requestedDecode && null != requestedDecode) {
         packet.val(requestedDecode)
         inputForm.submit()
     } else {
@@ -73,7 +94,7 @@ function setExamplePacket(df) {
 const examples = $('#examples');
 for (let key in examplePackets) {
     if (examplePackets.hasOwnProperty(key)) {
-        var link = $('<a class="button">DF' + key + '</a>');
+        let link = $('<a class="button">DF' + key + '</a>');
         link.val("DF " + key);
         link.click(function (event) {
             setExamplePacket(key);
@@ -83,4 +104,26 @@ for (let key in examplePackets) {
         examples.append('&nbsp;');
 
     }
+}
+
+function syntaxHighlight(json) {
+    if (typeof json != 'string') {
+        json = JSON.stringify(json, undefined, 2);
+    }
+    json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+        let cls = 'number';
+        if (/^"/.test(match)) {
+            if (/:$/.test(match)) {
+                cls = 'key';
+            } else {
+                cls = 'string';
+            }
+        } else if (/true|false/.test(match)) {
+            cls = 'boolean';
+        } else if (/null/.test(match)) {
+            cls = 'null';
+        }
+        return '<span class="' + cls + '">' + match + '</span>';
+    });
 }

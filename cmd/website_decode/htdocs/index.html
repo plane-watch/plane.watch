@@ -18,6 +18,28 @@
             integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS"
             crossorigin="anonymous"></script>
     <script src="js/app.js" type="application/ecmascript"></script>
+    <style>
+        #json-payloads {
+        }
+        .key {
+            font-weight: bold;
+        }
+        .string {
+            color: green;
+        }
+        .boolean {
+            color: darkorange;
+            font-weight: bold;
+
+        }
+        .null {
+            color: red;
+        }
+        .number {
+            color: purple;
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
 
@@ -88,6 +110,9 @@
             </div>
         </div>
     </div>
+
+    <div id="errors" class="alert alert-danger" style="display: none">moo</div>
+
     <div class="row">
         <div class="col-sm-12">
             <div class="btn-group btn-group-justified">
@@ -487,10 +512,13 @@
         </div>
     </div>
 
-
     <pre id="result">
 
     </pre>
+
+    <div id="json-payloads">
+
+    </div>
 
 </div>
 </body>
