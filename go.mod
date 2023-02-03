@@ -24,6 +24,7 @@ require (
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.4.3
 	github.com/google/btree v1.1.2
+	github.com/google/uuid v1.3.0
 	github.com/json-iterator/go v1.1.12
 )
 
@@ -40,7 +41,6 @@ require (
 	github.com/go-faster/errors v0.6.1 // indirect
 	github.com/go-playground/validator/v10 v10.10.1 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/klauspost/compress v1.15.12 // indirect
