@@ -155,6 +155,7 @@ func clientConnection(conn net.Conn, tlsConfig *tls.Config) {
 		if clientAuthenticated {
 			// TODO: do stuff with the data - talk to boxie
 			// TODO: need a nice way to update atc that the feeder is online since the time it connected...
+			// TODO: maybe have a timer so that it only updates every 5 minutes + some random seconds (to prevent overload of ATC)
 			// TODO: do we also need to mark offline on disconnect?
 			cLog.Debug().Msgf("data received: %s", fmt.Sprint(buf[:n]))
 		}
