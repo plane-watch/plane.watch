@@ -117,5 +117,16 @@ func (chs *Server) Select(ctx context.Context, dest any, query string, args ...a
 		return ErrNotConnected
 	}
 
+	t1 := time.Now()
+	defer func() {
+		d := time.Now().Sub(t1)
+		if d > 500*time.Millisecond {
+			chs.log.Warn().
+				Str("Query", query).
+				Dur("Time Taken", d).
+				Msg("Time Taken To Run Query")
+		}
+	}()
+
 	return chs.conn.Select(ctx, dest, query, args...)
 }
