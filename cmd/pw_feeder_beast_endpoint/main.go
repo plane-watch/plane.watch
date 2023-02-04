@@ -40,6 +40,7 @@ func isValidApiKey(clientApiKey uuid.UUID) bool {
 
 func updateFeederDB(ctx *cli.Context) {
 	// updates validFeeders with data from atc
+	// TODO: could we use NATS K/V store instead?
 
 	firstRun := true
 
