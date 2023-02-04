@@ -83,3 +83,6 @@ _testmain.go
 *.prof
 
 dist/
+
+# prevent accidental release of uuids
+cmd/pw_feeder_beast_endpoint/test_data/stunnel.conf
