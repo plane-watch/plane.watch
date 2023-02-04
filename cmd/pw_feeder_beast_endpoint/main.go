@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/tls"
-	"fmt"
 	"net"
 	"net/url"
 	"os"
@@ -11,6 +10,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"plane.watch/lib/atc"
@@ -24,6 +25,19 @@ type atcFeeders struct {
 
 var (
 	validFeeders atcFeeders
+
+	prometheusInputBeastFrames = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "pw_ingest_input_beast_total",
+		Help: "The total number of beast frames processed.",
+	})
+	prometheusInputAvrFrames = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "pw_ingest_input_avr_total",
+		Help: "The total number of AVR frames processed.",
+	})
+	prometheusInputSbs1Frames = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "pw_ingest_input_sbs1_total",
+		Help: "The total number of SBS1 frames processed.",
+	})
 )
 
 func isValidApiKey(clientApiKey uuid.UUID) bool {
@@ -77,7 +91,7 @@ func updateFeederDB(ctx *cli.Context) {
 	}
 }
 
-func clientConnection(conn net.Conn, tlsConfig *tls.Config) {
+func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config) {
 	// handles incoming connections
 
 	// TODO: need a way to kill a client connection if the UUID is no longer valid (ie: feeder banned)
@@ -87,6 +101,8 @@ func clientConnection(conn net.Conn, tlsConfig *tls.Config) {
 	var (
 		sendRecvBufferSize  = 1024
 		clientAuthenticated = false
+		clientApiKey        uuid.UUID
+		err                 error
 	)
 
 	defer conn.Close()
@@ -102,7 +118,7 @@ func clientConnection(conn net.Conn, tlsConfig *tls.Config) {
 	for {
 
 		// read data
-		n, err := conn.Read(buf)
+		_, err = conn.Read(buf)
 		if err != nil {
 			if err.Error() == "tls: first record does not look like a TLS handshake" {
 				cLog.Warn().Msg(err.Error())
@@ -125,7 +141,7 @@ func clientConnection(conn net.Conn, tlsConfig *tls.Config) {
 			if tlscon.ConnectionState().HandshakeComplete {
 
 				// check valid uuid was returned as ServerName (sni)
-				clientApiKey, err := uuid.Parse(tlscon.ConnectionState().ServerName)
+				clientApiKey, err = uuid.Parse(tlscon.ConnectionState().ServerName)
 				if err != nil {
 					cLog.Warn().Msg("client sent invalid uuid")
 					break
@@ -157,7 +173,35 @@ func clientConnection(conn net.Conn, tlsConfig *tls.Config) {
 			// TODO: need a nice way to update atc that the feeder is online since the time it connected...
 			// TODO: maybe have a timer so that it only updates every 5 minutes + some random seconds (to prevent overload of ATC)
 			// TODO: do we also need to mark offline on disconnect?
-			cLog.Debug().Msgf("data received: %s", fmt.Sprint(buf[:n]))
+			// cLog.Debug().Msgf("data received: %s", fmt.Sprint(buf[:n]))
+
+			// get feeder lat/long
+			atcUrl, err := url.Parse(ctx.String("atcurl"))
+			if err != nil {
+				log.Error().Msg("--atcurl is invalid")
+				continue
+			}
+			s := atc.Server{
+				Url:      *atcUrl,
+				Username: ctx.String("atcuser"),
+				Password: ctx.String("atcpass"),
+			}
+			// refLat, refLon, err := atc.GetFeederLatLon(&s, clientApiKey)
+			_, _, err = atc.GetFeederLatLon(&s, clientApiKey)
+			if err != nil {
+				log.Err(err).Msg("atc.GetFeederLatLon")
+				continue
+			}
+
+			// at this point we should have everything we need to set up a producer for pw_ingest...
+
+			// set up producer
+			// producerOpts := make([]producer.Option, 3)
+			// producerOpts[0] = producer.WithSourceTag(clientApiKey.String())
+			// producerOpts[1] = producer.WithType(producer.Beast)
+			// producerOpts[2] = producer.WithPrometheusCounters(prometheusInputAvrFrames, prometheusInputBeastFrames, prometheusInputSbs1Frames)
+			// producerOpts = append(producerOpts, producer.WithReferenceLatLon(refLat, refLon))
+
 		}
 	}
 }
@@ -256,7 +300,7 @@ func runServer(ctx *cli.Context) error {
 			continue
 		}
 		defer conn.Close()
-		go clientConnection(conn, &tlsConfig)
+		go clientConnection(ctx, conn, &tlsConfig)
 	}
 	return nil
 }
