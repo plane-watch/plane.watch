@@ -1,4 +1,4 @@
-FROM golang:1.19 AS build
+FROM golang:1.20 AS build
 
 # Set necessary environmet variables needed for our image
 ENV GO111MODULE=on \
