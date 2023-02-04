@@ -6,16 +6,17 @@ import (
 	"compress/gzip"
 	"errors"
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rs/zerolog/log"
 	"io"
 	"math/rand"
 	"net"
 	"os"
-	"plane.watch/lib/tracker"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rs/zerolog/log"
+	"plane.watch/lib/tracker"
 )
 
 const (
@@ -98,6 +99,22 @@ func producerType(in int) string {
 }
 
 // Producer.New(WithFetcher(host, port), WithType(Producer.Avr), WithRefLatLon(lat, lon))
+
+func WithConnection(conn net.Conn) Option {
+	// for an already open connection (eg: where TLS has been handled externally)
+	return func(p *Producer) {
+		p.run = func() {
+			go func(c net.Conn) {
+				scan := bufio.NewScanner(c)
+				scan.Split(p.splitter)
+				errRead := p.readFromScanner(scan)
+				if nil != errRead {
+					log.Error().Err(errRead).Msg("No more reading")
+				}
+			}(conn)
+		}
+	}
+}
 
 func WithListener(host, port string) Option {
 	return func(p *Producer) {
