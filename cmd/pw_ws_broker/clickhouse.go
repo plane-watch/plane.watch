@@ -34,7 +34,7 @@ func (chd *ClickHouseData) PlaneLocationHistory(icao, callSign string) []ws_prot
 SELECT *
 FROM location_updates_low
 WHERE Icao = '` + icao + `' AND CallSign = '` + callSign + `' AND HasLocation = 1 AND TileLocation != 'tileUnknown'
-  AND LastMsg > toStartOfInterval(NOW(), INTERVAL 6 HOUR)
+  AND LastMsg > timestamp_sub(hour, 12, now())
 ), t_over AS (
     SELECT *, ROW_NUMBER() OVER(PARTITION BY toInt64(toInt64(LastMsg)/10) ORDER BY LastMsg) AS N FROM t
 )
