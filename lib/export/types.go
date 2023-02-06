@@ -234,7 +234,7 @@ func IsLocationPossible(prev, next PlaneLocation) bool {
 	if !(prev.HasLocation && next.HasLocation && prev.HasHeading && next.HasHeading) {
 		// cannot check, fail open
 		if log.Trace().Enabled() {
-			log.Info().Str("CallSign", *next.CallSign).
+			log.Info().Str("CallSign", unPtr(next.CallSign)).
 				Bool("prevHasLocation", prev.HasLocation).
 				Bool("nextHasLocation", next.HasLocation).
 				Bool("prevHasHeading", prev.HasHeading).
@@ -250,7 +250,7 @@ func IsLocationPossible(prev, next PlaneLocation) bool {
 	if prev.Lat == next.Lat && prev.Lon == next.Lon {
 		// fail open
 		if log.Trace().Enabled() {
-			log.Info().Str("CallSign", *next.CallSign).
+			log.Info().Str("CallSign", unPtr(next.CallSign)).
 				Str("SourceNext", next.SourceTag).
 				Str("SourcePrev", prev.SourceTag).
 				Msg("Previous = Next Lat Lon.")
@@ -261,7 +261,7 @@ func IsLocationPossible(prev, next PlaneLocation) bool {
 	// check the timestamp against the last one we saw.
 	if prev.LastMsg.After(next.LastMsg) {
 		if log.Trace().Enabled() {
-			log.Info().Str("CallSign", *next.CallSign).
+			log.Info().Str("CallSign", unPtr(next.CallSign)).
 				Time("prev", prev.LastMsg).
 				Time("next", next.LastMsg).
 				Str("SourceNext", next.SourceTag).
@@ -295,17 +295,17 @@ func IsLocationPossible(prev, next PlaneLocation) bool {
 	ret := math.Atan2(y, x)
 
 	bearing := math.Mod(ret*(180.0/math.Pi)+360.0, 360)
-	delta_bearing := prev.Heading - bearing
-	abs_delta_bearing := math.Abs(math.Mod((delta_bearing+180), 360) - 180)
+	deltaBearing := prev.Heading - bearing
+	absDeltaBearing := math.Abs(math.Mod(deltaBearing+180, 360) - 180)
 
-	if abs_delta_bearing < 90 { //don't make this less than ~45 degrees, otherwise it'll be inaccurate due to possible wind.
+	if absDeltaBearing < 90 { //don't make this less than ~45 degrees, otherwise it'll be inaccurate due to possible wind.
 		if log.Trace().Enabled() {
-			log.Trace().Str("CallSign", *next.CallSign).
+			log.Trace().Str("CallSign", unPtr(next.CallSign)).
 				Str("Next", fmt.Sprintf("(%f,%f)", next.Lat, next.Lon)).
 				Str("Previous", fmt.Sprintf("(%f,%f)", prev.Lat, prev.Lon)).
 				Float64("Heading", prev.Heading).
 				Float64("Bearing", bearing).
-				Float64("DeltaTheta", abs_delta_bearing).
+				Float64("DeltaTheta", absDeltaBearing).
 				Str("SourceNext", next.SourceTag).
 				Str("SourcePrev", prev.SourceTag).
 				Msg("Checked Heading vs Bearing")
@@ -315,12 +315,12 @@ func IsLocationPossible(prev, next PlaneLocation) bool {
 	}
 
 	if log.Trace().Enabled() {
-		log.Info().Str("CallSign", *next.CallSign).
+		log.Info().Str("CallSign", unPtr(next.CallSign)).
 			Str("Next", fmt.Sprintf("(%f,%f)", next.Lat, next.Lon)).
 			Str("Previous", fmt.Sprintf("(%f,%f)", prev.Lat, prev.Lon)).
 			Float64("Bearing", bearing).
 			Float64("Heading", prev.Heading).
-			Float64("DeltaTheta", abs_delta_bearing).
+			Float64("DeltaTheta", absDeltaBearing).
 			Str("SourceNext", next.SourceTag).
 			Str("SourcePrev", prev.SourceTag).
 			Msg("Rejected Position")
