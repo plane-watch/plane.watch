@@ -2,9 +2,12 @@ package export
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type (
@@ -227,19 +230,56 @@ func MergePlaneLocations(prev, next PlaneLocation) (PlaneLocation, error) {
 }
 
 func IsLocationPossible(prev, next PlaneLocation) bool {
-
 	// simple check, if bearing of prev -> next is more than +-90 degrees of reported value, it is invalid
 	if !(prev.HasLocation && next.HasLocation && prev.HasHeading && next.HasHeading) {
 		// cannot check, fail open
+		if log.Trace().Enabled() {
+			log.Info().Str("CallSign", *next.CallSign).
+				Bool("prevHasLocation", prev.HasLocation).
+				Bool("nextHasLocation", next.HasLocation).
+				Bool("prevHasHeading", prev.HasHeading).
+				Bool("nextHasHeading", next.HasHeading).
+				Str("SourceNext", next.SourceTag).
+				Str("SourcePrev", prev.SourceTag).
+				Msg("Blindly accepting lack of data.")
+		}
 		return true
 	}
+
+	// position hasn't changed, don't check it.
+	if prev.Lat == next.Lat && prev.Lon == next.Lon {
+		// fail open
+		if log.Trace().Enabled() {
+			log.Info().Str("CallSign", *next.CallSign).
+				Str("SourceNext", next.SourceTag).
+				Str("SourcePrev", prev.SourceTag).
+				Msg("Previous = Next Lat Lon.")
+		}
+
+		return true
+	}
+	// check the timestamp against the last one we saw.
 	if prev.LastMsg.After(next.LastMsg) {
+		if log.Trace().Enabled() {
+			log.Info().Str("CallSign", *next.CallSign).
+				Time("prev", prev.LastMsg).
+				Time("next", next.LastMsg).
+				Str("SourceNext", next.SourceTag).
+				Str("SourcePrev", prev.SourceTag).
+				Msg("Rejecting due to timestamp.")
+		}
+
 		return false
 	}
-	if prev.LastMsg.Add(3 * time.Second).After(next.LastMsg) {
-		// outside of this time, we cannot accurately use heading
-		return true
-	}
+	// if plane is on the ground, don't check
+	// if next.HasOnGround && next.OnGround {
+	// 	return true
+	// }
+
+	// if prev.LastMsg.Add(10 * time.Second).After(next.LastMsg) {
+	// 	// outside of this time, we cannot accurately use heading
+	// 	return true
+	// }
 
 	piDegToRad := math.Pi / 180
 
@@ -255,13 +295,35 @@ func IsLocationPossible(prev, next PlaneLocation) bool {
 	ret := math.Atan2(y, x)
 
 	bearing := math.Mod(ret*(180.0/math.Pi)+360.0, 360)
+	delta_bearing := prev.Heading - bearing
+	abs_delta_bearing := math.Abs(math.Mod((delta_bearing+180), 360) - 180)
 
-	min := prev.Heading - 90
-	max := prev.Heading + 90
+	if abs_delta_bearing < 90 { //don't make this less than ~45 degrees, otherwise it'll be inaccurate due to possible wind.
+		if log.Trace().Enabled() {
+			log.Trace().Str("CallSign", *next.CallSign).
+				Str("Next", fmt.Sprintf("(%f,%f)", next.Lat, next.Lon)).
+				Str("Previous", fmt.Sprintf("(%f,%f)", prev.Lat, prev.Lon)).
+				Float64("Heading", prev.Heading).
+				Float64("Bearing", bearing).
+				Float64("DeltaTheta", abs_delta_bearing).
+				Str("SourceNext", next.SourceTag).
+				Str("SourcePrev", prev.SourceTag).
+				Msg("Checked Heading vs Bearing")
+		}
 
-	if bearing > min && bearing < max {
 		return true
 	}
 
+	if log.Trace().Enabled() {
+		log.Info().Str("CallSign", *next.CallSign).
+			Str("Next", fmt.Sprintf("(%f,%f)", next.Lat, next.Lon)).
+			Str("Previous", fmt.Sprintf("(%f,%f)", prev.Lat, prev.Lon)).
+			Float64("Bearing", bearing).
+			Float64("Heading", prev.Heading).
+			Float64("DeltaTheta", abs_delta_bearing).
+			Str("SourceNext", next.SourceTag).
+			Str("SourcePrev", prev.SourceTag).
+			Msg("Rejected Position")
+	}
 	return false
 }
