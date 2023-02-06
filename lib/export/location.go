@@ -1,10 +1,11 @@
 package export
 
 import (
+	"strings"
+
 	jsoniter "github.com/json-iterator/go"
 	"github.com/rs/zerolog/log"
 	"plane.watch/lib/tracker"
-	"strings"
 )
 
 func NewPlaneLocation(plane *tracker.Plane, isNew, isRemoved bool, source string) PlaneLocation {
