@@ -59,6 +59,10 @@ func NewPlaneLocation(plane *tracker.Plane, isNew, isRemoved bool, source string
 
 func (pl *PlaneLocation) ToJsonBytes() ([]byte, error) {
 	json := jsoniter.ConfigFastest
+
+	pl.sourceTagsMutex.Lock()
+	defer pl.sourceTagsMutex.Unlock()
+
 	jsonBuf, err := json.Marshal(pl)
 	if nil != err {
 		log.Error().Err(err).Msg("could not create json bytes for sending")
