@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"math"
-	"sync"
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/rs/zerolog/log"
@@ -208,15 +207,10 @@ func (w *worker) handleMsg(msg []byte) error {
 
 	// if this Icao is not in the cache, it's new.
 	if !ok {
-		if nil == update.SourceTagsMutex {
-			update.SourceTagsMutex = &sync.Mutex{}
-		}
-		update.SourceTagsMutex.Lock()
 		if nil == update.SourceTags {
 			update.SourceTags = make(map[string]uint)
 		}
 		update.SourceTags[update.SourceTag]++
-		update.SourceTagsMutex.Unlock()
 		w.router.syncSamples.Store(update.Icao, update)
 
 		w.handleNewUpdate(update, msg)

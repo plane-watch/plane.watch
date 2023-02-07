@@ -54,7 +54,7 @@ type (
 		TileLocation    string
 
 		SourceTags      map[string]uint `json:",omitempty"`
-		SourceTagsMutex *sync.Mutex
+		sourceTagsMutex *sync.Mutex
 
 		// TrackedSince is when we first started tracking this aircraft *this time*
 		TrackedSince time.Time
@@ -132,15 +132,15 @@ func MergePlaneLocations(prev, next PlaneLocation) (PlaneLocation, error) {
 	merged.Removed = false
 	merged.LastMsg = next.LastMsg
 	merged.SignalRssi = nil // makes no sense to merge this value as it is for the individual receiver
-	if nil == merged.SourceTagsMutex {
-		merged.SourceTagsMutex = &sync.Mutex{}
+	if nil == merged.sourceTagsMutex {
+		merged.sourceTagsMutex = &sync.Mutex{}
 	}
-	merged.SourceTagsMutex.Lock()
+	merged.sourceTagsMutex.Lock()
 	if nil == merged.SourceTags {
 		merged.SourceTags = make(map[string]uint)
 	}
 	merged.SourceTags[next.SourceTag]++
-	merged.SourceTagsMutex.Unlock()
+	merged.sourceTagsMutex.Unlock()
 
 	if next.TrackedSince.Before(prev.TrackedSince) {
 		merged.TrackedSince = next.TrackedSince
