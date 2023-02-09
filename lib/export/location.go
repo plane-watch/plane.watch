@@ -2,6 +2,7 @@ package export
 
 import (
 	"strings"
+	"sync"
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/rs/zerolog/log"
@@ -54,6 +55,7 @@ func NewPlaneLocation(plane *tracker.Plane, isNew, isRemoved bool, source string
 			Special:      plane.SpecialUpdatedAt().UTC(),
 			Squawk:       plane.SquawkUpdatedAt().UTC(),
 		},
+		sourceTagsMutex: &sync.Mutex{},
 	}
 }
 
