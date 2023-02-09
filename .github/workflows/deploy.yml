@@ -116,5 +116,4 @@ jobs:
           file: docker/${{ matrix.image }}/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ghcr.io/${{ env.GHCR_IMAGE }}:${{ matrix.image }},ghcr.io/${{ env.GHCR_IMAGE }}:${{ matrix.image }}_${{ steps.semantic-gitcommit.outputs.version }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ghcr.io/${{ env.GHCR_IMAGE }}:${{ matrix.image }},ghcr.io/${{ env.GHCR_IMAGE }}:${{ matrix.image }}_${{ steps.semantic-gitcommit.outputs.version }},ghcr.io/${{ env.GHCR_IMAGE }}:latest
