@@ -22,7 +22,7 @@ require (
 )
 
 require (
-	github.com/ClickHouse/clickhouse-go/v2 v2.6.0
+	github.com/ClickHouse/clickhouse-go/v2 v2.6.1
 	github.com/google/btree v1.1.2
 	github.com/json-iterator/go v1.1.12
 )
