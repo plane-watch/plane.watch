@@ -10,7 +10,7 @@ on:
 jobs:
 
   build_binaries:
-    name: Build binaries (Multi-Arch)
+    name: Build binaries
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -40,8 +40,10 @@ jobs:
           fetch-depth: 0
 
       # Clear existing binaries
-      - name: Clear binaries
-        run: rm -v ./bin/*
+      - name: Prepare output dir
+        run: |
+          mkdir -p ./bin
+          rm -v ./bin/*
 
       # Build new binaries
       - name: Build ${{ matrix.binary }}.${{ matrix.goos }}.${{ matrix.goarch }}
