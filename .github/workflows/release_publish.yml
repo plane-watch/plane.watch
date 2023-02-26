@@ -43,7 +43,7 @@ jobs:
       - name: Prepare output dir
         run: |
           mkdir -p ./bin
-          rm -v ./bin/*
+          rm -v ./bin/* || true
 
       # Build new binaries
       - name: Build ${{ matrix.binary }}.${{ matrix.goos }}.${{ matrix.goarch }}
