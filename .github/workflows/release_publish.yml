@@ -8,6 +8,53 @@ on:
       - published
 
 jobs:
+
+  build_binaries:
+    name: Build binaries (Multi-Arch)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        binary:
+          - df_example_finder
+          - plane.filter
+          - plane.path
+          - pw_discord_bot
+          - pw_ingest
+          - pw_router
+          - pw_ws_broker
+          - recorder
+          - website_decode
+        goos:
+          - darwin
+          - linux
+        goarch:
+          - amd64
+          - arm64
+
+    steps:
+
+      # Check out our code
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # Clear existing binaries
+      - name: Clear binaries
+        run: rm -v ./bin/*
+
+      # Build new binaries
+      - name: Build ${{ matrix.binary }}.${{ matrix.goos }}.${{ matrix.goarch }}
+        run: |
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o ./bin/ ./cmd/${{ matrix.binary }}
+          mv -v ./bin/${{ matrix.binary }} ./bin/${{ matrix.binary }}.${{ matrix.goos }}.${{ matrix.goarch }}
+
+      # Attach binary to release
+      - uses: AButler/upload-release-assets@v2.0
+        with:
+          files: ./bin/${{ matrix.binary }}.${{ matrix.goos }}.${{ matrix.goarch }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      
   deploy_ghcr:
     name: Deploy ghcr.io (Multi-Arch)
     runs-on: ubuntu-latest
