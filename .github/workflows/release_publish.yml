@@ -46,7 +46,7 @@ jobs:
       # Build new binaries
       - name: Build ${{ matrix.binary }}.${{ matrix.goos }}.${{ matrix.goarch }}
         run: |
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o ./bin/ ./cmd/${{ matrix.binary }}
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o ./bin/ plane.watch/cmd/${{ matrix.binary }}
           mv -v ./bin/${{ matrix.binary }} ./bin/${{ matrix.binary }}.${{ matrix.goos }}.${{ matrix.goarch }}
 
       # Attach binary to release
