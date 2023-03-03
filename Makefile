@@ -3,7 +3,11 @@ export GOAMD64=v3
 
 .PHONY: all
 
-all: vet test build
+all: tidy vet test build
+
+tidy:
+	go mod tidy
+	go mod verify
 
 build:
 	go install ./...
