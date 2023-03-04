@@ -11,6 +11,7 @@ const (
 	RequestTypeGridPlanes      = "grid-planes"            // returns the current plane locations in grid
 	RequestTypePlaneLocHistory = "plane-location-history" // returns the requested planes path
 	RequestTypeTickAdjust      = "adjust-tick"            // adjusts how often we send updates
+	RequestTypeSearch          = "search"                 // adjusts how often we send updates
 
 	ResponseTypeError           = "error"
 	ResponseTypeAckSub          = "ack-sub"
@@ -19,6 +20,7 @@ const (
 	ResponseTypePlaneLocation   = "plane-location"
 	ResponseTypePlaneLocations  = "plane-location-list"
 	ResponseTypePlaneLocHistory = "plane-location-history"
+	ResponseTypeSearchResults   = "search-results"
 )
 
 type (
@@ -27,12 +29,24 @@ type (
 		GridTile string `json:"gridTile"`
 		Icao     string `json:"icao,omitempty"`
 		CallSign string `json:"callSign,omitempty"`
-		Tick     int    `json:"tick,omitempty"` // in Milliseconds
+		Tick     int    `json:"tick,omitempty"`  // in Milliseconds
+		Query    string `json:"query,omitempty"` // in Milliseconds
 	}
 	LocationHistory struct {
 		Lat, Lon          float64
 		Heading, Velocity float64
 		Altitude          *int32
+	}
+	SearchResult struct {
+		Aircraft []*export.PlaneLocation
+		Airport  []AirportLocation
+		Route    []string
+	}
+	AirportLocation struct {
+		Name     string
+		Icao     string
+		Iata     string
+		Lat, Lon float64
 	}
 	WsResponse struct {
 		Type      string                  `json:"type"`
@@ -44,5 +58,6 @@ type (
 		Icao     string            `json:"icao,omitempty"`
 		CallSign string            `json:"callSign,omitempty"`
 		History  []LocationHistory `json:"history,omitempty"`
+		Results  SearchResult      `json:"results,omitempty"`
 	}
 )

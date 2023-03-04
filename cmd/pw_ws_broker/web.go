@@ -87,6 +87,7 @@ type (
 		extra      string
 		tick       time.Duration
 		locHistory []ws_protocol.LocationHistory
+		results    ws_protocol.SearchResult
 	}
 	ClientList struct {
 		//clients     map[*WsClient]chan ws_protocol.WsResponse
@@ -95,18 +96,6 @@ type (
 		// naive approach
 		//globalList sync.Map
 		globalList *forgetfulmap.ForgetfulSyncMap
-	}
-
-	AirportLocation struct {
-		Name     string
-		Icao     string
-		Iata     string
-		Lat, Lon float64
-	}
-	SearchResult struct {
-		Aircraft []*export.PlaneLocation
-		Airport  []AirportLocation
-		Route    []string
 	}
 )
 
@@ -240,29 +229,39 @@ func (bw *PwWsBrokerWeb) jsonGrid(w http.ResponseWriter, r *http.Request) {
 }
 
 // search handles
-func (cl *ClientList) search(w http.ResponseWriter, r *http.Request) {
-	term := strings.ToLower(r.URL.Query().Get("q"))
-	json := jsoniter.ConfigFastest
-	results := SearchResult{
+func (cl *ClientList) performSearch(query string) ws_protocol.SearchResult {
+
+	results := ws_protocol.SearchResult{
 		Aircraft: []*export.PlaneLocation{},
-		Airport:  []AirportLocation{},
+		Airport:  []ws_protocol.AirportLocation{},
 		Route:    []string{},
 	}
 
-	if len(term) >= 3 {
+	if len(query) >= 3 {
 		// find any aircraft
 		cl.globalList.Range(func(key, value interface{}) bool {
 			loc := value.(*export.PlaneLocation)
 
-			if strings.Contains(strings.ToLower(loc.Icao), term) ||
-				(nil != loc.CallSign && strings.Contains(strings.ToLower(*loc.CallSign), term)) ||
-				(nil != loc.Registration && strings.Contains(strings.ToLower(*loc.Registration), term)) {
+			if strings.Contains(strings.ToLower(loc.Icao), query) ||
+				(nil != loc.CallSign && strings.Contains(strings.ToLower(*loc.CallSign), query)) ||
+				(nil != loc.Registration && strings.Contains(strings.ToLower(*loc.Registration), query)) {
 				results.Aircraft = append(results.Aircraft, loc)
 			}
 
 			return len(results.Aircraft) < 10
 		})
 	}
+
+	// TODO: Airport Lookup
+	// IATA, ICAO and Name
+
+	return results
+}
+
+func (cl *ClientList) search(w http.ResponseWriter, r *http.Request) {
+	term := strings.ToLower(r.URL.Query().Get("q"))
+	json := jsoniter.ConfigFastest
+	results := cl.performSearch(term)
 
 	buf, err := json.Marshal(results)
 	if nil != err {
@@ -286,17 +285,17 @@ func (bw *PwWsBrokerWeb) servePlanes(w http.ResponseWriter, r *http.Request) {
 	log.Debug().Str("New Connection", r.RemoteAddr).Msg("New /planes WS")
 
 	compress := r.URL.Query().Get("compress")
-	ws_compression := websocket.CompressionContextTakeover
+	wsCompression := websocket.CompressionContextTakeover
 
 	if "false" == compress || "False" == compress {
-		ws_compression = websocket.CompressionDisabled
+		wsCompression = websocket.CompressionDisabled
 	}
 
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		Subprotocols:       []string{ws_protocol.WsProtocolPlanes},
 		InsecureSkipVerify: false,
 		OriginPatterns:     bw.domainsToServe,
-		CompressionMode:    ws_compression,
+		CompressionMode:    wsCompression,
 	})
 	if nil != err {
 		log.Error().Err(err).Msg("Failed to setup websocket connection")
@@ -422,6 +421,16 @@ func (c *WsClient) AdjustSendTick(tick int) {
 		}
 	}
 }
+func (c *WsClient) SendSearchResults(query string) {
+	go func() {
+		c.log.Debug().Str("Searching for", query).Msg("Performing Search")
+		c.cmdChan <- WsCmd{
+			action:  ws_protocol.RequestTypeSearch,
+			what:    query,
+			results: c.parent.performSearch(strings.ToLower(query)),
+		}
+	}()
+}
 
 // planeProtocolHandler handles our websocket protocol
 // it runs the command queue that sends information to the client
@@ -461,6 +470,8 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 					c.SendPlaneLocationHistory(rq.Icao, rq.CallSign)
 				case ws_protocol.RequestTypeTickAdjust:
 					c.AdjustSendTick(rq.Tick)
+				case ws_protocol.RequestTypeSearch:
+					c.SendSearchResults(rq.Query)
 				default:
 					_ = c.sendError(ctx, "Unknown request type")
 				}
@@ -563,6 +574,11 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 				if cmdMsg.tick > sendTickDuration {
 					sendTick.Reset(cmdMsg.tick)
 				}
+			case ws_protocol.RequestTypeSearch:
+				err = c.sendPlaneMessage(ctx, &ws_protocol.WsResponse{
+					Type:    ws_protocol.ResponseTypeSearchResults,
+					Results: cmdMsg.results,
+				})
 			default:
 				err = c.sendError(ctx, "Unknown Command")
 			}
