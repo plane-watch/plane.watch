@@ -28,6 +28,8 @@ import (
 	"plane.watch/lib/ws_protocol"
 )
 
+const MaxTickDuration = time.Second * 10
+
 //go:embed test-web
 var testWebDir embed.FS
 
@@ -413,7 +415,7 @@ func (c *WsClient) SendPlaneLocationHistory(icao, callSign string) {
 func (c *WsClient) AdjustSendTick(tick int) {
 	if tick > 0 {
 		tickDuration := time.Duration(tick) * time.Millisecond
-		if tickDuration < 10*time.Second {
+		if tickDuration < MaxTickDuration {
 			c.log.Debug().Dur("Requested Tick (ms)", tickDuration).Msg("Client Adjust Tick Timing")
 			go func() {
 				c.cmdChan <- WsCmd{
@@ -502,12 +504,12 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 	locationMessages := make([]*export.PlaneLocation, 0, 1000)
 	icaoIdLookup := make(map[string]int, 1000)
 
-	d := c.sendTickDuration
-	if 0 == d {
+	currentSendTickDuration := c.sendTickDuration
+	if 0 == currentSendTickDuration {
 		// it still runs, but we do not send anything
-		d = 10 * time.Second // something long enough that it is not much of an overhead
+		currentSendTickDuration = 10 * time.Second // something long enough that it is not much of an overhead
 	}
-	sendTick := time.NewTicker(d)
+	sendTick := time.NewTicker(currentSendTickDuration)
 	defer sendTick.Stop()
 
 	// this is the command processing main loop
@@ -573,14 +575,24 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 					CallSign: cmdMsg.extra,
 				})
 			case ws_protocol.RequestTypeTickAdjust:
-				// this is already less than 10 seconds
+				// this is already less than 10 seconds (MaxTickDuration)
 				if cmdMsg.tick > c.sendTickDuration {
-					sendTick.Reset(cmdMsg.tick)
+					currentSendTickDuration = cmdMsg.tick
+				} else {
+					// set the smallest allowed
+					currentSendTickDuration = c.sendTickDuration
 				}
+				c.log.Info().Dur("Tick", currentSendTickDuration).Msg("Changing Tick Rate")
+				sendTick.Reset(currentSendTickDuration)
+
+				err = c.sendPlaneMessage(ctx, &ws_protocol.WsResponse{
+					Type:    ws_protocol.ResponseTypeMsg,
+					Message: fmt.Sprintf("Set Tick Rate To %s", currentSendTickDuration),
+				})
 			case ws_protocol.RequestTypeSearch:
 				err = c.sendPlaneMessage(ctx, &ws_protocol.WsResponse{
 					Type:    ws_protocol.ResponseTypeSearchResults,
-					Results: cmdMsg.results,
+					Results: &cmdMsg.results,
 				})
 			default:
 				err = c.sendError(ctx, "Unknown Command")
