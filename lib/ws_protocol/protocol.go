@@ -14,6 +14,7 @@ const (
 	RequestTypeSearch          = "search"                 // adjusts how often we send updates
 
 	ResponseTypeError           = "error"
+	ResponseTypeMsg             = "info"
 	ResponseTypeAckSub          = "ack-sub"
 	ResponseTypeAckUnsub        = "ack-unsub"
 	ResponseTypeSubTiles        = "sub-list"
@@ -58,6 +59,6 @@ type (
 		Icao     string            `json:"icao,omitempty"`
 		CallSign string            `json:"callSign,omitempty"`
 		History  []LocationHistory `json:"history,omitempty"`
-		Results  SearchResult      `json:"results,omitempty"`
+		Results  *SearchResult     `json:"results,omitempty"`
 	}
 )
