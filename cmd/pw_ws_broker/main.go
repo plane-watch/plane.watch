@@ -253,3 +253,11 @@ func run(c *cli.Context) error {
 
 	return nil
 }
+
+func unPtr[t any](what *t) t {
+	var def t
+	if nil == what {
+		return def
+	}
+	return *what
+}
