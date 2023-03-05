@@ -80,6 +80,8 @@ type (
 		parent     *ClientList
 		identifier string
 		log        zerolog.Logger
+
+		sendTickDuration time.Duration
 	}
 	WsCmd struct {
 		action     string
@@ -307,9 +309,9 @@ func (bw *PwWsBrokerWeb) servePlanes(w http.ResponseWriter, r *http.Request) {
 	log.Debug().Str("protocol", conn.Subprotocol()).Msg("Speaking...")
 	switch conn.Subprotocol() {
 	case ws_protocol.WsProtocolPlanes:
-		client := NewWsClient(conn, r.RemoteAddr)
+		client := NewWsClient(conn, r.RemoteAddr, bw.sendTickDuration)
 		bw.clients.addClient(client)
-		client.Handle(r.Context(), bw.sendTickDuration)
+		client.Handle(r.Context())
 		bw.clients.removeClient(client)
 	default:
 		_ = conn.Close(websocket.StatusPolicyViolation, "Unknown Sub Protocol")
@@ -330,20 +332,21 @@ func (bw *PwWsBrokerWeb) HealthCheckName() string {
 }
 
 // NewWsClient creates a new Websocket Client. This represents an individual connection and its handling
-func NewWsClient(conn *websocket.Conn, identifier string) *WsClient {
+func NewWsClient(conn *websocket.Conn, identifier string, defaultSendTick time.Duration) *WsClient {
 	client := WsClient{
-		conn:       conn,
-		cmdChan:    make(chan WsCmd),
-		outChan:    make(chan loadedResponse, 500),
-		identifier: identifier,
-		log:        log.With().Str("client", identifier).Logger(),
+		conn:             conn,
+		cmdChan:          make(chan WsCmd),
+		outChan:          make(chan loadedResponse, 500),
+		identifier:       identifier,
+		log:              log.With().Str("client", identifier).Logger(),
+		sendTickDuration: defaultSendTick,
 	}
 	return &client
 }
 
 // Handle is a top level method that is called to Handle a websocket client connection
-func (c *WsClient) Handle(ctx context.Context, sendTickDuration time.Duration) {
-	err := c.planeProtocolHandler(ctx, c.conn, sendTickDuration)
+func (c *WsClient) Handle(ctx context.Context) {
+	err := c.planeProtocolHandler(ctx, c.conn)
 	if websocket.CloseStatus(err) == websocket.StatusNormalClosure || websocket.CloseStatus(err) == websocket.StatusGoingAway {
 		return
 	}
@@ -436,7 +439,7 @@ func (c *WsClient) SendSearchResults(query string) {
 // it runs the command queue that sends information to the client
 // it runs (in a go routine) the reading of requests from the client.
 // the read requests become commands in the command queue
-func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Conn, sendTickDuration time.Duration) error {
+func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Conn) error {
 	// read from the connection for commands to perform
 	// these get added to the queue to process
 	json := jsoniter.ConfigFastest
@@ -499,7 +502,7 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 	locationMessages := make([]*export.PlaneLocation, 0, 1000)
 	icaoIdLookup := make(map[string]int, 1000)
 
-	d := sendTickDuration
+	d := c.sendTickDuration
 	if 0 == d {
 		// it still runs, but we do not send anything
 		d = 10 * time.Second // something long enough that it is not much of an overhead
@@ -571,7 +574,7 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 				})
 			case ws_protocol.RequestTypeTickAdjust:
 				// this is already less than 10 seconds
-				if cmdMsg.tick > sendTickDuration {
+				if cmdMsg.tick > c.sendTickDuration {
 					sendTick.Reset(cmdMsg.tick)
 				}
 			case ws_protocol.RequestTypeSearch:
@@ -588,7 +591,7 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 			tileSub, tileOk := subs[planeMsg.tile]
 			allSub, allOk := subs["all"+planeMsg.highLow]
 			if (tileSub && tileOk) || (allSub && allOk) {
-				if sendTickDuration > 0 {
+				if c.sendTickDuration > 0 {
 					// limit our updates to only 1 per icao, sent periodically
 					if id, ok := icaoIdLookup[planeMsg.out.Location.Icao]; ok {
 						locationMessages[id] = planeMsg.out.Location
