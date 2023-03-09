@@ -22,14 +22,14 @@ require (
 )
 
 require (
-	github.com/ClickHouse/clickhouse-go/v2 v2.6.5
+	github.com/ClickHouse/clickhouse-go/v2 v2.7.0
 	github.com/google/btree v1.1.2
 	github.com/json-iterator/go v1.1.12
 )
 
 require (
 	github.com/ClickHouse/ch-go v0.52.1 // indirect
-	github.com/andybalholm/brotli v1.0.4 // indirect
+	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
@@ -56,7 +56,7 @@ require (
 	github.com/nats-io/nats-server/v2 v2.7.4 // indirect
 	github.com/nats-io/nkeys v0.3.0 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
-	github.com/paulmach/orb v0.8.0 // indirect
+	github.com/paulmach/orb v0.9.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
 	github.com/pierrec/lz4/v4 v4.1.17 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
