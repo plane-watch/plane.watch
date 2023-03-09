@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -236,12 +237,13 @@ func (bw *PwWsBrokerWeb) jsonGrid(w http.ResponseWriter, r *http.Request) {
 func (cl *ClientList) performSearch(query string) ws_protocol.SearchResult {
 
 	results := ws_protocol.SearchResult{
+		Query:    query,
 		Aircraft: []*export.PlaneLocation{},
 		Airport:  []ws_protocol.AirportLocation{},
 		Route:    []string{},
 	}
 
-	if len(query) >= 3 {
+	if len(query) >= 2 {
 		// find any aircraft
 		cl.globalList.Range(func(key, value interface{}) bool {
 			loc := value.(*export.PlaneLocation)
@@ -254,6 +256,8 @@ func (cl *ClientList) performSearch(query string) ws_protocol.SearchResult {
 
 			return len(results.Aircraft) < 10
 		})
+
+		sort.Sort(results.Aircraft)
 	}
 
 	// TODO: Airport Lookup

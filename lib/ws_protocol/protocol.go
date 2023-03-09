@@ -38,8 +38,10 @@ type (
 		Heading, Velocity float64
 		Altitude          *int32
 	}
+	AircraftList []*export.PlaneLocation
 	SearchResult struct {
-		Aircraft []*export.PlaneLocation
+		Query    string
+		Aircraft AircraftList
 		Airport  []AirportLocation
 		Route    []string
 	}
@@ -62,3 +64,34 @@ type (
 		Results  *SearchResult     `json:"results,omitempty"`
 	}
 )
+
+func (l AircraftList) Len() int {
+	if nil == l {
+		return 0
+	}
+	return len(l)
+}
+func unPtr[t any](what *t) t {
+	var def t
+	if nil == what {
+		return def
+	}
+	return *what
+}
+
+func (l AircraftList) Less(i, j int) bool {
+	if nil == l {
+		return false
+	}
+
+	left := unPtr(l[i].CallSign) + ":" + unPtr(l[i].Registration) + ":" + l[i].Icao
+	right := unPtr(l[j].CallSign) + ":" + unPtr(l[j].Registration) + ":" + l[j].Icao
+
+	return left < right
+}
+
+func (l AircraftList) Swap(i, j int) {
+	x := l[i]
+	l[i] = l[j]
+	l[j] = x
+}
