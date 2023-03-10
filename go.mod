@@ -3,7 +3,7 @@ module plane.watch
 go 1.19
 
 require (
-	github.com/bwmarrin/discordgo v0.27.0
+	github.com/bwmarrin/discordgo v0.27.1
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/gdamore/tcell/v2 v2.6.0
 	github.com/go-redis/redis/v8 v8.11.5
