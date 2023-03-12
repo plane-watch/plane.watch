@@ -250,6 +250,7 @@ func (cl *ClientList) performSearch(query string) ws_protocol.SearchResult {
 
 			if strings.Contains(strings.ToLower(loc.Icao), query) ||
 				(nil != loc.CallSign && strings.Contains(strings.ToLower(*loc.CallSign), query)) ||
+				(nil != loc.RegisteredOwner && strings.Contains(strings.ToLower(*loc.RegisteredOwner), query)) ||
 				(nil != loc.Registration && strings.Contains(strings.ToLower(*loc.Registration), query)) {
 				results.Aircraft = append(results.Aircraft, loc)
 			}
