@@ -7,6 +7,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"net"
 	"net/url"
+	"time"
 )
 
 const DefaultQueueDepth = 2048
@@ -156,6 +157,20 @@ func (n *Server) SubscribeQueueGroup(subject, queueGroup string) (chan *nats.Msg
 	}
 	n.log.Info().Str("subject", subject).Str("queue-group", queueGroup).Msg("subscribed")
 	return ch, nil
+}
+
+func (n *Server) Request(subject string, data []byte, timeout time.Duration) ([]byte, error) {
+	msg, err := n.outgoing.Request(subject, data, timeout)
+	if nil != err {
+		n.log.Error().Err(err).Str("subject", subject).Msg("Failed to request")
+		return nil, err
+	}
+	// TODO: instrument so we know how long replies take and how many are successfully served
+	return msg.Data, nil
+}
+
+func (n *Server) SubscribeReply(subject, queue string, handler func(msg *nats.Msg)) (*nats.Subscription, error) {
+	return n.outgoing.QueueSubscribe(subject, queue, handler)
 }
 
 func (n *Server) HealthCheckName() string {

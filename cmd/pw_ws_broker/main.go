@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"os"
+	"plane.watch/lib/nats_io"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -219,11 +220,14 @@ func run(c *cli.Context) error {
 		return err
 	}
 
+	var natsServerRpc *nats_io.Server
+
 	var input source
 	if hasRabbit && "" != rabbitmq {
 		input, err = NewPwWsBrokerRabbit(rabbitmq, lowRoute, highRoute)
 	} else if hasNats && "" != nats {
 		input, err = NewPwWsBrokerNats(nats, lowRoute, highRoute)
+		natsServerRpc, _ = nats_io.NewServer(nats, "pw_ws_broker+rpc")
 	} else if hasRedis && "" != redis {
 		input, err = NewPwWsBrokerRedis(redis, lowRoute, highRoute)
 	}
@@ -233,6 +237,7 @@ func run(c *cli.Context) error {
 
 	broker, err := NewPlaneWatchWebSocketBroker(
 		input,
+		natsServerRpc,
 		c.String("http-addr"),
 		c.String("tls-cert"),
 		c.String("tls-cert-key"),

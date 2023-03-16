@@ -24,7 +24,9 @@ require (
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.7.0
 	github.com/google/btree v1.1.2
+	github.com/jmoiron/sqlx v1.3.5
 	github.com/json-iterator/go v1.1.12
+	github.com/lib/pq v1.2.0
 )
 
 require (
