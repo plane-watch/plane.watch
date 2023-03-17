@@ -100,19 +100,6 @@ func runCli(c *cli.Context) error {
 	return run(c)
 }
 
-func testSearch(server *nats_io.Server) {
-	for {
-		time.Sleep(time.Second)
-		r, err := server.Request("search.airport", []byte("YPP"), time.Second)
-		if nil != err {
-			log.Error().Err(err).Send()
-		}
-
-		fmt.Println("Reply", string(r))
-
-	}
-}
-
 func connectDatabase(c *cli.Context) error {
 	host := c.String("db-host")
 	port := c.String("db-port")
@@ -143,8 +130,6 @@ func run(c *cli.Context) error {
 	if nil != err {
 		return err
 	}
-
-	//go testSearch(server)
 
 	numWorkers := c.Int("num-workers")
 	for i := 0; i < numWorkers; i++ {
