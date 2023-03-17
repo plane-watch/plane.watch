@@ -136,5 +136,4 @@ func run(c *cli.Context) error {
 	}
 
 	select {}
-	return nil
 }
