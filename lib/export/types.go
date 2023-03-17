@@ -92,22 +92,6 @@ type (
 		Name     string
 		ICAOCode string
 	}
-
-	Airport struct {
-		Id        int64     `db:"id"`
-		Name      string    `db:"name"`
-		City      string    `db:"city"`
-		Country   string    `db:"country"`
-		IataCode  string    `db:"iata_code"`
-		IcaoCode  string    `db:"icao_code"`
-		Latitude  float64   `db:"latitude"`
-		Longitude float64   `db:"longitude"`
-		Altitude  int       `db:"altitude"`
-		Timezone  int       `db:"timezone"`
-		DstType   string    `db:"dst_type"`
-		CreatedAt time.Time `db:"created_at"`
-		UpdatedAt time.Time `db:"updated_at"`
-	}
 )
 
 var (

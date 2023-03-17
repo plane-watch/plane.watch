@@ -4,18 +4,39 @@ import (
 	"fmt"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"os"
 	"plane.watch/lib/logging"
 	"plane.watch/lib/monitoring"
 	"plane.watch/lib/nats_io"
-	"runtime"
 )
 
 var (
 	version = "dev"
 	db      *sqlx.DB
+
+	prometheusCounterSearch = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "pw_atc_api_search_count",
+		Help: "The number of searches handled",
+	})
+
+	prometheusCounterSearchSummary = promauto.NewSummary(prometheus.SummaryOpts{
+		Name: "pw_atc_api_search_summary",
+		Help: "A Summary of the search times in milliseconds",
+	})
+
+	prometheusCounterEnrich = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "pw_atc_api_enrich_count",
+		Help: "The number of enrichments handled",
+	})
+
+	prometheusCounterEnrichSummary = promauto.NewSummary(prometheus.SummaryOpts{
+		Name: "pw_atc_api_enrich_summary",
+		Help: "A Summary of the enrich times in milliseconds",
+	})
 )
 
 func main() {
@@ -75,7 +96,7 @@ func main() {
 		&cli.IntFlag{
 			Name:    "num-workers",
 			Usage:   "How many workers to spin up",
-			Value:   runtime.NumCPU(),
+			Value:   8,
 			EnvVars: []string{"NUM_WORKERS"},
 		},
 	}
@@ -107,7 +128,7 @@ func connectDatabase(c *cli.Context) error {
 	dbName := c.String("db-name")
 	var err error
 	s := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, pass, dbName)
-	log.Info().Str("conn", s).Send()
+	//log.Info().Str("conn", s).Send()
 	db, err = sqlx.Connect("postgres", s)
 
 	if nil != err {
@@ -120,7 +141,6 @@ func connectDatabase(c *cli.Context) error {
 
 func run(c *cli.Context) error {
 	log.Info().Msg("Starting up")
-	exitChan := make(chan bool)
 	if err := connectDatabase(c); nil != err {
 		return err
 	}
@@ -132,7 +152,8 @@ func run(c *cli.Context) error {
 
 	numWorkers := c.Int("num-workers")
 	for i := 0; i < numWorkers; i++ {
-		go searchHandler(server, i, exitChan)
+		go newSearchApi(i).configure(server).listen()
+		go newEnrichmentApi(i).configure(server).listen()
 	}
 
 	select {}

@@ -264,10 +264,9 @@ func (cl *ClientList) performSearch(query string) ws_protocol.SearchResult {
 		sort.Sort(results.Aircraft)
 	}
 
-	// TODO: Airport Lookup
-	// IATA, ICAO and Name
+	// Airport Lookup, if we have a nats connection
 	if nil != cl.broker.natsRpc {
-		resp, err := cl.broker.natsRpc.Request("search.airport", []byte(query), time.Second)
+		resp, err := cl.broker.natsRpc.Request(export.NatsApiSearchAirportV1, []byte(query), time.Second)
 		if nil != err {
 			log.Error().Err(err).Msg("Failed to search for airport")
 		} else {
