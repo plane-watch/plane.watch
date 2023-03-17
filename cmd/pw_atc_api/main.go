@@ -11,7 +11,6 @@ import (
 	"plane.watch/lib/monitoring"
 	"plane.watch/lib/nats_io"
 	"runtime"
-	"time"
 )
 
 var (
