@@ -266,24 +266,26 @@ func (cl *ClientList) performSearch(query string) ws_protocol.SearchResult {
 
 	// TODO: Airport Lookup
 	// IATA, ICAO and Name
-	resp, err := cl.broker.natsRpc.Request("search.airport", []byte(query), time.Second)
-	if nil != err {
-		log.Error().Err(err).Msg("Failed to search for airport")
-	} else {
-		json := jsoniter.ConfigFastest
-		var airports []export.Airport
-		err = json.Unmarshal(resp, &airports)
+	if nil != cl.broker.natsRpc {
+		resp, err := cl.broker.natsRpc.Request("search.airport", []byte(query), time.Second)
 		if nil != err {
-			log.Error().Err(err).Msg("Failed to unmarshal airport search results")
+			log.Error().Err(err).Msg("Failed to search for airport")
 		} else {
-			for _, airport := range airports {
-				results.Airport = append(results.Airport, ws_protocol.AirportLocation{
-					Name: airport.Name,
-					Icao: airport.IcaoCode,
-					Iata: airport.IataCode,
-					Lat:  airport.Latitude,
-					Lon:  airport.Longitude,
-				})
+			json := jsoniter.ConfigFastest
+			var airports []export.Airport
+			err = json.Unmarshal(resp, &airports)
+			if nil != err {
+				log.Error().Err(err).Msg("Failed to unmarshal airport search results")
+			} else {
+				for _, airport := range airports {
+					results.Airport = append(results.Airport, ws_protocol.AirportLocation{
+						Name: airport.Name,
+						Icao: airport.IcaoCode,
+						Iata: airport.IataCode,
+						Lat:  airport.Latitude,
+						Lon:  airport.Longitude,
+					})
+				}
 			}
 		}
 	}
