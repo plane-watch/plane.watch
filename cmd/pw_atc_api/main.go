@@ -8,10 +8,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"net"
+	"net/url"
 	"os"
 	"plane.watch/lib/logging"
 	"plane.watch/lib/monitoring"
 	"plane.watch/lib/nats_io"
+	"strings"
 )
 
 var (
@@ -68,6 +71,13 @@ func main() {
 			Usage:   "Nats.io URL for fetching and publishing updates. nats://guest:guest@host:4222/",
 			EnvVars: []string{"NATS"},
 		},
+		// support database URL and individual parts
+		&cli.StringFlag{
+			Name:    "database",
+			Usage:   "Database URL",
+			EnvVars: []string{"DATABASE_URL"},
+		},
+
 		&cli.StringFlag{
 			Name:    "db-host",
 			Usage:   "Database Host",
@@ -103,6 +113,18 @@ func main() {
 	app.Before = func(c *cli.Context) error {
 		logging.SetLoggingLevel(c)
 
+		if "" == c.String("database") {
+			dbUrl := url.URL{
+				Scheme:   "postgres",
+				User:     url.UserPassword(c.String("db-user"), c.String("db-pass")),
+				Host:     net.JoinHostPort(c.String("db-host"), c.String("db-port")),
+				Path:     c.String("db-name"),
+				RawQuery: "sslmode=disable&schema=public",
+			}
+
+			return c.Set("database", dbUrl.String())
+		}
+
 		return nil
 	}
 
@@ -121,13 +143,32 @@ func runCli(c *cli.Context) error {
 }
 
 func connectDatabase(c *cli.Context) error {
-	host := c.String("db-host")
-	port := c.String("db-port")
-	user := c.String("db-user")
-	pass := c.String("db-pass")
-	dbName := c.String("db-name")
-	var err error
-	s := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, pass, dbName)
+	databaseUrl := c.String("database")
+	//log.Info().Msg(databaseUrl)
+	urlParts, err := url.Parse(databaseUrl)
+	if nil != err {
+		return err
+	}
+
+	pass, _ := urlParts.User.Password()
+	schema := urlParts.Query().Get("schema")
+	if "" == schema {
+		schema = "public"
+	}
+	sslMode := urlParts.Query().Get("sslMode")
+	if "" == sslMode {
+		sslMode = "disable"
+	}
+	s := fmt.Sprintf(
+		"host=%s port=%s user=%s password=%s dbname=%s search_path=%s sslmode=%s",
+		urlParts.Hostname(),
+		urlParts.Port(),
+		urlParts.User.Username(),
+		pass,
+		strings.Trim(urlParts.Path, "/"),
+		schema,
+		sslMode,
+	)
 	//log.Info().Str("conn", s).Send()
 	db, err = sqlx.Connect("postgres", s)
 
