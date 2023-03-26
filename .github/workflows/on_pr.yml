@@ -21,6 +21,12 @@ jobs:
           ignore: DL3007
           format: tty
       - uses: hadolint/hadolint-action@v1.6.0
+        name: pw_atc_api
+        with:
+          dockerfile: docker/pw_atc_api/Dockerfile
+          ignore: DL3007
+          format: tty
+      - uses: hadolint/hadolint-action@v1.6.0
         name: pw_ingest
         with:
           dockerfile: docker/pw_ingest/Dockerfile
@@ -63,6 +69,7 @@ jobs:
       matrix:
         image:
           - pw_discord_bot
+          - pw_atc_api
           - pw_ingest
           - pw_router
           - pw_ws_broker

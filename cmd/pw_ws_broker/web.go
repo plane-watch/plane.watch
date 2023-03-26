@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"plane.watch/lib/nats_io"
 	"sort"
 	"strconv"
 	"strings"
@@ -54,6 +55,7 @@ func init() {
 
 type (
 	PwWsBrokerWeb struct {
+		natsRpc   *nats_io.Server
 		Addr      string
 		ServeTest bool
 
@@ -101,16 +103,17 @@ type (
 		// naive approach
 		//globalList sync.Map
 		globalList *forgetfulmap.ForgetfulSyncMap
+
+		broker *PwWsBrokerWeb
 	}
 )
 
 // configureWeb Sets up our serve mux to handle our web endpoints
 func (bw *PwWsBrokerWeb) configureWeb() error {
-	bw.clients = newClientList()
+	bw.clients = newClientList(bw)
 
 	bw.serveMux.HandleFunc("/", bw.indexPage)
 	bw.serveMux.HandleFunc("/grid", bw.jsonGrid)
-	bw.serveMux.HandleFunc("/search", bw.clients.search)
 	bw.serveMux.HandleFunc("/planes", bw.servePlanes)
 
 	if bw.ServeTest {
@@ -261,32 +264,32 @@ func (cl *ClientList) performSearch(query string) ws_protocol.SearchResult {
 		sort.Sort(results.Aircraft)
 	}
 
-	// TODO: Airport Lookup
-	// IATA, ICAO and Name
+	// Airport Lookup, if we have a nats connection
+	if nil != cl.broker.natsRpc {
+		resp, err := cl.broker.natsRpc.Request(export.NatsApiSearchAirportV1, []byte(query), time.Second)
+		if nil != err {
+			log.Error().Err(err).Msg("Failed to search for airport")
+		} else {
+			json := jsoniter.ConfigFastest
+			var airports []export.Airport
+			err = json.Unmarshal(resp, &airports)
+			if nil != err {
+				log.Error().Err(err).Msg("Failed to unmarshal airport search results")
+			} else {
+				for _, airport := range airports {
+					results.Airport = append(results.Airport, ws_protocol.AirportLocation{
+						Name: airport.Name,
+						Icao: airport.IcaoCode,
+						Iata: airport.IataCode,
+						Lat:  airport.Latitude,
+						Lon:  airport.Longitude,
+					})
+				}
+			}
+		}
+	}
 
 	return results
-}
-
-func (cl *ClientList) search(w http.ResponseWriter, r *http.Request) {
-	term := strings.ToLower(r.URL.Query().Get("q"))
-	json := jsoniter.ConfigFastest
-	results := cl.performSearch(term)
-
-	buf, err := json.Marshal(results)
-	if nil != err {
-		w.WriteHeader(500)
-		log.Error().Err(err).Msg("Unable to send search results")
-	} else {
-		w.Header().Set("Content-Type", "application/json")
-
-		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-			buf = mustGzipBytes(buf)
-			w.Header().Set("Content-Encoding", "gzip")
-		}
-		w.Header().Set("Content-Length", strconv.Itoa(len(buf)))
-		w.WriteHeader(200)
-		_, _ = w.Write(buf)
-	}
 }
 
 // servePlanes Serves our Websocket Endpoint
@@ -697,8 +700,10 @@ func (c *WsClient) writeTimeout(ctx context.Context, timeout time.Duration, msg 
 }
 
 // newClientList represents a list of websocket clients that we are currently servicing
-func newClientList() *ClientList {
-	cl := ClientList{}
+func newClientList(bw *PwWsBrokerWeb) *ClientList {
+	cl := ClientList{
+		broker: bw,
+	}
 	cl.globalList = forgetfulmap.NewForgetfulSyncMap(
 		forgetfulmap.WithPrometheusCounters(prometheusKnownPlanes),
 		forgetfulmap.WithPreEvictionAction(func(key, value any) {

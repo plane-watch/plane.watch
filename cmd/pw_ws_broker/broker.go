@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"plane.watch/lib/export"
 	"plane.watch/lib/monitoring"
+	"plane.watch/lib/nats_io"
 	"syscall"
 	"time"
 )
@@ -27,11 +28,12 @@ type (
 	processMessage func(highLow string, loc *export.PlaneLocation)
 )
 
-func NewPlaneWatchWebSocketBroker(input source, httpAddr, cert, certKey string, serveTestWeb bool, sendTickDuration time.Duration) (*PwWsBroker, error) {
+func NewPlaneWatchWebSocketBroker(input source, natsRpc *nats_io.Server, httpAddr, cert, certKey string, serveTestWeb bool, sendTickDuration time.Duration) (*PwWsBroker, error) {
 
 	return &PwWsBroker{
 		input: input,
 		PwWsBrokerWeb: PwWsBrokerWeb{
+			natsRpc:          natsRpc,
 			Addr:             httpAddr,
 			ServeTest:        serveTestWeb,
 			cert:             cert,
