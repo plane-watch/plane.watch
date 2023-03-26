@@ -11,6 +11,10 @@ updates:
     schedule:
       interval: "daily"
   - package-ecosystem: "docker"
+    directory: "/docker/pw_atc_api"
+    schedule:
+      interval: "daily"
+  - package-ecosystem: "docker"
     directory: "/docker/pw_router"
     schedule:
       interval: "daily"
