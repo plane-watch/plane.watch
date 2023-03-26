@@ -1,7 +1,7 @@
 package main
 
 import (
-	"encoding/json"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/nats-io/nats.go"
 	"plane.watch/lib/export"
 	"time"
@@ -42,6 +42,7 @@ func (sa *FeederApiHandler) feederHandler(msg *nats.Msg) {
 
 	var respondErr error
 	var buf []byte
+	json := jsoniter.ConfigFastest
 
 	switch msg.Subject {
 	case export.NatsApiFeederListV1:
