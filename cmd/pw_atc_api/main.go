@@ -40,6 +40,16 @@ var (
 		Name: "pw_atc_api_enrich_summary",
 		Help: "A Summary of the enrich times in milliseconds",
 	})
+
+	prometheusCounterFeeder = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "pw_atc_api_feeder_count",
+		Help: "The number of requests for feeder information and feeder updates",
+	})
+
+	prometheusCounterFeederSummary = promauto.NewSummary(prometheus.SummaryOpts{
+		Name: "pw_atc_api_feeder_summary",
+		Help: "A Summary of the feeder request times in milliseconds",
+	})
 )
 
 func main() {
@@ -80,7 +90,7 @@ func main() {
 
 		&cli.StringFlag{
 			Name:    "db-host",
-			Usage:   "Database Host",
+			Usage:   "Database Host e.g. postgres://user@pass:localhost:5432/db_name?sslmode=disable&schema=public",
 			EnvVars: []string{"DATABASE_HOST"},
 		},
 		&cli.StringFlag{
@@ -195,6 +205,7 @@ func run(c *cli.Context) error {
 	for i := 0; i < numWorkers; i++ {
 		go newSearchApi(i).configure(server).listen()
 		go newEnrichmentApi(i).configure(server).listen()
+		go newFeederApi(i).configure(server).listen()
 	}
 
 	select {}

@@ -1,16 +1,23 @@
 package export
 
-import "time"
+import (
+	"github.com/google/uuid"
+	"time"
+)
 
 const (
 	// NatsApiSearchAirportV1 is the Nats API for searching for an airport
 	NatsApiSearchAirportV1 = "v1.search.airport"
-	NatsApiSearchRouteV1   = "v1.search.route"
+	// NatsApiSearchRouteV1 is teh Nats API for searching for route info
+	NatsApiSearchRouteV1 = "v1.search.route"
 
 	// NatsApiEnrichAircraftV1 is the Nats API for requesting additional Enrichment data
 	NatsApiEnrichAircraftV1 = "v1.enrich.aircraft"
-
+	// NatsApiEnrichRouteV1 is the request name for enriching a  route
 	NatsApiEnrichRouteV1 = "v1.enrich.route"
+
+	NatsApiFeederListV1        = "v1.feeder.list"
+	NatsApiFeederStatsUpdateV1 = "v1.feeder.update-stats"
 )
 
 type (
@@ -55,5 +62,26 @@ type (
 		Operator  *string
 		RouteCode *string
 		Segments  []Segment
+	}
+
+	Feeders []Feeder
+	Feeder  struct { // part of schema for /api/v1/feeders.json atc endpoint
+		Id            int       `db:"id"`
+		User          string    `db:"name"`
+		Latitude      float64   `db:"latitude" json:",string"`
+		Longitude     float64   `db:"longitude" json:",string"`
+		Altitude      float64   `db:"altitude" json:",string"`
+		ApiKey        uuid.UUID `db:"api_key"`
+		FeedDirection string    `db:"feed_direction"`
+		FeedProtocol  string    `db:"feed_protocol"`
+		Label         string    `db:"label"`
+		MlatEnabled   bool      `db:"mlat_enabled"`
+		Mux           string    `db:"container_name"`
+	}
+
+	FeederUpdates []FeederUpdate
+	FeederUpdate  struct {
+		ApiKey   string
+		LastSeen time.Time
 	}
 )
