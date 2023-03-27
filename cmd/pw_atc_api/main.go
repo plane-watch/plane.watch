@@ -209,6 +209,7 @@ func connectDatabase(c *cli.Context) error {
 
 func run(c *cli.Context) error {
 	log.Info().Msg("Starting up")
+	monitoring.RunWebServer(c)
 	if err := connectDatabase(c); nil != err {
 		log.Error().Err(err).Msg("Failed to connect to database")
 		return err
@@ -225,6 +226,9 @@ func run(c *cli.Context) error {
 		go newEnrichmentApi(i).configure(server).listen()
 		go newFeederApi(i).configure(server).listen()
 	}
+
+	hc := health{}
+	monitoring.AddHealthCheck(&hc)
 
 	select {}
 }
