@@ -15,6 +15,7 @@ import (
 	"plane.watch/lib/monitoring"
 	"plane.watch/lib/nats_io"
 	"strings"
+	"time"
 )
 
 var (
@@ -58,9 +59,6 @@ func main() {
 	app.Version = version
 	app.Name = "Plane Watch ATC API Server"
 	app.Usage = "Listens on NATS bus for requests and responds to them"
-
-	logging.IncludeVerbosityFlags(app)
-	monitoring.IncludeMonitoringFlags(app, 9602)
 
 	app.Commands = cli.Commands{
 		{
@@ -137,6 +135,8 @@ func main() {
 
 		return nil
 	}
+	logging.IncludeVerbosityFlags(app)
+	monitoring.IncludeMonitoringFlags(app, 9602)
 
 	if err := app.Run(os.Args); nil != err {
 		log.Error().Err(err).Send()
@@ -154,7 +154,7 @@ func runCli(c *cli.Context) error {
 
 func connectDatabase(c *cli.Context) error {
 	databaseUrl := c.String("database")
-	//log.Info().Msg(databaseUrl)
+	dbLog := log.With().Str("section", "database").Logger()
 	urlParts, err := url.Parse(databaseUrl)
 	if nil != err {
 		return err
@@ -179,7 +179,15 @@ func connectDatabase(c *cli.Context) error {
 		schema,
 		sslMode,
 	)
-	//log.Info().Str("conn", s).Send()
+	dbLog.Debug().
+		Str("host", urlParts.Hostname()).
+		Str("port", urlParts.Port()).
+		Str("user", urlParts.User.Username()).
+		Str("database", strings.Trim(urlParts.Path, "/")).
+		Str("schema", schema).
+		Str("sslmode", sslMode).
+		Msg("Database Connection Info")
+
 	db, err = sqlx.Connect("postgres", s)
 
 	if nil != err {
@@ -187,12 +195,22 @@ func connectDatabase(c *cli.Context) error {
 	}
 	db.DB.SetMaxOpenConns(50) // because samfty said so
 	db.DB.SetMaxIdleConns(10)
-	return nil
+
+	t1 := time.Now()
+	defer func() {
+		dbLog.Debug().
+			Str("database", "ping").
+			Dur("ping time ms", time.Now().Sub(t1)).
+			Send()
+	}()
+
+	return db.Ping()
 }
 
 func run(c *cli.Context) error {
 	log.Info().Msg("Starting up")
 	if err := connectDatabase(c); nil != err {
+		log.Error().Err(err).Msg("Failed to connect to database")
 		return err
 	}
 
