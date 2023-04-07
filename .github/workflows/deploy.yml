@@ -47,7 +47,7 @@ jobs:
         id: vars
         shell: bash
         run: |
-          echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       # Generate version
       - name: Determine semantic-gitcommit version
