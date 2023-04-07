@@ -29,9 +29,6 @@ FROM alpine:latest
 WORKDIR /app
 COPY --from=build /app/pw_atc_api /app
 
-# limit ourselves to just location updates
-ENV PUBLISH_TYPES=location-updates
-
 HEALTHCHECK --interval=15s --timeout=3s CMD wget --spider http://localhost:9602/status
 
 # Command to run
