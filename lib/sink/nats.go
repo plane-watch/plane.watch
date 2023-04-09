@@ -7,6 +7,7 @@ import (
 	"plane.watch/lib/nats_io"
 	"plane.watch/lib/tracker"
 	"regexp"
+	"time"
 )
 
 type (
@@ -19,9 +20,20 @@ type (
 func NewNatsSink(opts ...Option) (tracker.Sink, error) {
 	n := &NatsSink{}
 	n.setupConfig(opts)
-	if err := n.connect(); nil != err {
-		log.Error().Err(err).Msg("Unable to setup nats sink")
-		return nil, err
+	delay := time.Second
+	for {
+		err := n.connect()
+		if nil == err {
+			break
+		}
+		// failed connection handling
+		if delay > time.Second*10 {
+			return nil, err
+		}
+
+		log.Error().Err(err).Dur("retry delay", delay).Msg("Unable to setup nats sink. Trying again")
+		time.Sleep(delay)
+		delay += time.Second
 	}
 	return NewSink(&n.Config, n), nil
 }
