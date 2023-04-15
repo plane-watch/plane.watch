@@ -14,7 +14,6 @@ import (
 type (
 	Destination interface {
 		PublishJson(queue string, msg []byte) error
-		PublishText(queue string, msg []byte) error
 		Stop()
 		monitoring.HealthCheck
 	}
@@ -56,20 +55,6 @@ func (s *Sink) Stop() {
 	s.dest.Stop()
 	s.fsm.Stop()
 	s.sendTicker.Stop()
-}
-
-func (s *Sink) sendLocationEvent(routingKey string, le *tracker.PlaneLocationEvent) error {
-	jsonBuf, err := s.trackerMsgJson(le)
-	if nil != jsonBuf && nil == err {
-		if s.fsm.HasKey(string(jsonBuf)) {
-			// sending a message we have already sent!
-			return nil
-		}
-		s.fsm.AddKey(string(jsonBuf))
-
-		err = s.dest.PublishJson(routingKey, jsonBuf)
-	}
-	return err
 }
 
 func (s *Sink) trackerMsgJson(le *tracker.PlaneLocationEvent) ([]byte, error) {

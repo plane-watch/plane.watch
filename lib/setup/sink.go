@@ -26,7 +26,7 @@ var (
 
 func IncludeSinkFlags(app *cli.App) {
 	app.Flags = append(app.Flags, []cli.Flag{
-		&cli.StringSliceFlag{
+		&cli.StringFlag{
 			Name:    "sink",
 			Usage:   "The place to send decoded JSON in URL Form. nats://user:pass@host:port/vhost?ttl=60",
 			EnvVars: []string{"SINK"},
@@ -40,22 +40,19 @@ func IncludeSinkFlags(app *cli.App) {
 	}...)
 }
 
-func HandleSinkFlags(c *cli.Context, connName string) ([]tracker.Sink, error) {
+func HandleSinkFlag(c *cli.Context, connName string) (tracker.Sink, error) {
 	defaultDelay := c.Duration("sink-collect-delay")
 	defaultTag := c.String("tag")
-	sinks := make([]tracker.Sink, 0)
 
-	for _, sinkUrl := range c.StringSlice("sink") {
-		log.Debug().Str("sink-url", sinkUrl).Msg("With Sink")
-		s, err := handleSink(connName, sinkUrl, defaultTag, defaultDelay)
-		if nil != err {
-			log.Error().Err(err).Str("url", sinkUrl).Str("what", "sink").Msg("Failed setup sink")
-			return nil, err
-		} else {
-			sinks = append(sinks, s)
-		}
+	sinkUrl := c.String("sink")
+	log.Debug().Str("sink-url", sinkUrl).Msg("With Sink")
+	s, err := handleSink(connName, sinkUrl, defaultTag, defaultDelay)
+	if nil != err {
+		log.Error().Err(err).Str("url", sinkUrl).Str("what", "sink").Msg("Failed setup sink")
+		return nil, err
 	}
-	return sinks, nil
+
+	return s, nil
 }
 
 func handleSink(connName, urlSink, defaultTag string, sendDelay time.Duration) (tracker.Sink, error) {
