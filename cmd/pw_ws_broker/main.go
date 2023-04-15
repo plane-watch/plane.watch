@@ -82,20 +82,9 @@ func main() {
 	}
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
-			Name:    "rabbitmq",
-			Aliases: []string{"source"},
-			Usage:   "A place to fetch data from. amqp://user:pass@host:port/vhost?ttl=60",
-			EnvVars: []string{"RABBITMQ", "SOURCE"},
-		},
-		&cli.StringFlag{
 			Name:    "nats",
 			Usage:   "Nats.io URL for fetching and publishing updates. nats://guest:guest@host:4222/",
 			EnvVars: []string{"NATS"},
-		},
-		&cli.StringFlag{
-			Name:    "redis",
-			Usage:   "Redis URL for fetching updates. redis://guest:guest@redis:6379/",
-			EnvVars: []string{"REDIS"},
 		},
 		&cli.StringFlag{
 			Name:  "clickhouse",
@@ -182,19 +171,15 @@ func run(c *cli.Context) error {
 
 	monitoring.RunWebServer(c)
 
-	rabbitmq := c.String("rabbitmq")
 	nats := c.String("nats")
-	redis := c.String("redis")
 	lowRoute := c.String("route-key-low")
 	highRoute := c.String("route-key-high")
 
-	hasRedis := "" != redis
 	hasNats := "" != nats
-	hasRabbit := "" != rabbitmq
 
 	isValid := true
-	if !hasRabbit && !hasNats && !hasRedis {
-		log.Info().Msg("Please provide rabbitmq (or nats, redis) connection details. (--rabbitmq, --nats, --redis)")
+	if !hasNats {
+		log.Info().Msg("Please provide nats connection details. (--nats)")
 		isValid = false
 	}
 	if "" == lowRoute {
@@ -206,7 +191,7 @@ func run(c *cli.Context) error {
 		isValid = false
 	}
 	if !isValid {
-		return errors.New("invalid configuration. You need one of [rabbitmq|nats|redis], route-key-low and, route-key-high configured")
+		return errors.New("invalid configuration. You need nats, route-key-low and, route-key-high configured")
 	}
 
 	clickHouseUrl := c.String("clickhouse")
@@ -223,14 +208,8 @@ func run(c *cli.Context) error {
 	var natsServerRpc *nats_io.Server
 
 	var input source
-	if hasRabbit && "" != rabbitmq {
-		input, err = NewPwWsBrokerRabbit(rabbitmq, lowRoute, highRoute)
-	} else if hasNats && "" != nats {
-		input, err = NewPwWsBrokerNats(nats, lowRoute, highRoute)
-		natsServerRpc, _ = nats_io.NewServer(nats, "pw_ws_broker+rpc")
-	} else if hasRedis && "" != redis {
-		input, err = NewPwWsBrokerRedis(redis, lowRoute, highRoute)
-	}
+	input, err = NewPwWsBrokerNats(nats, lowRoute, highRoute)
+	natsServerRpc, _ = nats_io.NewServer(nats, "pw_ws_broker+rpc")
 	if nil != err {
 		return err
 	}

@@ -92,7 +92,7 @@ func main() {
 	app.Description = `This program takes a stream of plane tracking data (location updates) from a message bus  ` +
 		`and filters messages and only returns significant changes for each aircraft.` +
 		"\n\n" +
-		`example: ./pw_router --rabbitmq="amqp://guest:guest@localhost:5672" --source-route-key=location-updates --num-workers=8 --prom-metrics-port=9601`
+		`example: ./pw_router --nats="nats://guest:guest@localhost:4222" --source-route-key=location-updates --num-workers=8 --prom-metrics-port=9601`
 
 	app.Commands = cli.Commands{
 		{
@@ -109,22 +109,10 @@ func main() {
 
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
-			Name:  "rabbitmq",
-			Usage: "Rabbitmq URL for fetching and publishing updates.",
-			//Value:   "amqp://guest:guest@rabbitmq:5672/pw",
-			EnvVars: []string{"RABBITMQ"},
-		},
-		&cli.StringFlag{
 			Name:  "nats",
 			Usage: "Nats.io URL for fetching and publishing updates.",
 			//Value:   "nats://guest:guest@nats:4222/",
 			EnvVars: []string{"NATS"},
-		},
-		&cli.StringFlag{
-			Name:  "redis",
-			Usage: "redis server URL for fetching and publishing updates.",
-			//Value:   "redis://guest:guest@redis:6379/",
-			EnvVars: []string{"REDIS"},
 		},
 		&cli.StringFlag{
 			Name:  "clickhouse",
@@ -205,7 +193,7 @@ func run(c *cli.Context) error {
 	monitoring.RunWebServer(c)
 
 	var err error
-	// connect to rabbitmq, create ourselves 2 queues
+	// connect to the message queue, create ourselves 2 queues
 	r := pwRouter{
 		syncSamples: forgetfulmap.NewForgetfulSyncMap(
 			forgetfulmap.WithSweepIntervalSeconds(c.Int("update-age-sweep-interval")),
@@ -222,21 +210,8 @@ func run(c *cli.Context) error {
 
 	r.incomingMessages = make(chan []byte, 1000)
 
-	if rr := NewRabbitMqRouter(c.String("rabbitmq")); nil != rr {
-		if c.Bool("register-test-queues") {
-			if err = rr.rabbitMqSetupTestQueues(); nil != err {
-				return err
-			}
-		}
-		r.mqs = append(r.mqs, rr)
-	}
-
 	if nr := NewNatsIoRouter(c.String("nats")); nil != nr {
 		r.mqs = append(r.mqs, nr)
-	}
-
-	if rr := NewRedisRouter(c.String("redis")); nil != rr {
-		r.mqs = append(r.mqs, rr)
 	}
 
 	incomingSubject := c.String("source-route-key")

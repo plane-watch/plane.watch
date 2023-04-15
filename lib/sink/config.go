@@ -10,24 +10,8 @@ import (
 )
 
 const (
-	QueueTypeBeastAll    = "beast-all"
-	QueueTypeBeastReduce = "beast-reduce"
-	QueueTypeAvrAll      = "avr-all"
-	QueueTypeAvrReduce   = "avr-reduce"
-	QueueTypeSbs1All     = "sbs1-all"
-	QueueTypeSbs1Reduce  = "sbs1-reduce"
 	QueueLocationUpdates = "location-updates"
 )
-
-var AllQueues = [...]string{
-	QueueTypeBeastAll,
-	QueueTypeBeastReduce,
-	QueueTypeAvrAll,
-	QueueTypeAvrReduce,
-	QueueTypeSbs1All,
-	QueueTypeSbs1Reduce,
-	QueueLocationUpdates,
-}
 
 type (
 	Config struct {
@@ -40,9 +24,8 @@ type (
 
 		waiter sync.WaitGroup
 
-		sourceTag         string
-		connectionName    string
-		messageTtlSeconds int
+		sourceTag      string
+		connectionName string
 
 		createTestQueues bool
 
@@ -91,14 +74,6 @@ func WithSourceTag(tag string) Option {
 	}
 }
 
-func WithMessageTtl(ttl int) Option {
-	return func(config *Config) {
-		if ttl >= 0 {
-			config.messageTtlSeconds = ttl
-		}
-	}
-}
-
 func WithLogFile(file string) Option {
 	return func(config *Config) {
 		f, err := os.Create(file)
@@ -121,45 +96,8 @@ func (c *Config) Finish() {
 	c.waiter.Wait()
 }
 
-func WithQueues(queues []string) Option {
-	return func(conf *Config) {
-		if 0 == len(queues) {
-			WithAllQueues()(conf)
-			log.Debug().Msg("With all output types")
-			return
-		}
-
-		for _, requestedQueue := range queues {
-			found := false
-			for _, validQueue := range AllQueues {
-				if requestedQueue == validQueue {
-					log.Debug().Str("publish-type", requestedQueue).Msg("With publish type")
-					conf.queue[validQueue] = validQueue
-					found = true
-					break
-				}
-			}
-			if !found {
-				log.Error().Msgf("Error: Unknown Queue Type: %s", requestedQueue)
-			}
-		}
-	}
-}
-
 func WithSendDelay(delay time.Duration) Option {
 	return func(conf *Config) {
 		conf.sendDelay = delay
-	}
-}
-
-func WithAllQueues() Option {
-	return func(conf *Config) {
-		conf.queue[QueueTypeAvrAll] = QueueTypeAvrAll
-		conf.queue[QueueTypeAvrReduce] = QueueTypeAvrReduce
-		conf.queue[QueueTypeBeastAll] = QueueTypeBeastAll
-		conf.queue[QueueTypeBeastReduce] = QueueTypeBeastReduce
-		conf.queue[QueueTypeSbs1All] = QueueTypeSbs1All
-		conf.queue[QueueTypeSbs1Reduce] = QueueTypeSbs1Reduce
-		conf.queue[QueueLocationUpdates] = QueueLocationUpdates
 	}
 }

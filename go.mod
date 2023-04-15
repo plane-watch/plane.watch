@@ -6,7 +6,6 @@ require (
 	github.com/bwmarrin/discordgo v0.27.1
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/gdamore/tcell/v2 v2.6.0
-	github.com/go-redis/redis/v8 v8.11.5
 	github.com/kpawlik/geojson v0.0.0-20171201195549-1a4f120c6b41
 	github.com/nats-io/nats.go v1.25.0
 	github.com/olekukonko/tablewriter v0.0.5
@@ -15,7 +14,6 @@ require (
 	github.com/rs/zerolog v1.29.1
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/spf13/viper v1.15.0
-	github.com/streadway/amqp v1.0.0
 	github.com/urfave/cli/v2 v2.25.1
 	golang.org/x/oauth2 v0.7.0
 	nhooyr.io/websocket v1.8.7

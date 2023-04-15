@@ -6,11 +6,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"math"
 	"net/url"
 	"plane.watch/lib/sink"
 	"plane.watch/lib/tracker"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -30,23 +28,8 @@ func IncludeSinkFlags(app *cli.App) {
 	app.Flags = append(app.Flags, []cli.Flag{
 		&cli.StringSliceFlag{
 			Name:    "sink",
-			Usage:   "The place to send decoded JSON in URL Form. [amqp|nats|redis]://user:pass@host:port/vhost?ttl=60",
+			Usage:   "The place to send decoded JSON in URL Form. nats://user:pass@host:port/vhost?ttl=60",
 			EnvVars: []string{"SINK"},
-		},
-		&cli.StringSliceFlag{
-			Name:    "publish-types",
-			Usage:   fmt.Sprintf("The types of output we want to publish from this binary. Default: All Types. Valid options are %v", sink.AllQueues),
-			EnvVars: []string{"PUBLISH"},
-		},
-		&cli.BoolFlag{
-			Name:  "rabbitmq-test-queues",
-			Usage: fmt.Sprintf("Create a queue (named after the publishing routing key) and bind it. This allows you to see the messages being published."),
-		},
-
-		&cli.IntFlag{
-			Name:  "sink-message-ttl",
-			Value: 60,
-			Usage: "Instruct our sinks to hold onto generated messages this long. In Seconds",
 		},
 		&cli.DurationFlag{
 			Name:    "sink-collect-delay",
@@ -58,16 +41,13 @@ func IncludeSinkFlags(app *cli.App) {
 }
 
 func HandleSinkFlags(c *cli.Context, connName string) ([]tracker.Sink, error) {
-	defaultTTl := c.Int("sink-message-ttl")
 	defaultDelay := c.Duration("sink-collect-delay")
 	defaultTag := c.String("tag")
-	defaultQueues := c.StringSlice("publish-types")
 	sinks := make([]tracker.Sink, 0)
-	testQueues := c.Bool("rabbitmq-test-queues")
 
 	for _, sinkUrl := range c.StringSlice("sink") {
 		log.Debug().Str("sink-url", sinkUrl).Msg("With Sink")
-		s, err := handleSink(connName, sinkUrl, defaultTag, defaultTTl, defaultQueues, testQueues, defaultDelay)
+		s, err := handleSink(connName, sinkUrl, defaultTag, defaultDelay)
 		if nil != err {
 			log.Error().Err(err).Str("url", sinkUrl).Str("what", "sink").Msg("Failed setup sink")
 			return nil, err
@@ -78,28 +58,19 @@ func HandleSinkFlags(c *cli.Context, connName string) ([]tracker.Sink, error) {
 	return sinks, nil
 }
 
-func handleSink(connName, urlSink, defaultTag string, defaultTtl int, defaultQueues []string, rabbitmqTestQueues bool, sendDelay time.Duration) (tracker.Sink, error) {
+func handleSink(connName, urlSink, defaultTag string, sendDelay time.Duration) (tracker.Sink, error) {
 	parsedUrl, err := url.Parse(urlSink)
 	if nil != err {
 		return nil, err
 	}
-	messageTtl := defaultTtl
 
 	urlPass, _ := parsedUrl.User.Password()
-	if parsedUrl.Query().Has("ttl") {
-		var requestedTtl int64
-		requestedTtl, err = strconv.ParseInt(parsedUrl.Query().Get("ttl"), 10, 32)
-		if requestedTtl > 0 && requestedTtl < math.MaxInt32 {
-			messageTtl = int(requestedTtl)
-		}
-	}
 
 	commonOpts := []sink.Option{
 		sink.WithConnectionName(connName),
 		sink.WithHost(parsedUrl.Hostname(), parsedUrl.Port()),
 		sink.WithUserPass(parsedUrl.User.Username(), urlPass),
 		sink.WithSourceTag(getTag(parsedUrl, defaultTag)),
-		sink.WithMessageTtl(messageTtl),
 		sink.WithPrometheusCounters(prometheusOutputFrame, prometheusOutputPlaneLocation),
 		sink.WithSendDelay(sendDelay),
 	}
@@ -107,22 +78,9 @@ func handleSink(connName, urlSink, defaultTag string, defaultTtl int, defaultQue
 	switch strings.ToLower(parsedUrl.Scheme) {
 	case "nats", "nats.io":
 		return sink.NewNatsSink(commonOpts...)
-	case "redis":
-		return sink.NewRedisSink(commonOpts...)
-	case "amqp", "rabbitmq":
-		rabbitQueues := defaultQueues
-		if parsedUrl.Query().Has("queues") {
-			rabbitQueues = strings.Split(parsedUrl.Query().Get("queues"), ",")
-		}
-
-		return sink.NewRabbitMqSink(append(commonOpts,
-			sink.WithRabbitVhost(parsedUrl.Path),
-			sink.WithQueues(rabbitQueues),
-			sink.WithRabbitTestQueues(rabbitmqTestQueues),
-		)...)
 
 	default:
-		return nil, fmt.Errorf("unknown scheme: %s, expected one of [nats|redis|amqp]", parsedUrl.Scheme)
+		return nil, fmt.Errorf("unknown scheme: %s, expected nats://", parsedUrl.Scheme)
 	}
 
 }
