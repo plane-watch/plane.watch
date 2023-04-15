@@ -319,20 +319,14 @@ func (w *worker) publishLocationUpdate(routingKey string, msg []byte) {
 	if log.Trace().Enabled() {
 		log.Trace().Str("routing-key", routingKey).Bytes("Location", msg).Msg("Publish")
 	}
-	var sent bool
 
-	for _, theMq := range w.router.mqs {
-		if err := theMq.publish(routingKey, msg); nil != err {
-			log.Warn().Err(err).Msg("Failed to send update")
-			continue
-		}
-		sent = true
+	if err := w.router.nats.publish(routingKey, msg); nil != err {
+		log.Warn().Err(err).Msg("Failed to send update")
+		return
 	}
 
-	if sent {
-		if log.Trace().Enabled() {
-			log.Trace().Str("routingKey", routingKey).Msg("Sent msg")
-		}
-		updatesPublished.Inc()
+	if log.Trace().Enabled() {
+		log.Trace().Str("routingKey", routingKey).Msg("Sent msg")
 	}
+	updatesPublished.Inc()
 }

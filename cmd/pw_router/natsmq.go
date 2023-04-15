@@ -15,7 +15,7 @@ type (
 	}
 )
 
-func NewNatsIoRouter(natsUrl string) *natsIoRouter {
+func newNatsIoRouter(natsUrl string) *natsIoRouter {
 	if "" == natsUrl {
 		return nil
 	}
