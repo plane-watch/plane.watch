@@ -31,7 +31,7 @@ type (
 		tracker.FrameSource
 		producerType int
 
-		out chan tracker.Event
+		out chan tracker.FrameEvent
 
 		cmdChan chan int
 
@@ -59,7 +59,7 @@ func New(opts ...Option) *Producer {
 			RefLat:           nil,
 			RefLon:           nil,
 		},
-		out:     make(chan tracker.Event, 100),
+		out:     make(chan tracker.FrameEvent, 100),
 		cmdChan: make(chan int),
 		run: func() {
 			println("You did not specify any sources")
@@ -225,7 +225,7 @@ func (p *Producer) String() string {
 	return p.Name
 }
 
-func (p *Producer) Listen() chan tracker.Event {
+func (p *Producer) Listen() chan tracker.FrameEvent {
 	go p.run()
 	return p.out
 }
@@ -261,7 +261,7 @@ func (p *Producer) Stop() {
 	p.cmdChan <- cmdExit
 }
 
-func (p *Producer) AddEvent(e tracker.Event) {
+func (p *Producer) AddEvent(e tracker.FrameEvent) {
 	defer func() {
 		if r := recover(); nil != r {
 			log.Error().Interface("recover", r).Msg("Failed to add event")

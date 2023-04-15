@@ -52,8 +52,8 @@ func (p *PlaneLocationEvent) Removed() bool {
 	return p.removed
 }
 
-func NewFrameEvent(f Frame, s *FrameSource) *FrameEvent {
-	return &FrameEvent{frame: f, source: s}
+func NewFrameEvent(f Frame, s *FrameSource) FrameEvent {
+	return FrameEvent{frame: f, source: s}
 }
 
 func (f *FrameEvent) Type() string {

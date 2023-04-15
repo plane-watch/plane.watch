@@ -476,7 +476,7 @@ func TestBadLocationUpdateRejected(t *testing.T) {
 type testProducer struct {
 	frames []beast.Frame
 	idx    int
-	e      chan Event
+	e      chan FrameEvent
 	source *FrameSource
 }
 
@@ -518,7 +518,7 @@ func newTestProducer() *testProducer {
 	tp := testProducer{
 		frames: make([]beast.Frame, 0, len(messages)),
 		idx:    0,
-		e:      make(chan Event),
+		e:      make(chan FrameEvent),
 		source: &FrameSource{
 			OriginIdentifier: "test",
 			Name:             "test",
@@ -538,7 +538,7 @@ func (tp *testProducer) Stop() {
 	close(tp.e)
 }
 
-func (tp *testProducer) Listen() chan Event {
+func (tp *testProducer) Listen() chan FrameEvent {
 	return tp.e
 }
 
@@ -558,16 +558,22 @@ func (tp *testProducer) addMsg() {
 	if tp.idx >= len(tp.frames) {
 		tp.idx = 0
 	}
-	tp.e <- &FrameEvent{
+	tp.e <- FrameEvent{
 		frame:  &tp.frames[tp.idx],
 		source: tp.source,
 	}
 	tp.idx++
 }
 
+func withDecodeQueueDepth(num int) Option {
+	return func(t *Tracker) {
+		t.decodingQueueDepth = num
+	}
+}
+
 func BenchmarkTracker_AddFrame(b *testing.B) {
 	b.StopTimer()
-	tracker := NewTracker(WithDecodeWorkerCount(1))
+	tracker := NewTracker(WithDecodeWorkerCount(1), withDecodeQueueDepth(1))
 	tp := newTestProducer()
 	tracker.AddProducer(tp)
 

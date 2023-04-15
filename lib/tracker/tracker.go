@@ -33,6 +33,7 @@ type (
 
 		decodeWorkerCount   int
 		decodingQueue       chan *FrameEvent
+		decodingQueueDepth  int
 		decodingQueueWaiter sync.WaitGroup
 
 		finishDone   bool
@@ -69,14 +70,14 @@ func (d dummySink) HealthCheck() bool {
 // NewTracker creates a new tracker with which we can populate with plane tracking data
 func NewTracker(opts ...Option) *Tracker {
 	t := &Tracker{
-		producers:         []Producer{},
-		middlewares:       []Middleware{},
-		decodeWorkerCount: 5,
-		pruneTick:         10 * time.Second,
-		pruneAfter:        5 * time.Minute,
-		decodingQueue:     make(chan *FrameEvent, 1000), // a nice deep buffer
-		sink:              dummySink{},
-		startTime:         time.Now(),
+		producers:          []Producer{},
+		middlewares:        []Middleware{},
+		decodeWorkerCount:  5,
+		pruneTick:          10 * time.Second,
+		pruneAfter:         5 * time.Minute,
+		decodingQueueDepth: 1000,
+		sink:               dummySink{},
+		startTime:          time.Now(),
 
 		log: log.With().Str("Section", "Tracker").Logger(),
 	}
@@ -84,6 +85,8 @@ func NewTracker(opts ...Option) *Tracker {
 	for _, opt := range opts {
 		opt(t)
 	}
+
+	t.decodingQueue = make(chan *FrameEvent, t.decodingQueueDepth)
 
 	t.planeList = forgetfulmap.NewForgetfulSyncMap(
 		forgetfulmap.WithSweepInterval(t.pruneTick),

@@ -22,7 +22,7 @@ type (
 
 	EventMaker interface {
 		Stopper
-		Listen() chan Event
+		Listen() chan FrameEvent
 	}
 	EventListener interface {
 		OnEvent(Event)
@@ -98,11 +98,7 @@ func (t *Tracker) Finish() {
 
 func (t *Tracker) EventListener(eventSource EventMaker, waiter *sync.WaitGroup) {
 	for e := range eventSource.Listen() {
-		//fmt.Printf("Event For %s %s\n", eventSource, e)
-		switch e.(type) {
-		case *FrameEvent:
-			t.decodingQueue <- e.(*FrameEvent)
-		}
+		t.decodingQueue <- &e
 	}
 	waiter.Done()
 	t.log.Debug().Msg("Done with Event Source")
