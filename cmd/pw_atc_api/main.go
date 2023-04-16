@@ -188,7 +188,18 @@ func connectDatabase(c *cli.Context) error {
 		Str("sslmode", sslMode).
 		Msg("Database Connection Info")
 
-	db, err = sqlx.Connect("postgres", s)
+	connectAttempts := 0
+	for db == nil {
+		connectAttempts++
+		db, err = sqlx.Connect("postgres", s)
+		if nil != err {
+			dbLog.Error().Err(err).Int("attempt", connectAttempts).Msg("sleeping and trying again")
+			time.Sleep(time.Second * time.Duration(connectAttempts))
+			if connectAttempts > 10 {
+				return err
+			}
+		}
+	}
 
 	if nil != err {
 		return err
