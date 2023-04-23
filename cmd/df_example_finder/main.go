@@ -36,10 +36,7 @@ func incoming(c *cli.Context) (chan tracker.Frame, error) {
 				Msg("Starting Read from Producer")
 			for e := range p.Listen() {
 				log.Debug().Str("type", e.Type()).Str("event", e.String()).Send()
-				switch e.(type) {
-				case *tracker.FrameEvent:
-					out <- e.(*tracker.FrameEvent).Frame()
-				}
+				out <- e.Frame()
 			}
 			wg.Done()
 		}(producer)

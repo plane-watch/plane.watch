@@ -22,7 +22,7 @@ type (
 
 	EventMaker interface {
 		Stopper
-		Listen() chan Event
+		Listen() chan FrameEvent
 	}
 	EventListener interface {
 		OnEvent(Event)
@@ -94,28 +94,11 @@ func (t *Tracker) Finish() {
 	log.Debug().Msg("Closing Decoding Queue")
 	close(t.decodingQueue)
 	t.planeList.Stop()
-	log.Debug().Msg("Stopping Events")
-	t.eventSync.Lock()
-	t.eventsOpen = false
-	t.eventSync.Unlock()
-	log.Debug().Msg("Closing Events Queue")
-
-	close(t.events)
-	for _, s := range t.sinks {
-		log.Debug().Str("sink", s.HealthCheckName()).Msg("Closing Sink")
-		s.Stop()
-	}
 }
 
 func (t *Tracker) EventListener(eventSource EventMaker, waiter *sync.WaitGroup) {
 	for e := range eventSource.Listen() {
-		//fmt.Printf("Event For %s %s\n", eventSource, e)
-		switch e.(type) {
-		case *FrameEvent:
-			t.decodingQueue <- e.(*FrameEvent)
-			// send this event on!
-			//t.AddEvent(e)
-		}
+		t.decodingQueue <- &e
 	}
 	waiter.Done()
 	t.log.Debug().Msg("Done with Event Source")
@@ -147,13 +130,13 @@ func (t *Tracker) AddMiddleware(m Middleware) {
 	t.log.Debug().Msg("Just added a middleware")
 }
 
-// AddSink wires up a Sink in the tracker. Whenever an event happens it gets sent to each Sink
-func (t *Tracker) AddSink(s Sink) {
-	t.log.Debug().Str("name", s.HealthCheckName()).Msg("Add Sink")
+// SetSink wires up a Sink in the tracker. Whenever an event happens it gets sent to each Sink
+func (t *Tracker) SetSink(s Sink) {
+	t.log.Debug().Str("name", s.HealthCheckName()).Msg("Set Sink")
 	if nil == s {
 		return
 	}
-	t.sinks = append(t.sinks, s)
+	t.sink = s
 	monitoring.AddHealthCheck(s)
 }
 

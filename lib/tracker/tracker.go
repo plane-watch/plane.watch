@@ -26,19 +26,17 @@ type (
 		// Input Handling
 		producers   []Producer
 		middlewares []Middleware
-		sinks       []Sink
+		sink        Sink
 
 		producerWaiter   sync.WaitGroup
 		middlewareWaiter sync.WaitGroup
 
 		decodeWorkerCount   int
 		decodingQueue       chan *FrameEvent
+		decodingQueueDepth  int
 		decodingQueueWaiter sync.WaitGroup
 
-		eventSync    sync.RWMutex
-		eventsOpen   bool
 		finishDone   bool
-		events       chan Event
 		eventsWaiter sync.WaitGroup
 
 		startTime time.Time
@@ -50,21 +48,36 @@ type (
 
 		log zerolog.Logger
 	}
+
+	dummySink struct {
+	}
 )
+
+func (d dummySink) OnEvent(event Event) {
+}
+
+func (d dummySink) Stop() {
+}
+
+func (d dummySink) HealthCheckName() string {
+	return "Dummy Sink"
+}
+
+func (d dummySink) HealthCheck() bool {
+	return true
+}
 
 // NewTracker creates a new tracker with which we can populate with plane tracking data
 func NewTracker(opts ...Option) *Tracker {
 	t := &Tracker{
-		producers:         []Producer{},
-		middlewares:       []Middleware{},
-		decodeWorkerCount: 5,
-		pruneTick:         10 * time.Second,
-		pruneAfter:        5 * time.Minute,
-		decodingQueue:     make(chan *FrameEvent, 1000), // a nice deep buffer
-		events:            make(chan Event, 10000),
-		eventsOpen:        true,
-
-		startTime: time.Now(),
+		producers:          []Producer{},
+		middlewares:        []Middleware{},
+		decodeWorkerCount:  5,
+		pruneTick:          10 * time.Second,
+		pruneAfter:         5 * time.Minute,
+		decodingQueueDepth: 1000,
+		sink:               dummySink{},
+		startTime:          time.Now(),
 
 		log: log.With().Str("Section", "Tracker").Logger(),
 	}
@@ -72,6 +85,8 @@ func NewTracker(opts ...Option) *Tracker {
 	for _, opt := range opts {
 		opt(t)
 	}
+
+	t.decodingQueue = make(chan *FrameEvent, t.decodingQueueDepth)
 
 	t.planeList = forgetfulmap.NewForgetfulSyncMap(
 		forgetfulmap.WithSweepInterval(t.pruneTick),
@@ -82,7 +97,7 @@ func NewTracker(opts ...Option) *Tracker {
 
 			if plane, ok := value.(*Plane); ok {
 				// now send an event
-				t.AddEvent(newPlaneActionEvent(plane, false, true))
+				t.sink.OnEvent(newPlaneActionEvent(plane, false, true))
 			}
 			if t.log.Trace().Enabled() {
 				t.log.Trace().
@@ -107,9 +122,6 @@ func NewTracker(opts ...Option) *Tracker {
 			return result
 		}),
 	)
-
-	// Process our event queue and send them to all the Sinks that are currently listening to us
-	go t.processEvents()
 
 	t.decodingQueueWaiter.Add(t.decodeWorkerCount)
 	for i := 0; i < t.decodeWorkerCount; i++ {
@@ -410,7 +422,7 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 	}
 
 	if hasChanged {
-		p.tracker.AddEvent(NewPlaneLocationEvent(p))
+		p.tracker.sink.OnEvent(NewPlaneLocationEvent(p))
 	}
 }
 
@@ -428,6 +440,6 @@ func (p *Plane) HandleSbs1Frame(frame *sbs1.Frame) {
 	}
 
 	if hasChanged {
-		p.tracker.AddEvent(NewPlaneLocationEvent(p))
+		p.tracker.sink.OnEvent(NewPlaneLocationEvent(p))
 	}
 }

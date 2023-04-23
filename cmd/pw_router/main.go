@@ -26,22 +26,14 @@ const (
 )
 
 type (
-	mq interface {
-		connect() error
-		listen(subject string, incomingMessages chan []byte) error
-		publish(subject string, msg []byte) error
-		close()
-		monitoring.HealthCheck
-	}
-
 	pwRouter struct {
-		mqs []mq
-
 		syncSamples *forgetfulmap.ForgetfulSyncMap
 
 		haveSourceSinkConnection bool
 
 		incomingMessages chan []byte
+
+		nats *natsIoRouter
 	}
 )
 
@@ -92,7 +84,7 @@ func main() {
 	app.Description = `This program takes a stream of plane tracking data (location updates) from a message bus  ` +
 		`and filters messages and only returns significant changes for each aircraft.` +
 		"\n\n" +
-		`example: ./pw_router --rabbitmq="amqp://guest:guest@localhost:5672" --source-route-key=location-updates --num-workers=8 --prom-metrics-port=9601`
+		`example: ./pw_router --nats="nats://guest:guest@localhost:4222" --source-route-key=location-updates --num-workers=8 --prom-metrics-port=9601`
 
 	app.Commands = cli.Commands{
 		{
@@ -109,22 +101,10 @@ func main() {
 
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
-			Name:  "rabbitmq",
-			Usage: "Rabbitmq URL for fetching and publishing updates.",
-			//Value:   "amqp://guest:guest@rabbitmq:5672/pw",
-			EnvVars: []string{"RABBITMQ"},
-		},
-		&cli.StringFlag{
 			Name:  "nats",
 			Usage: "Nats.io URL for fetching and publishing updates.",
 			//Value:   "nats://guest:guest@nats:4222/",
 			EnvVars: []string{"NATS"},
-		},
-		&cli.StringFlag{
-			Name:  "redis",
-			Usage: "redis server URL for fetching and publishing updates.",
-			//Value:   "redis://guest:guest@redis:6379/",
-			EnvVars: []string{"REDIS"},
 		},
 		&cli.StringFlag{
 			Name:  "clickhouse",
@@ -173,10 +153,6 @@ func main() {
 			Value:   5,
 			EnvVars: []string{"UPDATE_SWEEP"},
 		},
-		&cli.BoolFlag{
-			Name:  "register-test-queues",
-			Usage: "Subscribes a bunch of queues to our routing keys.",
-		},
 	}
 	logging.IncludeVerbosityFlags(app)
 	monitoring.IncludeMonitoringFlags(app, 9601)
@@ -205,8 +181,8 @@ func run(c *cli.Context) error {
 	monitoring.RunWebServer(c)
 
 	var err error
-	// connect to rabbitmq, create ourselves 2 queues
-	r := pwRouter{
+	// connect to the message queue, create ourselves 2 queues
+	router := pwRouter{
 		syncSamples: forgetfulmap.NewForgetfulSyncMap(
 			forgetfulmap.WithSweepIntervalSeconds(c.Int("update-age-sweep-interval")),
 			forgetfulmap.WithOldAgeAfterSeconds(c.Int("update-age")),
@@ -218,44 +194,23 @@ func run(c *cli.Context) error {
 		),
 	}
 
-	defer r.syncSamples.Stop()
+	defer router.syncSamples.Stop()
 
-	r.incomingMessages = make(chan []byte, 1000)
+	router.incomingMessages = make(chan []byte, 1000)
 
-	if rr := NewRabbitMqRouter(c.String("rabbitmq")); nil != rr {
-		if c.Bool("register-test-queues") {
-			if err = rr.rabbitMqSetupTestQueues(); nil != err {
-				return err
-			}
-		}
-		r.mqs = append(r.mqs, rr)
-	}
-
-	if nr := NewNatsIoRouter(c.String("nats")); nil != nr {
-		r.mqs = append(r.mqs, nr)
-	}
-
-	if rr := NewRedisRouter(c.String("redis")); nil != rr {
-		r.mqs = append(r.mqs, rr)
+	router.nats = newNatsIoRouter(c.String("nats"))
+	if nil == router.nats {
+		cli.ShowAppHelpAndExit(c, 1)
 	}
 
 	incomingSubject := c.String("source-route-key")
-	for _, theMq := range r.mqs {
-		if err = theMq.connect(); nil != err {
-			continue
-		}
-		if err = theMq.listen(incomingSubject, r.incomingMessages); nil != err {
-			log.Error().Err(err).Str("mq", theMq.HealthCheckName()).Send()
-			continue
-		}
-		monitoring.AddHealthCheck(theMq)
-
-		r.haveSourceSinkConnection = true
+	if err = router.nats.connect(); nil != err {
+		return err
 	}
-
-	if !r.haveSourceSinkConnection {
-		cli.ShowAppHelpAndExit(c, 1)
+	if err = router.nats.listen(incomingSubject, router.incomingMessages); nil != err {
+		return err
 	}
+	monitoring.AddHealthCheck(router.nats)
 
 	var ds *DataStream
 	if chUrl := c.String("clickhouse"); "" != chUrl {
@@ -276,13 +231,11 @@ func run(c *cli.Context) error {
 	go func() {
 		<-chSignal // wait for our cancel signal
 		log.Info().Msg("Shutting Down")
-		for _, theMq := range r.mqs {
-			theMq.close()
-		}
+		router.nats.close()
 		// and then close all the things
 		cancel()
 	}()
-	monitoring.AddHealthCheck(r)
+	monitoring.AddHealthCheck(router)
 
 	numWorkers := c.Int("num-workers")
 	destRouteKeyLow := c.String("destination-route-key")
@@ -292,7 +245,7 @@ func run(c *cli.Context) error {
 	log.Info().Msgf("Starting with %d workers...", numWorkers)
 	for i := 0; i < numWorkers; i++ {
 		wkr := worker{
-			router:             &r,
+			router:             &router,
 			destRoutingKeyLow:  destRouteKeyLow,
 			destRoutingKeyHigh: destRouteKeyMerged,
 			spreadUpdates:      spreadUpdates,
@@ -300,7 +253,7 @@ func run(c *cli.Context) error {
 		}
 		wg.Add(1)
 		go func() {
-			wkr.run(ctx, r.incomingMessages)
+			wkr.run(ctx, router.incomingMessages)
 			wg.Done()
 		}()
 	}

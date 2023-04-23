@@ -40,7 +40,7 @@ func main() {
 	app.Description = `This program takes a stream of plane tracking info (beast/avr/sbs1), tracks the planes and ` +
 		`outputs all sorts of interesting information to the configured sink, including decoded and tracked planes in JSON format.` +
 		"\n\n" +
-		`example: pw_ingest --fetch=beast://crawled.mapwithlove.com:3004 --sink=amqp://guest:guest@localhost:5672/pw?queues=location-updates --tag="cool-stuff" --quiet simple`
+		`example: pw_ingest --fetch=beast://crawled.mapwithlove.com:3004 --sink=nats://localhost:4222 --tag="cool-stuff" --quiet simple`
 
 	setup.IncludeSourceFlags(app)
 	setup.IncludeSinkFlags(app)
@@ -48,11 +48,6 @@ func main() {
 	monitoring.IncludeMonitoringFlags(app, 9602)
 
 	app.Commands = []*cli.Command{
-		{
-			Name:   "run",
-			Usage:  "Gather ADSB data and sends it to the configured output. has a simple TUI",
-			Action: run,
-		},
 		{
 			Name:      "simple",
 			Usage:     "Gather ADSB data and sends it to the configured output. just a log of info",
@@ -110,13 +105,11 @@ func commonSetup(c *cli.Context) (*tracker.Tracker, error) {
 		trk.AddMiddleware(dedupe.NewFilter(dedupe.WithDedupeCounter(prometheusOutputFrameDedupe)))
 		//trk.AddMiddleware(dedupe.NewFilterBTree(dedupe.WithDedupeCounterBTree(prometheusOutputFrameDedupe), dedupe.WithBtreeDegree(16)))
 	}
-	sinks, err := setup.HandleSinkFlags(c, "pw_ingest")
+	sink, err := setup.HandleSinkFlag(c, "pw_ingest")
 	if nil != err {
 		return nil, err
 	}
-	for _, s := range sinks {
-		trk.AddSink(s)
-	}
+	trk.SetSink(sink)
 
 	producers, err := setup.HandleSourceFlags(c)
 	if nil != err {
@@ -168,27 +161,6 @@ func runDfFilter(c *cli.Context) error {
 
 	trk.Wait()
 	return nil
-}
-
-// run is our method for running things
-func run(c *cli.Context) error {
-	defer func() {
-		recover()
-	}()
-	app, err := newAppDisplay()
-	if nil != err {
-		return err
-	}
-
-	trk, err := commonSetup(c)
-	if nil != err {
-		return err
-	}
-	trk.AddSink(app)
-
-	err = app.Run()
-	trk.Stop()
-	return err
 }
 
 // runDaemon does not have pretty cli output (just JSON from logging)

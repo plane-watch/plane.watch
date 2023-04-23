@@ -56,9 +56,6 @@ func (n *NatsSink) connect() error {
 func (n *NatsSink) PublishJson(subject string, msg []byte) error {
 	return n.server.Publish(subject, msg)
 }
-func (n *NatsSink) PublishText(subject string, msg []byte) error {
-	return n.server.Publish(subject, msg)
-}
 
 func (n *NatsSink) Stop() {
 	n.server.Close()

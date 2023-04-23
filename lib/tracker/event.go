@@ -28,24 +28,6 @@ type (
 	}
 )
 
-func (t *Tracker) AddEvent(e Event) {
-	t.eventSync.RLock()
-	defer t.eventSync.RUnlock()
-	if t.eventsOpen {
-		t.events <- e
-	}
-}
-
-func (t *Tracker) processEvents() {
-	t.eventsWaiter.Add(1)
-	for e := range t.events {
-		for _, sink := range t.sinks {
-			sink.OnEvent(e)
-		}
-	}
-	t.eventsWaiter.Done()
-}
-
 func NewPlaneLocationEvent(p *Plane) *PlaneLocationEvent {
 	return &PlaneLocationEvent{p: p}
 }
@@ -70,8 +52,8 @@ func (p *PlaneLocationEvent) Removed() bool {
 	return p.removed
 }
 
-func NewFrameEvent(f Frame, s *FrameSource) *FrameEvent {
-	return &FrameEvent{frame: f, source: s}
+func NewFrameEvent(f Frame, s *FrameSource) FrameEvent {
+	return FrameEvent{frame: f, source: s}
 }
 
 func (f *FrameEvent) Type() string {
