@@ -207,7 +207,7 @@ func (w *worker) handleMsg(msg []byte) error {
 	// if this Icao is not in the cache, it's new.
 	if !ok {
 		if nil == update.SourceTags {
-			update.SourceTags = make(map[string]uint)
+			update.SourceTags = make(map[string]uint32)
 		}
 		update.SourceTags[update.SourceTag]++
 		w.router.syncSamples.Store(update.Icao, update)

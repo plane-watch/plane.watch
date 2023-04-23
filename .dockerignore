@@ -3,3 +3,5 @@ inputs/*
 
 # no need for dev scripts
 dev-scripts/*
+
+bin/

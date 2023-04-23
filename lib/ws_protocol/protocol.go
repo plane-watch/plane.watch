@@ -1,6 +1,9 @@
 package ws_protocol
 
-import "plane.watch/lib/export"
+import (
+	"github.com/paulmach/orb"
+	"plane.watch/lib/export"
+)
 
 const (
 	WsProtocolPlanes = "planes"
@@ -35,6 +38,7 @@ type (
 	}
 	LocationHistory struct {
 		Lat, Lon          float64
+		LatLon            orb.Point `json:"-"`
 		Heading, Velocity float64
 		Altitude          *int32
 	}

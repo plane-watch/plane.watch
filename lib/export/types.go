@@ -53,7 +53,7 @@ type (
 		Special         string
 		TileLocation    string
 
-		SourceTags      map[string]uint `json:",omitempty"`
+		SourceTags      map[string]uint32 `json:",omitempty"`
 		sourceTagsMutex *sync.Mutex
 
 		// TrackedSince is when we first started tracking this aircraft *this time*
@@ -137,7 +137,7 @@ func MergePlaneLocations(prev, next PlaneLocation) (PlaneLocation, error) {
 	}
 	merged.sourceTagsMutex.Lock()
 	if nil == merged.SourceTags {
-		merged.SourceTags = make(map[string]uint)
+		merged.SourceTags = make(map[string]uint32)
 	}
 	merged.SourceTags[next.SourceTag]++
 	merged.sourceTagsMutex.Unlock()

@@ -39,7 +39,7 @@ WHERE Icao = '` + icao + `' AND CallSign = '` + callSign + `' AND HasLocation = 
     SELECT *, ROW_NUMBER() OVER(PARTITION BY toInt64(toInt64(LastMsg)/10) ORDER BY LastMsg) AS N FROM t
 )
 
-SELECT Lat, Lon, Velocity, Altitude, Heading FROM t_over where N=1 ORDER BY LastMsg`
+SELECT LatLon, Velocity, Altitude, Heading FROM t_over where N=1 ORDER BY LastMsg`
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
@@ -48,6 +48,11 @@ SELECT Lat, Lon, Velocity, Altitude, Heading FROM t_over where N=1 ORDER BY Last
 		return history
 	}
 	log.Debug().Int("num items", len(history)).Str("query", query).Send()
+
+	for i := range history {
+		history[i].Lat = history[i].LatLon[0]
+		history[i].Lon = history[i].LatLon[1]
+	}
 
 	return history
 }

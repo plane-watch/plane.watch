@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/paulmach/orb"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"plane.watch/lib/clickhouse"
@@ -17,9 +18,8 @@ type (
 	}
 
 	chRow struct {
-		New             uint8
-		Removed         uint8
 		Icao            string
+		LatLon          orb.Point
 		Lat             float64
 		Lon             float64
 		Heading         float64
@@ -29,18 +29,18 @@ type (
 		AltitudeUnits   string
 		CallSign        string
 		FlightStatus    string
-		OnGround        uint8
+		OnGround        bool
 		Airframe        string
 		AirframeType    string
-		HasLocation     uint8
-		HasHeading      uint8
-		HasVerticalRate uint8
-		HasVelocity     uint8
-		SourceTag       string
+		HasLocation     bool
+		HasHeading      bool
+		HasVerticalRate bool
+		HasVelocity     bool
+		SourceTags      map[string]uint32
 		Squawk          uint32
 		Special         string
-		TrackedSince    string
-		LastMsg         string
+		TrackedSince    time.Time
+		LastMsg         time.Time
 		FlagCode        string
 		Operator        string
 		RegisteredOwner string
@@ -79,12 +79,6 @@ func (ds *DataStream) handleQueue(q chan *export.PlaneLocation, table string) {
 	max := 50_000
 	updates := make([]any, max)
 	updateId := 0
-	bool2int := func(x bool) uint8 {
-		if x {
-			return 1
-		}
-		return 0
-	}
 	unPtr := func(s *string) string {
 		if nil == s {
 			return ""
@@ -105,11 +99,8 @@ func (ds *DataStream) handleQueue(q chan *export.PlaneLocation, table string) {
 		case loc := <-q:
 			squawk, _ := strconv.ParseUint(loc.Squawk, 10, 32)
 			updates[updateId] = &chRow{
-				New:             bool2int(loc.New),
-				Removed:         bool2int(loc.Removed),
 				Icao:            loc.Icao,
-				Lat:             loc.Lat,
-				Lon:             loc.Lon,
+				LatLon:          orb.Point{loc.Lat, loc.Lon},
 				Heading:         loc.Heading,
 				Velocity:        loc.Velocity,
 				Altitude:        int32(loc.Altitude),
@@ -117,18 +108,18 @@ func (ds *DataStream) handleQueue(q chan *export.PlaneLocation, table string) {
 				AltitudeUnits:   loc.AltitudeUnits,
 				CallSign:        unPtr(loc.CallSign),
 				FlightStatus:    loc.FlightStatus,
-				OnGround:        bool2int(loc.OnGround),
+				OnGround:        loc.OnGround,
 				Airframe:        loc.Airframe,
 				AirframeType:    loc.AirframeType,
-				HasLocation:     bool2int(loc.HasLocation),
-				HasHeading:      bool2int(loc.HasHeading),
-				HasVerticalRate: bool2int(loc.HasVerticalRate),
-				HasVelocity:     bool2int(loc.HasVelocity),
-				SourceTag:       loc.SourceTag,
+				HasLocation:     loc.HasLocation,
+				HasHeading:      loc.HasHeading,
+				HasVerticalRate: loc.HasVerticalRate,
+				HasVelocity:     loc.HasVelocity,
+				SourceTags:      loc.SourceTags,
 				Squawk:          uint32(squawk),
 				Special:         loc.Special,
-				TrackedSince:    loc.TrackedSince.UTC().Format("2006-01-02 15:04:05.999999999"),
-				LastMsg:         loc.LastMsg.UTC().Format("2006-01-02 15:04:05.999999999"),
+				TrackedSince:    loc.TrackedSince.UTC(),
+				LastMsg:         loc.LastMsg.UTC(),
 				FlagCode:        unPtr(loc.FlagCode),
 				Operator:        unPtr(loc.Operator),
 				RegisteredOwner: unPtr(loc.RegisteredOwner),
