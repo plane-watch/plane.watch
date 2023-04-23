@@ -17,7 +17,7 @@ require (
 	github.com/spf13/viper v1.15.0
 	github.com/streadway/amqp v1.0.0
 	github.com/urfave/cli/v2 v2.25.1
-	golang.org/x/oauth2 v0.6.0
+	golang.org/x/oauth2 v0.7.0
 	nhooyr.io/websocket v1.8.7
 )
 
@@ -79,10 +79,10 @@ require (
 	go.opentelemetry.io/otel v1.13.0 // indirect
 	go.opentelemetry.io/otel/trace v1.13.0 // indirect
 	golang.org/x/crypto v0.6.0 // indirect
-	golang.org/x/net v0.8.0 // indirect
-	golang.org/x/sys v0.6.0 // indirect
-	golang.org/x/term v0.6.0 // indirect
-	golang.org/x/text v0.8.0 // indirect
+	golang.org/x/net v0.9.0 // indirect
+	golang.org/x/sys v0.7.0 // indirect
+	golang.org/x/term v0.7.0 // indirect
+	golang.org/x/text v0.9.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
