@@ -292,6 +292,20 @@ func IsLocationPossible(prev, next PlaneLocation) bool {
 
 		return false
 	}
+
+	// if we have a receiver with partial coverage of a plane, it may send through "old" location data with updated
+	// other bits.
+	if prev.Updates.Location.After(next.Updates.Location) {
+		if log.Trace().Enabled() {
+			log.Info().Str("CallSign", unPtr(next.CallSign)).
+				Time("prev", prev.Updates.Location).
+				Time("next", next.Updates.Location).
+				Msg("Rejecting due to location update timestamp.")
+		}
+
+		return false
+	}
+
 	// if plane is on the ground, don't check
 	// if next.HasOnGround && next.OnGround {
 	// 	return true
