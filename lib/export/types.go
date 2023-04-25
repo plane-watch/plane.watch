@@ -154,7 +154,6 @@ func MergePlaneLocations(prev, next PlaneLocation) (PlaneLocation, error) {
 	merged.LastMsg = next.LastMsg
 	merged.SignalRssi = nil // makes no sense to merge this value as it is for the individual receiver
 	if nil == merged.sourceTagsMutex {
-		log.Info().Str("icao", prev.Icao).Msg("Setting up mutex")
 		merged.sourceTagsMutex = &sync.Mutex{}
 	}
 	merged.sourceTagsMutex.Lock()
