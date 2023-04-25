@@ -144,13 +144,13 @@ func main() {
 		&cli.IntFlag{
 			Name:    "update-age",
 			Usage:   "seconds to keep an update before aging it out of the cache.",
-			Value:   30,
+			Value:   300,
 			EnvVars: []string{"UPDATE_AGE"},
 		},
 		&cli.IntFlag{
 			Name:    "update-age-sweep-interval",
 			Usage:   "Seconds between cache age sweeps.",
-			Value:   5,
+			Value:   30,
 			EnvVars: []string{"UPDATE_SWEEP"},
 		},
 	}
