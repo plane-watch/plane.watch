@@ -79,7 +79,7 @@ func (chs *Server) Connect() error {
 	return nil
 }
 
-// Inserts inserts a batch of rows into the given clickhouse feed
+// Inserts Add a batch of rows into the given clickhouse feed
 func (chs *Server) Inserts(table string, d []any, max int) error {
 	if chs.log.Trace().Enabled() {
 		chs.log.Trace().Str("table", table).Interface("data", d).Msg("insert")

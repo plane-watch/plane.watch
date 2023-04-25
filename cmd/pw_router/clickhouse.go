@@ -115,7 +115,7 @@ func (ds *DataStream) handleQueue(q chan *export.PlaneLocation, table string) {
 				HasHeading:      loc.HasHeading,
 				HasVerticalRate: loc.HasVerticalRate,
 				HasVelocity:     loc.HasVelocity,
-				SourceTags:      loc.SourceTags,
+				SourceTags:      loc.CloneSourceTags(),
 				Squawk:          uint32(squawk),
 				Special:         loc.Special,
 				TrackedSince:    loc.TrackedSince.UTC(),

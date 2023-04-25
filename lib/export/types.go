@@ -111,6 +111,27 @@ func (pl *PlaneLocation) Plane() string {
 	return "ICAO: " + pl.Icao
 }
 
+func (pl *PlaneLocation) CloneSourceTags() map[string]uint32 {
+	pl.sourceTagsMutex.Lock()
+	defer pl.sourceTagsMutex.Unlock()
+
+	return Clone(pl.SourceTags)
+}
+
+// Clone returns a copy of m.  This is a shallow clone:
+// the new keys and values are set using ordinary assignment.
+func Clone[M ~map[K]V, K comparable, V any](m M) M {
+	// Preserve nil in case it matters.
+	if m == nil {
+		return nil
+	}
+	r := make(M, len(m))
+	for k, v := range m {
+		r[k] = v
+	}
+	return r
+}
+
 func unPtr[t any](what *t) t {
 	var def t
 	if nil == what {
@@ -133,6 +154,7 @@ func MergePlaneLocations(prev, next PlaneLocation) (PlaneLocation, error) {
 	merged.LastMsg = next.LastMsg
 	merged.SignalRssi = nil // makes no sense to merge this value as it is for the individual receiver
 	if nil == merged.sourceTagsMutex {
+		log.Info().Str("icao", prev.Icao).Msg("Setting up mutex")
 		merged.sourceTagsMutex = &sync.Mutex{}
 	}
 	merged.sourceTagsMutex.Lock()
