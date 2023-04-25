@@ -209,7 +209,7 @@ func run(c *cli.Context) error {
 
 	var input source
 	input, err = NewPwWsBrokerNats(nats, lowRoute, highRoute)
-	natsServerRpc, _ = nats_io.NewServer(nats, "pw_ws_broker+rpc")
+	natsServerRpc, _ = nats_io.NewServer(nats_io.WithServer(nats, "pw_ws_broker+rpc"))
 	if nil != err {
 		return err
 	}

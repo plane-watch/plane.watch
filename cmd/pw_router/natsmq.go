@@ -30,7 +30,7 @@ func newNatsIoRouter(natsUrl string) *natsIoRouter {
 func (nr *natsIoRouter) connect() error {
 	var err error
 
-	nr.n, err = nats_io.NewServer(nr.natsUrl, "pw_router")
+	nr.n, err = nats_io.NewServer(nats_io.WithServer(nr.natsUrl, "pw_router"))
 	if nil != err {
 		log.Error().
 			Err(err).

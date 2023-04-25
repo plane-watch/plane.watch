@@ -94,6 +94,7 @@ func main() {
 		&cli.StringFlag{
 			Name:    "db-port",
 			Usage:   "Database Port",
+			Value:   "5432",
 			EnvVars: []string{"DATABASE_PORT"},
 		},
 		&cli.StringFlag{
@@ -169,10 +170,15 @@ func connectDatabase(c *cli.Context) error {
 	if "" == sslMode {
 		sslMode = "disable"
 	}
+	dbPort := urlParts.Port()
+	if "" == dbPort {
+		dbPort = "5432"
+	}
+
 	s := fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s search_path=%s sslmode=%s",
 		urlParts.Hostname(),
-		urlParts.Port(),
+		dbPort,
 		urlParts.User.Username(),
 		pass,
 		strings.Trim(urlParts.Path, "/"),
@@ -181,7 +187,7 @@ func connectDatabase(c *cli.Context) error {
 	)
 	dbLog.Debug().
 		Str("host", urlParts.Hostname()).
-		Str("port", urlParts.Port()).
+		Str("port", dbPort).
 		Str("user", urlParts.User.Username()).
 		Str("database", strings.Trim(urlParts.Path, "/")).
 		Str("schema", schema).
@@ -226,7 +232,10 @@ func run(c *cli.Context) error {
 		return err
 	}
 
-	server, err := nats_io.NewServer(c.String("nats"), "pw_atc_api")
+	server, err := nats_io.NewServer(
+		nats_io.WithServer(c.String("nats"), "pw_atc_api"),
+		nats_io.WithConnections(false, true),
+	)
 	if nil != err {
 		return err
 	}
