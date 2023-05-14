@@ -25,9 +25,21 @@ RUN set -x && go build -buildvcs=false -ldflags="-X main.version=${IMAGE_VERSION
 # test binary (make sure it will run on this arch)
 RUN ./pw_ingest --help
 
-FROM alpine:latest
+FROM alpine:latest as compressor
 WORKDIR /app
 COPY --from=build /app/pw_ingest /app
+
+RUN apk add upx
+RUN upx --brute -9 /app/pw_ingest
+
+# test binary (make sure it runs after compressing)
+RUN ./pw_ingest --help
+
+FROM alpine:latest
+LABEL org.opencontainers.image.description="Plane.Watch Ingest"
+
+WORKDIR /app
+COPY --from=compressor /app/pw_ingest /app
 
 # limit ourselves to just location updates
 ENV PUBLISH_TYPES=location-updates

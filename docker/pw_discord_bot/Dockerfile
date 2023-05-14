@@ -25,9 +25,21 @@ RUN set -x && go build -buildvcs=false -ldflags="-X main.version=${IMAGE_VERSION
 # test binary (make sure it will run on this arch)
 RUN ./pw_discord_bot --help
 
-FROM alpine:latest
+FROM alpine:latest as compressor
 WORKDIR /app
 COPY --from=build /app/pw_discord_bot /app
+
+RUN apk add upx
+RUN upx --brute -9 /app/pw_discord_bot
+
+# test binary (make sure it runs after compressing)
+RUN ./pw_discord_bot --help
+
+FROM alpine:latest
+LABEL org.opencontainers.image.description="Plane.Watch Discord Bot"
+
+WORKDIR /app
+COPY --from=compressor /app/pw_discord_bot /app
 
 # Command to run
 ENTRYPOINT [ "/app/pw_discord_bot" ]

@@ -25,9 +25,21 @@ RUN set -x && go build -buildvcs=false -ldflags="-X main.version=${IMAGE_VERSION
 # test binary (make sure it will run on this arch)
 RUN ./pw_atc_api --help
 
-FROM alpine:latest
+FROM alpine:latest as compressor
 WORKDIR /app
 COPY --from=build /app/pw_atc_api /app
+
+RUN apk add upx
+RUN upx --brute -9 /app/pw_atc_api
+
+# test binary (make sure it runs after compressing)
+RUN ./pw_atc_api --help
+
+FROM alpine:latest
+LABEL org.opencontainers.image.description="Plane.Watch ATC API"
+
+WORKDIR /app
+COPY --from=compressor /app/pw_atc_api /app
 
 HEALTHCHECK --interval=15s --timeout=3s CMD wget --spider http://localhost:9602/status
 
