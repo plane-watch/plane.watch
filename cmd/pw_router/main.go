@@ -229,8 +229,8 @@ func run(c *cli.Context) error {
 	chSignal := make(chan os.Signal, 1)
 	signal.Notify(chSignal, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		<-chSignal // wait for our cancel signal
-		log.Info().Msg("Shutting Down")
+		sig := <-chSignal // wait for our cancel signal
+		log.Info().Str("signal", sig.String()).Msg("Shutting Down")
 		router.nats.close()
 		// and then close all the things
 		cancel()
