@@ -68,8 +68,8 @@ func IncludeSourceFlags(app *cli.App) {
 }
 
 func HandleSourceFlags(c *cli.Context) ([]tracker.Producer, error) {
-	refLat := c.Float64("refLat")
-	refLon := c.Float64("refLon")
+	refLat := c.Float64("ref-lat")
+	refLon := c.Float64("ref-lon")
 	defaultTag := c.String("tag")
 
 	out := make([]tracker.Producer, 0)
@@ -145,8 +145,14 @@ func handleSource(urlSource, defaultTag string, defaultRefLat, defaultRefLon flo
 
 	refLat := getRef(parsedUrl, "refLat", defaultRefLat)
 	refLon := getRef(parsedUrl, "refLon", defaultRefLon)
+
 	if refLat != 0 && refLon != 0 {
 		producerOpts = append(producerOpts, producer.WithReferenceLatLon(refLat, refLon))
+	} else {
+		log.Error().
+			Float64("ref-lat", refLat).
+			Float64("ref-lon", refLon).
+			Msg("Do not have a reference lat/lon - will not decode surface position frames")
 	}
 
 	if listen {
