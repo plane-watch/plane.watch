@@ -421,6 +421,12 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 		}
 	}
 
+	if "" == p.location.gridTileLocation && nil != refLat && nil != refLon {
+		// do not have a grid tile for this plane, let's assume it is in same tile as the receiver
+		p.location.gridTileLocation = tile_grid.LookupTile(*refLat, *refLon)
+		hasChanged = p.location.gridTileLocation != "" || hasChanged
+	}
+
 	if hasChanged {
 		p.tracker.sink.OnEvent(NewPlaneLocationEvent(p))
 	}
