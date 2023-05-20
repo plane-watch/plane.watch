@@ -115,10 +115,51 @@ This API mimics the original HTTP Api. We have the following apis
 Gets additional aircraft information
 #### Request
 ```
-
+nats request v1.enrich.aircraft 7C33A6
 ```
+The body of the request is the ICAO we want to enrich
+
 #### Response
 
-### v1.enrich.route
+```json
+{
+  "Icao": "7C33A6",
+  "Country": "Australia",
+  "Registration": "VH-KHK",
+  "TypeCode": "B06",
+  "TypeCodeLong": "Bell 206B Jet Ranger III",
+  "Serial": "4349",
+  "RegisteredOwner": "Frontier Helicopters Pty. Ltd.",
+  "COFAOwner": null,
+  "EngineType": null,
+  "FlagCode": "NOLOGO"
+}
+```
+### v1.enrich.routes
 #### Request
+```
+nats request v1.enrich.routes JSA561
+```
+The request body is the callsign
+
 #### Response
+
+```json
+{
+  "Route": {
+    "CallSign": "JSA561",
+    "Operator": "Jetstar Asia Airways",
+    "RouteCode": "WSSS-RPLL",
+    "Segments": [
+      {
+        "Name": "Singapore Changi Airport",
+        "ICAOCode": "WSSS"
+      },
+      {
+        "Name": "Ninoy Aquino International Airport",
+        "ICAOCode": "RPLL"
+      }
+    ]
+  }
+}
+```

@@ -14,7 +14,7 @@ const (
 	// NatsApiEnrichAircraftV1 is the Nats API for requesting additional Enrichment data
 	NatsApiEnrichAircraftV1 = "v1.enrich.aircraft"
 	// NatsApiEnrichRouteV1 is the request name for enriching a  route
-	NatsApiEnrichRouteV1 = "v1.enrich.route"
+	NatsApiEnrichRouteV1 = "v1.enrich.routes"
 
 	NatsApiFeederListV1        = "v1.feeder.list"
 	NatsApiFeederStatsUpdateV1 = "v1.feeder.update-stats"
