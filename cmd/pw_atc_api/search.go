@@ -76,5 +76,6 @@ func (sa *SearchApiHandler) searchHandler(msg *nats.Msg) {
 
 	if nil != respondErr {
 		sa.log.Error().Err(respondErr).Msg("Failed sending reply")
+		_ = msg.Respond([]byte(fmt.Sprintf(ErrRequestFailed, respondErr)))
 	}
 }

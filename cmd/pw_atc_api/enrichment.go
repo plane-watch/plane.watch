@@ -12,6 +12,9 @@ import (
 type (
 	EnrichmentApiHandler struct {
 		ApiHandler
+
+		emptyAircraft []byte
+		emptyRoutes   []byte
 	}
 
 	DbOperator struct {
@@ -43,6 +46,10 @@ func newEnrichmentApi(idx int) *EnrichmentApiHandler {
 		},
 	}
 	api.handler = api.enrichHandler
+	json := jsoniter.ConfigFastest
+
+	api.emptyAircraft, _ = json.Marshal(export.AircraftResponse{})
+	api.emptyRoutes, _ = json.Marshal(export.RouteResponse{})
 
 	return &api
 }
@@ -67,16 +74,19 @@ func (sa *EnrichmentApiHandler) enrichHandler(msg *nats.Msg) {
 	switch msg.Subject {
 	case export.NatsApiEnrichAircraftV1:
 		icao := strings.ToUpper(what)
-		aircraft := export.Aircraft{}
-		respondErr = db.Get(&aircraft, "SELECT icao_code,country,registration,type_code,type_code_long,serial,registered_owner,cofa_owner,engine_type,flag_code FROM aircraft WHERE icao_code = $1", icao)
+		aircraft := export.AircraftResponse{}
+		respondErr = db.Get(&aircraft.Aircraft, "SELECT icao_code,country,registration,type_code,type_code_long,serial,registered_owner,cofa_owner,engine_type,flag_code FROM aircraft WHERE icao_code = $1", icao)
 		if nil == respondErr {
 			json := jsoniter.ConfigFastest
 			buf, respondErr = json.Marshal(aircraft)
 			if nil == respondErr {
 				respondErr = msg.Respond(buf)
+			} else {
+				respondErr = msg.Respond(sa.emptyAircraft)
 			}
 		} else {
 			sa.log.Error().Err(respondErr).Msg("Failed to enrich aircraft")
+			respondErr = msg.Respond(sa.emptyAircraft)
 		}
 	case export.NatsApiEnrichRouteV1:
 		response := export.RouteResponse{}
@@ -113,7 +123,11 @@ func (sa *EnrichmentApiHandler) enrichHandler(msg *nats.Msg) {
 			buf, respondErr = json.Marshal(response)
 			if nil == respondErr {
 				respondErr = msg.Respond(buf)
+			} else {
+				respondErr = msg.Respond(sa.emptyRoutes)
 			}
+		} else {
+			respondErr = msg.Respond(sa.emptyRoutes)
 		}
 	default:
 		respondErr = msg.Respond([]byte(fmt.Sprintf(ErrUnsupportedResponse, msg.Subject)))
@@ -121,6 +135,6 @@ func (sa *EnrichmentApiHandler) enrichHandler(msg *nats.Msg) {
 
 	if nil != respondErr {
 		sa.log.Error().Err(respondErr).Msg("Failed sending reply")
-		_ = msg.Respond([]byte(""))
+		_ = msg.Respond([]byte(fmt.Sprintf(ErrRequestFailed, respondErr)))
 	}
 }

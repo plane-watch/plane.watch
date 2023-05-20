@@ -96,6 +96,6 @@ FROM feeders f
 
 	if nil != respondErr {
 		sa.log.Error().Err(respondErr).Msg("Failed sending reply")
-		_ = msg.Respond([]byte(""))
+		_ = msg.Respond([]byte(fmt.Sprintf(ErrRequestFailed, respondErr)))
 	}
 }

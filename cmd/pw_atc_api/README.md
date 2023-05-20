@@ -10,6 +10,20 @@ Currently Supported sections are:
 * Enrichment
 * Search
 
+## Bad Subjects
+If you request something that pw_atc_api does not understand you will get a generic error
+
+```nats request v1.enrich.donkey asd```
+
+```json
+{"error":"Unsupported Request","Type":"v1.enrich.donkey"}
+```
+
+if we encountered an error while serving your request, you will get the following error
+```json
+{"error":"Something went wrong with the request","Type":"<some error info here>"}
+```
+
 ## Feeders
 
 The Feeders API consists of the following APIs
@@ -120,21 +134,42 @@ nats request v1.enrich.aircraft 7C33A6
 The body of the request is the ICAO we want to enrich
 
 #### Response
+Successful response example
 
 ```json
 {
-  "Icao": "7C33A6",
-  "Country": "Australia",
-  "Registration": "VH-KHK",
-  "TypeCode": "B06",
-  "TypeCodeLong": "Bell 206B Jet Ranger III",
-  "Serial": "4349",
-  "RegisteredOwner": "Frontier Helicopters Pty. Ltd.",
-  "COFAOwner": null,
-  "EngineType": null,
-  "FlagCode": "NOLOGO"
+  "Aircraft": {
+    "Icao": "7C33A2",
+    "Country": "Australia",
+    "Registration": "VH-KHG",
+    "TypeCode": "PA44",
+    "TypeCodeLong": "Piper PA44-180",
+    "Serial": "44-8095019",
+    "RegisteredOwner": "Aviation Management Services Pty. Ltd.",
+    "COFAOwner": "",
+    "EngineType": "",
+    "FlagCode": "PIPER"
+  }
 }
 ```
+Failed Response example
+```json
+{
+  "Aircraft": {
+    "Icao": null,
+    "Country": null,
+    "Registration": null,
+    "TypeCode": null,
+    "TypeCodeLong": null,
+    "Serial": null,
+    "RegisteredOwner": null,
+    "COFAOwner": null,
+    "EngineType": null,
+    "FlagCode": null
+  }
+}
+```
+
 ### v1.enrich.routes
 #### Request
 ```
@@ -144,6 +179,7 @@ The request body is the callsign
 
 #### Response
 
+Successful response example
 ```json
 {
   "Route": {
@@ -161,5 +197,14 @@ The request body is the callsign
       }
     ]
   }
+}
+```
+Failed Response example
+```json
+{
+  "CallSign": null,
+  "Operator": null,
+  "RouteCode": null,
+  "Segments": null
 }
 ```

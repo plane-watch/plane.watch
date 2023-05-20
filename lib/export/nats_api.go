@@ -38,7 +38,7 @@ type (
 	}
 
 	AircraftResponse struct {
-		Aircraft `json:"aircraft"`
+		Aircraft `json:"Aircraft"`
 	}
 	Aircraft struct {
 		// Enrichment Plane data

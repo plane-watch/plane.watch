@@ -57,6 +57,7 @@ var (
 	})
 
 	ErrUnsupportedResponse = `{"error":"Unsupported Request","Type":"%s"}`
+	ErrRequestFailed       = `{"error":"Something went wrong with the request","Type":"%s"}`
 )
 
 func main() {
