@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/nats-io/nats.go"
 	"plane.watch/lib/export"
@@ -67,13 +68,15 @@ func (sa *EnrichmentApiHandler) enrichHandler(msg *nats.Msg) {
 	case export.NatsApiEnrichAircraftV1:
 		icao := strings.ToUpper(what)
 		aircraft := export.Aircraft{}
-		respondErr = db.Get(&aircraft, "SELECT * FROM aircraft WHERE icao_code = ?", icao)
-		if nil != respondErr {
+		respondErr = db.Get(&aircraft, "SELECT icao_code,country,registration,type_code,type_code_long,serial,registered_owner,cofa_owner,engine_type,flag_code FROM aircraft WHERE icao_code = $1", icao)
+		if nil == respondErr {
 			json := jsoniter.ConfigFastest
 			buf, respondErr = json.Marshal(aircraft)
 			if nil == respondErr {
 				respondErr = msg.Respond(buf)
 			}
+		} else {
+			sa.log.Error().Err(respondErr).Msg("Failed to enrich aircraft")
 		}
 	case export.NatsApiEnrichRouteV1:
 		response := export.RouteResponse{}
@@ -102,6 +105,8 @@ func (sa *EnrichmentApiHandler) enrichHandler(msg *nats.Msg) {
 			}
 			routeStr = strings.Trim(routeStr, "-")
 			response.Route.RouteCode = &routeStr
+		} else {
+			sa.log.Error().Err(respondErr).Msg("Failed to enrich aircraft")
 		}
 		if nil == respondErr {
 			json := jsoniter.ConfigFastest
@@ -111,7 +116,7 @@ func (sa *EnrichmentApiHandler) enrichHandler(msg *nats.Msg) {
 			}
 		}
 	default:
-		respondErr = msg.Respond([]byte("unknown enrichment type:" + msg.Subject))
+		respondErr = msg.Respond([]byte(fmt.Sprintf(ErrUnsupportedResponse, msg.Subject)))
 	}
 
 	if nil != respondErr {

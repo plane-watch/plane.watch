@@ -177,7 +177,7 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 	p.addFrame(frame)
 
 	debugMessage := func(sfmt string, a ...interface{}) {
-		if zerolog.GlobalLevel() >= zerolog.DebugLevel {
+		if zerolog.GlobalLevel() <= zerolog.DebugLevel {
 			planeFormat = fmt.Sprintf("DF%02d - \033[0;97mPlane (\033[38;5;118m%s %-8s\033[0;97m)", frame.DownLinkType(), p.IcaoIdentifierStr(), p.FlightNumber())
 			p.tracker.log.Debug().Msgf(planeFormat+sfmt, a...)
 
@@ -350,7 +350,7 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 				hasChanged = p.setVerticalRate(frame.MustVerticalRate(), frame.TimeStamp()) || hasChanged
 			}
 
-			if zerolog.GlobalLevel() >= zerolog.DebugLevel {
+			if zerolog.GlobalLevel() <= zerolog.DebugLevel {
 				headingStr := "unknown heading"
 				if p.HasHeading() {
 					headingStr = fmt.Sprintf("heading %0.2f", p.Heading())

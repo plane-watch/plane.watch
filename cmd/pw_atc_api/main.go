@@ -1,12 +1,17 @@
 package main
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	sqldblogger "github.com/simukti/sqldb-logger"
+	"github.com/simukti/sqldb-logger/logadapter/zerologadapter"
 	"github.com/urfave/cli/v2"
 	"net"
 	"net/url"
@@ -51,6 +56,8 @@ var (
 		Name: "pw_atc_api_feeder_summary",
 		Help: "A Summary of the feeder request times in milliseconds",
 	})
+
+	ErrUnsupportedResponse = `{"error":"Unsupported Request","Type":"%s"}`
 )
 
 func main() {
@@ -156,6 +163,8 @@ func runCli(c *cli.Context) error {
 func connectDatabase(c *cli.Context) error {
 	databaseUrl := c.String("database")
 	dbLog := log.With().Str("section", "database").Logger()
+	logAdapter := zerologadapter.New(dbLog)
+
 	urlParts, err := url.Parse(databaseUrl)
 	if nil != err {
 		return err
@@ -175,7 +184,7 @@ func connectDatabase(c *cli.Context) error {
 		dbPort = "5432"
 	}
 
-	s := fmt.Sprintf(
+	dsn := fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s search_path=%s sslmode=%s",
 		urlParts.Hostname(),
 		dbPort,
@@ -194,21 +203,32 @@ func connectDatabase(c *cli.Context) error {
 		Str("sslmode", sslMode).
 		Msg("Database Connection Info")
 
+	var sqlDb *sql.DB
+
 	connectAttempts := 0
-	for db == nil {
+	for sqlDb == nil {
 		connectAttempts++
-		db, err = sqlx.Connect("postgres", s)
+		dbLog.Debug().Int("attempt", connectAttempts).Msg("db connect...")
+		sqlDb, err = sql.Open("postgres", dsn)
 		if nil != err {
-			dbLog.Error().Err(err).Int("attempt", connectAttempts).Msg("sleeping and trying again")
+			dbLog.Error().Err(err).Int("attempt", connectAttempts).Msg("failed connect, sleeping and trying again")
 			time.Sleep(time.Second * time.Duration(connectAttempts))
-			if connectAttempts > 10 {
-				return err
-			}
+		}
+		if err = sqlDb.Ping(); nil != err {
+			dbLog.Error().Err(err).Int("attempt", connectAttempts).Msg("failed ping, sleeping and trying again")
+			time.Sleep(time.Second * time.Duration(connectAttempts))
 		}
 	}
+	if zerolog.GlobalLevel() <= zerolog.DebugLevel {
+		sqlDb = sqldblogger.OpenDriver(dsn, sqlDb.Driver(), logAdapter)
+	}
+	db = sqlx.NewDb(sqlDb, "postgres")
 
 	if nil != err {
 		return err
+	}
+	if nil == db {
+		return errors.New("unable to connect to the database")
 	}
 	db.DB.SetMaxOpenConns(50) // because samfty said so
 	db.DB.SetMaxIdleConns(10)

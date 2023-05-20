@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/nats-io/nats.go"
 	"plane.watch/lib/export"
@@ -90,7 +91,7 @@ FROM feeders f
 		respondErr = msg.Respond(buf)
 
 	default:
-		respondErr = msg.Respond([]byte("unknown feeder rq type:" + msg.Subject))
+		respondErr = msg.Respond([]byte(fmt.Sprintf(ErrUnsupportedResponse, msg.Subject)))
 	}
 
 	if nil != respondErr {

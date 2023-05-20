@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/nats-io/nats.go"
 	"plane.watch/lib/export"
@@ -70,7 +71,7 @@ func (sa *SearchApiHandler) searchHandler(msg *nats.Msg) {
 	case export.NatsApiSearchRouteV1:
 		respondErr = msg.Respond([]byte("unimplemented"))
 	default:
-		respondErr = msg.Respond([]byte("unknown search type:" + msg.Subject))
+		respondErr = msg.Respond([]byte(fmt.Sprintf(ErrUnsupportedResponse, msg.Subject)))
 	}
 
 	if nil != respondErr {

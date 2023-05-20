@@ -12,6 +12,7 @@ func (h *health) HealthCheckName() string {
 func (h *health) HealthCheck() bool {
 	if err := db.Ping(); nil != err {
 		log.Error().Err(err).Send()
+		return false
 	}
 
 	return true
