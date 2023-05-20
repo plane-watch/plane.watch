@@ -14,6 +14,12 @@ import (
 	"plane.watch/lib/tracker"
 )
 
+const (
+	DedupeFilter       = "dedupe-filter"
+	FilterLocationOnly = "locations-only"
+	FilterIcao         = "icao"
+)
+
 var (
 	version                        = "dev"
 	prometheusCounterFramesDecoded = promauto.NewGauge(prometheus.GaugeOpts{
@@ -65,18 +71,18 @@ func main() {
 			Action: runDfFilter,
 			Flags: []cli.Flag{
 				&cli.StringSliceFlag{
-					Name:  "icao",
+					Name:  FilterIcao,
 					Usage: "Plane ICAO to filter on. e,g, --icao=E48DF6 --icao=123ABC",
 				},
 				&cli.BoolFlag{
-					Name:  "locations-only",
+					Name:  FilterLocationOnly,
 					Usage: "Filter location updates only",
 				},
 			},
 		},
 	}
 	app.Flags = append(app.Flags, &cli.BoolFlag{
-		Name:    "dedupe-filter",
+		Name:    DedupeFilter,
 		Usage:   "Include the usage of the ADSB Message Deduplication Filter. Useful for combo feeds",
 		EnvVars: []string{"DEDUPE"},
 	})
@@ -101,7 +107,7 @@ func commonSetup(c *cli.Context) (*tracker.Tracker, error) {
 	trackerOpts = append(trackerOpts, tracker.WithPrometheusCounters(prometheusGaugeCurrentPlanes, prometheusCounterFramesDecoded))
 	trk := tracker.NewTracker(trackerOpts...)
 
-	if c.Bool("dedupe-filter") {
+	if c.Bool(DedupeFilter) {
 		trk.AddMiddleware(dedupe.NewFilter(dedupe.WithDedupeCounter(prometheusOutputFrameDedupe)))
 		//trk.AddMiddleware(dedupe.NewFilterBTree(dedupe.WithDedupeCounterBTree(prometheusOutputFrameDedupe), dedupe.WithBtreeDegree(16)))
 	}
@@ -149,12 +155,12 @@ func runDfFilter(c *cli.Context) error {
 	}
 
 	var filterOpts []example_finder.Option
-	if c.Bool("locations-only") {
+	if c.Bool(FilterLocationOnly) {
 		filterOpts = append(filterOpts, example_finder.WithDF17MessageTypeLocation())
 	} else {
 		filterOpts = append(filterOpts, example_finder.WithDownlinkFormatType(17))
 	}
-	for _, icao := range c.StringSlice("icao") {
+	for _, icao := range c.StringSlice(FilterIcao) {
 		filterOpts = append(filterOpts, example_finder.WithPlaneIcaoStr(icao))
 	}
 	trk.AddMiddleware(example_finder.NewFilter(filterOpts...))

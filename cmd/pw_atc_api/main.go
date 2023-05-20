@@ -8,7 +8,6 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	sqldblogger "github.com/simukti/sqldb-logger"
 	"github.com/simukti/sqldb-logger/logadapter/zerologadapter"
@@ -219,7 +218,7 @@ func connectDatabase(c *cli.Context) error {
 			time.Sleep(time.Second * time.Duration(connectAttempts))
 		}
 	}
-	if zerolog.GlobalLevel() <= zerolog.DebugLevel {
+	if dbLog.Debug().Enabled() {
 		sqlDb = sqldblogger.OpenDriver(dsn, sqlDb.Driver(), logAdapter)
 	}
 	db = sqlx.NewDb(sqlDb, "postgres")

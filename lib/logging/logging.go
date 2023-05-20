@@ -9,10 +9,6 @@ import (
 	"time"
 )
 
-var (
-	isCli bool
-)
-
 const (
 	VeryVerbose = "very-verbose"
 	Debug       = "debug"
@@ -52,6 +48,9 @@ func IncludeVerbosityFlags(app *cli.App) {
 			return err
 		}
 	}
+	app.InvalidFlagAccessHandler = func(c *cli.Context, s string) {
+		log.Fatal().Str("Unknown Flag", s).Msg("Invalid CLI Flag used. Please Fix.")
+	}
 }
 
 func SetLoggingLevel(c *cli.Context) {
@@ -84,7 +83,6 @@ func cliWriter() zerolog.ConsoleWriter {
 }
 
 func ConfigureForCli() {
-	isCli = true
 	log.Logger = log.Output(cliWriter())
 }
 

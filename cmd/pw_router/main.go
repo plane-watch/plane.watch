@@ -156,7 +156,9 @@ func main() {
 	}
 	logging.IncludeVerbosityFlags(app)
 	monitoring.IncludeMonitoringFlags(app, 9601)
-
+	app.InvalidFlagAccessHandler = func(c *cli.Context, s string) {
+		log.Fatal().Str("Unknown Flag", s).Msg("Invalid CLI Flag used. Please Fix.")
+	}
 	app.Before = func(c *cli.Context) error {
 		logging.SetLoggingLevel(c)
 		return nil

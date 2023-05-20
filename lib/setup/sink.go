@@ -13,6 +13,11 @@ import (
 	"time"
 )
 
+const (
+	Sink             = "sink"
+	SinkCollectDelay = "sink-collect-delay"
+)
+
 var (
 	prometheusOutputFrame = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "pw_ingest_output_frame_total",
@@ -27,12 +32,12 @@ var (
 func IncludeSinkFlags(app *cli.App) {
 	app.Flags = append(app.Flags, []cli.Flag{
 		&cli.StringFlag{
-			Name:    "sink",
+			Name:    Sink,
 			Usage:   "The place to send decoded JSON in URL Form. nats://user:pass@host:port/vhost?ttl=60",
 			EnvVars: []string{"SINK"},
 		},
 		&cli.DurationFlag{
-			Name:    "sink-collect-delay",
+			Name:    SinkCollectDelay,
 			Value:   300 * time.Millisecond,
 			Usage:   "Instead of emitting an update for every update we get, collect updates and send a deduplicated list (based on icao) every period",
 			EnvVars: []string{"SINK_COLLECT_DELAY"},
@@ -41,10 +46,10 @@ func IncludeSinkFlags(app *cli.App) {
 }
 
 func HandleSinkFlag(c *cli.Context, connName string) (tracker.Sink, error) {
-	defaultDelay := c.Duration("sink-collect-delay")
-	defaultTag := c.String("tag")
+	defaultDelay := c.Duration(SinkCollectDelay)
+	defaultTag := c.String(Tag)
 
-	sinkUrl := c.String("sink")
+	sinkUrl := c.String(Sink)
 	log.Debug().Str("sink-url", sinkUrl).Msg("With Sink")
 	s, err := handleSink(connName, sinkUrl, defaultTag, defaultDelay)
 	if nil != err {

@@ -13,6 +13,15 @@ import (
 	"strings"
 )
 
+const (
+	Fetch  = "fetch"
+	Listen = "listen"
+	File   = "file"
+	RefLat = "ref-lat"
+	RefLon = "ref-lon"
+	Tag    = "tag"
+)
+
 var (
 	prometheusInputBeastFrames = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "pw_ingest_input_beast_total",
@@ -31,34 +40,34 @@ var (
 func IncludeSourceFlags(app *cli.App) {
 	sourceFlags := []cli.Flag{
 		&cli.StringSliceFlag{
-			Name:    "fetch",
+			Name:    Fetch,
 			Usage:   "The Source in URL Form. [avr|beast|sbs1]://host:port?tag=MYTAG&refLat=-31.0&refLon=115.0",
 			EnvVars: []string{"SOURCE"},
 		},
 		&cli.StringSliceFlag{
-			Name:    "listen",
+			Name:    Listen,
 			Usage:   "The Source in URL Form. [avr|beast|sbs1]://host:port?tag=MYTAG&refLat=-31.0&refLon=115.0",
 			EnvVars: []string{"LISTEN"},
 		},
 		&cli.StringSliceFlag{
-			Name:    "file",
+			Name:    File,
 			Usage:   "The Source in URL Form. [avr|beast|sbs1]:///path/to/file?tag=MYTAG&refLat=-31.0&refLon=115.0&delay=no",
 			EnvVars: []string{"FILE"},
 		},
 
 		&cli.Float64Flag{
-			Name:    "ref-lat",
+			Name:    RefLat,
 			Usage:   "The reference latitude for decoding messages. Needs to be within 45nm of where the messages are generated.",
 			EnvVars: []string{"REF_LAT", "LAT"},
 		},
 		&cli.Float64Flag{
-			Name:    "ref-lon",
+			Name:    RefLon,
 			Usage:   "The reference longitude for decoding messages. Needs to be within 45nm of where the messages are generated.",
 			EnvVars: []string{"REF_LON", "LONG"},
 		},
 
 		&cli.StringFlag{
-			Name:    "tag",
+			Name:    Tag,
 			Usage:   "A value that is included in the payloads output to the Sinks. Useful for knowing where something came from",
 			EnvVars: []string{"TAG"},
 		},
@@ -68,13 +77,13 @@ func IncludeSourceFlags(app *cli.App) {
 }
 
 func HandleSourceFlags(c *cli.Context) ([]tracker.Producer, error) {
-	refLat := c.Float64("ref-lat")
-	refLon := c.Float64("ref-lon")
-	defaultTag := c.String("tag")
+	refLat := c.Float64(RefLat)
+	refLon := c.Float64(RefLon)
+	defaultTag := c.String(Tag)
 
 	out := make([]tracker.Producer, 0)
 
-	for _, fetchUrl := range c.StringSlice("fetch") {
+	for _, fetchUrl := range c.StringSlice(Fetch) {
 		log.Debug().Str("fetch-url", fetchUrl).Msg("With Fetch")
 		p, err := handleSource(fetchUrl, defaultTag, refLat, refLon, false)
 		if nil != err {
@@ -84,7 +93,7 @@ func HandleSourceFlags(c *cli.Context) ([]tracker.Producer, error) {
 			out = append(out, p)
 		}
 	}
-	for _, listenUrl := range c.StringSlice("listen") {
+	for _, listenUrl := range c.StringSlice(Listen) {
 		log.Debug().Str("listen-url", listenUrl).Msg("With Listen")
 		p, err := handleSource(listenUrl, defaultTag, refLat, refLon, true)
 		if nil != err {
@@ -94,7 +103,7 @@ func HandleSourceFlags(c *cli.Context) ([]tracker.Producer, error) {
 			out = append(out, p)
 		}
 	}
-	for _, fileUrl := range c.StringSlice("file") {
+	for _, fileUrl := range c.StringSlice(File) {
 		log.Debug().Str("file-url", fileUrl).Msg("With File")
 		p, err := handleFileSource(fileUrl, defaultTag, refLat, refLon)
 		if nil != err {
