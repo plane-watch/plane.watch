@@ -42,7 +42,7 @@ type (
 	}
 	Aircraft struct {
 		// Enrichment Plane data
-		Icao            *string `db:"icao_code"`
+		Icao            string  `db:"icao_code"`
 		Country         *string `db:"country"`
 		Registration    *string `db:"registration"`
 		TypeCode        *string `db:"type_code"`
@@ -58,7 +58,7 @@ type (
 		Route Route
 	}
 	Route struct {
-		CallSign  *string
+		CallSign  string
 		Operator  *string
 		RouteCode *string
 		Segments  []Segment

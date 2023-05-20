@@ -95,7 +95,7 @@ func (sa *EnrichmentApiHandler) enrichHandler(msg *nats.Msg) {
 		respondErr = db.Get(&route, "SELECT id,operator_id,callsign from routes WHERE callsign = $1 LIMIT 1", callSign)
 		if nil == respondErr {
 			// we have a route!
-			response.Route.CallSign = &route.CallSign
+			response.Route.CallSign = route.CallSign
 
 			operator := DbOperator{}
 			if err := db.Get(&operator, "SELECT name FROM operators WHERE id = $1", route.OperatorId); nil != err {

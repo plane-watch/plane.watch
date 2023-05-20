@@ -156,7 +156,7 @@ Failed Response example
 ```json
 {
   "Aircraft": {
-    "Icao": null,
+    "Icao": "",
     "Country": null,
     "Registration": null,
     "TypeCode": null,
@@ -202,7 +202,7 @@ Successful response example
 Failed Response example
 ```json
 {
-  "CallSign": null,
+  "CallSign": "",
   "Operator": null,
   "RouteCode": null,
   "Segments": null
