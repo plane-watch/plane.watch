@@ -138,7 +138,12 @@ func Test_LookupTile(t *testing.T) {
 		{
 			"53.253113, 179.723145",
 			args{53.253113, 179.723145},
-			"tileUnknown",
+			"tile74",
+		},
+		{
+			"-16, 1",
+			args{-16, 1},
+			"tile38",
 		},
 	}
 	for _, tt := range tests {
@@ -202,5 +207,20 @@ func BenchmarkLookupTilePreCalc(b *testing.B) {
 				lookupTilePreCalc(lat, lon)
 			}
 		}
+	}
+}
+
+func TestNoTileUnknown(t *testing.T) {
+	numFails := 0
+	for lat := -90.0; lat < 90.0; lat += 1 {
+		for lon := -180.0; lon < 180.0; lon += 1 {
+			if "tileUnknown" == lookupTilePreCalc(lat, lon) {
+				t.Errorf("tileUnknown for %0.2f, %0.2f", lat, lon)
+				numFails++
+			}
+		}
+	}
+	if numFails > 0 {
+		t.Errorf("Failed to lookup %d items", numFails)
 	}
 }
