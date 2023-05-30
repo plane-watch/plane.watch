@@ -20,6 +20,7 @@ const (
 	RefLat = "ref-lat"
 	RefLon = "ref-lon"
 	Tag    = "tag"
+	Adsc   = "ads-c"
 )
 
 var (
@@ -71,6 +72,11 @@ func IncludeSourceFlags(app *cli.App) {
 			Usage:   "A value that is included in the payloads output to the Sinks. Useful for knowing where something came from",
 			EnvVars: []string{"TAG"},
 		},
+		&cli.BoolFlag{
+			Name:    Adsc,
+			Usage:   "Used for ADS-C feeds which arrive in SBS1 format and get updates roughly ever half hour",
+			EnvVars: []string{"ASD_C"},
+		},
 	}
 
 	app.Flags = append(app.Flags, sourceFlags...)
@@ -80,12 +86,13 @@ func HandleSourceFlags(c *cli.Context) ([]tracker.Producer, error) {
 	refLat := c.Float64(RefLat)
 	refLon := c.Float64(RefLon)
 	defaultTag := c.String(Tag)
+	isAdsc := c.Bool(Adsc)
 
 	out := make([]tracker.Producer, 0)
 
 	for _, fetchUrl := range c.StringSlice(Fetch) {
 		log.Debug().Str("fetch-url", fetchUrl).Msg("With Fetch")
-		p, err := handleSource(fetchUrl, defaultTag, refLat, refLon, false)
+		p, err := handleSource(fetchUrl, defaultTag, refLat, refLon, false, isAdsc)
 		if nil != err {
 			log.Error().Err(err).Str("url", fetchUrl).Str("what", "fetch").Msg("Failed setup source")
 			return nil, err
@@ -95,7 +102,7 @@ func HandleSourceFlags(c *cli.Context) ([]tracker.Producer, error) {
 	}
 	for _, listenUrl := range c.StringSlice(Listen) {
 		log.Debug().Str("listen-url", listenUrl).Msg("With Listen")
-		p, err := handleSource(listenUrl, defaultTag, refLat, refLon, true)
+		p, err := handleSource(listenUrl, defaultTag, refLat, refLon, true, isAdsc)
 		if nil != err {
 			log.Error().Err(err).Str("url", listenUrl).Str("what", "listen").Msg("Failed setup listen")
 			return nil, err
@@ -131,7 +138,7 @@ func getRef(parsedUrl *url.URL, what string, defaultRef float64) float64 {
 	return defaultRef
 }
 
-func handleSource(urlSource, defaultTag string, defaultRefLat, defaultRefLon float64, listen bool) (tracker.Producer, error) {
+func handleSource(urlSource, defaultTag string, defaultRefLat, defaultRefLon float64, listen, isAdsc bool) (tracker.Producer, error) {
 	parsedUrl, err := url.Parse(urlSource)
 	if nil != err {
 		return nil, err
@@ -168,6 +175,10 @@ func handleSource(urlSource, defaultTag string, defaultRefLat, defaultRefLon flo
 		producerOpts = append(producerOpts, producer.WithListener(parsedUrl.Hostname(), parsedUrl.Port()))
 	} else {
 		producerOpts = append(producerOpts, producer.WithFetcher(parsedUrl.Hostname(), parsedUrl.Port()))
+	}
+
+	if isAdsc {
+		producerOpts = append(producerOpts, producer.WithKeepAliveRepeater())
 	}
 
 	return producer.New(producerOpts...), nil
