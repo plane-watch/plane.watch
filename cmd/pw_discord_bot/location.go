@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/rs/zerolog/log"
-	"io/ioutil"
 	"os"
 	"path"
 	"plane.watch/lib/mapping"
@@ -185,7 +184,7 @@ func loadLocationsList() {
 		return
 	}
 	saveLoc := getPath() + "/" + alertLocationsFile
-	b, err := ioutil.ReadFile(saveLoc)
+	b, err := os.ReadFile(saveLoc)
 	if nil != err {
 		if errors.Is(err, os.ErrNotExist) {
 			log.Printf("No save file. %s does not exist. proceeding with empty list", saveLoc)
@@ -216,7 +215,7 @@ func saveLocationsList() error {
 		}
 	}
 
-	err = ioutil.WriteFile(saveLoc, b, 0644)
+	err = os.WriteFile(saveLoc, b, 0644)
 	if nil != err {
 		return fmt.Errorf("failed to save locations to %s. %s", saveLoc, err)
 	}

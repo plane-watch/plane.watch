@@ -237,7 +237,7 @@ func connectDatabase(c *cli.Context) error {
 	defer func() {
 		dbLog.Debug().
 			Str("database", "ping").
-			Dur("ping time ms", time.Now().Sub(t1)).
+			Dur("ping time ms", time.Since(t1)).
 			Send()
 	}()
 

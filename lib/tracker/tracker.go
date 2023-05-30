@@ -227,7 +227,6 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 		}
 	case 6, 7, 8, 9, 10, 12, 13, 14, 15, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31:
 		debugMessage(" \033[38;5;52mIgnoring Mode S Frame: %d (%s)\033[0m\n", frame.DownLinkType(), frame.DownLinkFormat())
-		break
 	case 11:
 		if frame.VerticalStatusValid() {
 			hasChanged = p.setGroundStatus(frame.MustOnGround(), frame.TimeStamp()) || hasChanged
@@ -251,7 +250,6 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 
 		debugMessage(" is at %d %s and flight status is: %s. \033[2mMode S Frame: %d \033[0m",
 			p.Altitude(), p.AltitudeUnits(), p.FlightStatus(), frame.DownLinkType())
-		break
 	case 16:
 		if frame.AltitudeValid() {
 			alt, _ := frame.Altitude()
@@ -336,8 +334,6 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 				hasChanged = p.setSpecial("surveillance", "", frame.TimeStamp()) || hasChanged
 			}
 
-			break
-
 		case mode_s.DF17FrameAirVelocity: // "Airborne velocity"
 			hasChanged = p.setGroundStatus(false, frame.TimeStamp()) || hasChanged
 
@@ -358,22 +354,18 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 				}
 				debugMessage(" has %s and is travelling at %0.2f knots\033[0m", headingStr, p.Velocity())
 			}
-			break
 
 		case mode_s.DF17FrameTestMessage: //, "Test Message":
 			debugMessage("\033[2m Ignoring: DF%d %s\033[0m", frame.DownLinkType(), messageType)
-			break
 		case mode_s.DF17FrameTestMessageSquawk: //, "Test Message":
 			{
 				if frame.SquawkIdentity() > 0 {
 					hasChanged = p.setSquawkIdentity(frame.SquawkIdentity(), frame.TimeStamp()) || hasChanged
 				}
-				break
 			}
 		case mode_s.DF17FrameSurfaceSystemStatus: //, "Surface System status":
 			hasChanged = p.setGroundStatus(true, frame.TimeStamp()) || hasChanged
 			debugMessage("\033[2m Ignoring: DF%d %s\033[0m", frame.DownLinkType(), messageType)
-			break
 
 		case mode_s.DF17FrameEmergencyPriority: //, "Extended Squitter Aircraft status (Emergency)":
 			{
@@ -383,17 +375,14 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 					hasChanged = p.setSpecial("emergency", frame.Emergency(), frame.TimeStamp()) || hasChanged
 				}
 				hasChanged = p.setSquawkIdentity(frame.SquawkIdentity(), frame.TimeStamp()) || hasChanged
-				break
 			}
 		case mode_s.DF17FrameTcasRA: //, "Extended Squitter Aircraft status (1090ES TCAS RA)":
 			{
 				debugMessage("\033[2m Ignoring: DF%d %s\033[0m", frame.DownLinkType(), messageType)
-				break
 			}
 		case mode_s.DF17FrameTargetStateStatus: //, "Target State and status Message":
 			{
 				debugMessage("\033[2m Ignoring: DF%d %s\033[0m", frame.DownLinkType(), messageType)
-				break
 			}
 		case mode_s.DF17FrameAircraftOperational: //, "Aircraft Operational status Message":
 			{
@@ -401,8 +390,6 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 					hasChanged = p.setGroundStatus(frame.MustOnGround(), frame.TimeStamp()) || hasChanged
 				}
 				hasChanged = p.setAirFrameWidthLength(frame.GetAirplaneLengthWidth()) || hasChanged
-
-				break
 			}
 		}
 

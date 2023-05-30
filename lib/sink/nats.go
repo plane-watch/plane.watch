@@ -47,7 +47,7 @@ func (n *NatsSink) connect() error {
 		Path:    "",
 		RawPath: "",
 	}
-	re := regexp.MustCompile("/\\s/")
+	re := regexp.MustCompile(`/\s/`)
 	st := re.ReplaceAllString(n.sourceTag, "_")
 	n.server, err = nats_io.NewServer(
 		nats_io.WithServer(serverUrl.String(), n.connectionName+"+source="+st),

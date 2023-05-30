@@ -28,8 +28,8 @@ func incoming(c *cli.Context) (chan tracker.Frame, error) {
 
 	for _, producer := range producers {
 
+		wg.Add(1)
 		go func(p tracker.Producer) {
-			wg.Add(1)
 			log.Debug().
 				Bool("Healthy?", p.HealthCheck()).
 				Str("Source", p.String()).

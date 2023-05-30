@@ -83,3 +83,5 @@ _testmain.go
 *.prof
 
 dist/
+
+gitleaks-report.json

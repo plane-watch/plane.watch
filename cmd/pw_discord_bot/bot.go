@@ -78,7 +78,7 @@ func (b *PwBot) Run(c *cli.Context) error {
 	}
 
 	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
 	b.log.Info().Msg("Closing...")
 

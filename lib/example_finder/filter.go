@@ -101,9 +101,8 @@ func (f *Filter) Handle(frame tracker.Frame) tracker.Frame {
 
 	if len(f.listDfType) > 0 || len(f.listDfMeType) > 0 {
 
-		switch (frame).(type) {
+		switch b := (frame).(type) {
 		case *beast.Frame:
-			b := frame.(*beast.Frame)
 			if f.IsOk(b.AvrFrame()) {
 				return frame
 			}

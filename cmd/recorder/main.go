@@ -156,11 +156,10 @@ func (fp *frameProcessor) Handle(frame tracker.Frame) tracker.Frame {
 		}
 	}
 
-	switch (frame).(type) {
+	switch f := (frame).(type) {
 	case *beast.Frame:
 		write(typeBeast, frame.Raw())
-		b := frame.(*beast.Frame)
-		write(typeAvr, append(b.AvrFrame().Raw(), 0x0A))
+		write(typeAvr, append(f.AvrFrame().Raw(), 0x0A))
 	case *mode_s.Frame:
 		write(typeAvr, frame.Raw())
 	case *sbs1.Frame:

@@ -48,14 +48,14 @@ func (f *Filter) Handle(frame tracker.Frame) tracker.Frame {
 		return nil
 	}
 	var key string
-	switch (frame).(type) {
+	switch ft := (frame).(type) {
 	case *beast.Frame:
-		key = string(frame.(*beast.Frame).Raw())
+		key = string(ft.Raw())
 	case *mode_s.Frame:
-		key = frame.(*mode_s.Frame).RawString()
+		key = ft.RawString()
 	case *sbs1.Frame:
 		// todo: investigate better dedupe detection for sbs1
-		key = string(frame.(*sbs1.Frame).Raw())
+		key = string(ft.Raw())
 	default:
 	}
 	if f.list.HasKeyStr(key) {

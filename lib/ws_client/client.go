@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/rs/zerolog/log"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"nhooyr.io/websocket"
 	"nhooyr.io/websocket/wsjson"
@@ -108,7 +108,10 @@ func (c *Client) Grid() (tile_grid.GridLocations, error) {
 		log.Error().Err(err).Msg("Unable to fetch the grid array")
 		return nil, err
 	}
-	body, err := ioutil.ReadAll(rs.Body)
+	body, err := io.ReadAll(rs.Body)
+	if nil != err {
+		return nil, err
+	}
 	if err = rs.Body.Close(); err != nil {
 		return nil, err
 	}

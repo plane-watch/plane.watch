@@ -22,13 +22,11 @@ func getBeastlyMessages(c *cli.Context) error {
 	frameCounter := 0
 
 	for frame := range incomingChan {
-		switch frame.(type) {
+		switch bFrame := frame.(type) {
 		case *mode_s.Frame:
 			println("Please supply only beast content")
 			continue
 		case *beast.Frame:
-			bFrame := frame.(*beast.Frame)
-
 			if err := bFrame.Decode(); nil != err {
 				fmt.Printf("Failed to decode: %X, %s\n", bFrame.Raw(), err)
 				continue

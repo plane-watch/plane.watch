@@ -12,14 +12,14 @@ func TestFunkyLatLon(t *testing.T) {
 	trk := NewTracker()
 	plane = trk.GetPlane(7777)
 
-	plane.setCprEvenLocation(92095, 39846, time.Now())
+	_ = plane.setCprEvenLocation(92095, 39846, time.Now())
 	_, err = plane.cprLocation.decodeGlobalAir()
 	if nil == err {
 		t.Error("We should fail CPR decode with only an even location set")
 	}
 	plane.zeroCpr()
 
-	plane.setCprOddLocation(88385, 125818, time.Now())
+	_ = plane.setCprOddLocation(88385, 125818, time.Now())
 	_, err = plane.cprLocation.decodeGlobalAir()
 	if nil == err {
 		t.Error("We should fail CPR decode with only an odd location set")
@@ -27,8 +27,8 @@ func TestFunkyLatLon(t *testing.T) {
 	plane.zeroCpr()
 
 	plane = trk.GetPlane(7777)
-	plane.setCprEvenLocation(92095, 39846, time.Now())
-	plane.setCprOddLocation(88385, 125818, time.Now())
+	_ = plane.setCprEvenLocation(92095, 39846, time.Now())
+	_ = plane.setCprOddLocation(88385, 125818, time.Now())
 
 	_, err = plane.cprLocation.decodeGlobalAir()
 	if nil != err {
@@ -111,7 +111,7 @@ func TestGetPlane(t *testing.T) {
 		t.Errorf("latitude Calculation was incorrect: expected 10.2162144547802, got %0.13f", location.latitude)
 	}
 
-	plane.addLatLong(location.latitude, location.longitude, time.Now())
+	_ = plane.addLatLong(location.latitude, location.longitude, time.Now())
 }
 
 func Test_headingInfo_getCompassLabel(t *testing.T) {

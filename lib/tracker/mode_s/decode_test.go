@@ -169,13 +169,13 @@ func TestGillhamDecode(t *testing.T) {
 
 func BenchmarkDecodeDF17Msg11(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		DecodeString("8D75804B580FF6B283EB7A157117", time.Now())
+		_, _ = DecodeString("8D75804B580FF6B283EB7A157117", time.Now())
 	}
 }
 
-type tIcaoMessage struct {
-	msg, expectedIcao, df string
-}
+//type tIcaoMessage struct {
+//	msg, expectedIcao, df string
+//}
 
 //func TestIcaoDecode(t *testing.T) {
 //	valid := []tIcaoMessage{
@@ -282,16 +282,16 @@ func TestDecodeFlightStatusErr(t *testing.T) {
 	}
 }
 
-//Flight status (FS): 3 bits, shows status of alert, special position pulse (SPI, in Mode A only) and aircraft status (airborne or on-ground). The field is interpreted as:
+// Flight status (FS): 3 bits, shows status of alert, special position pulse (SPI, in Mode A only) and aircraft status (airborne or on-ground). The field is interpreted as:
 //
-//    000: no alert, no SPI, aircraft is airborne
-//    001: no alert, no SPI, aircraft is on-ground
-//    010: alert, no SPI, aircraft is airborne
-//    011: alert, no SPI, aircraft is on-ground
-//    100: alert, SPI, aircraft is airborne or on-ground
-//    101: no alert, SPI, aircraft is airborne or on-ground
-//    110: reserved
-//    111: not assigned
+//	000: no alert, no SPI, aircraft is airborne
+//	001: no alert, no SPI, aircraft is on-ground
+//	010: alert, no SPI, aircraft is airborne
+//	011: alert, no SPI, aircraft is on-ground
+//	100: alert, SPI, aircraft is airborne or on-ground
+//	101: no alert, SPI, aircraft is airborne or on-ground
+//	110: reserved
+//	111: not assigned
 func TestFrame_decodeFlightStatus(t *testing.T) {
 	type fields struct {
 		fs    byte

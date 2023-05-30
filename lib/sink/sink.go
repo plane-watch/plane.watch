@@ -83,7 +83,7 @@ func (s *Sink) sendLocationList() {
 		var jsonBuf []byte
 		jsonBuf, err = s.trackerMsgJson(le)
 		if nil != jsonBuf && nil == err {
-			err = s.dest.PublishJson(QueueLocationUpdates, jsonBuf)
+			_ = s.dest.PublishJson(QueueLocationUpdates, jsonBuf)
 			if nil != s.config.stats.planeLoc {
 				s.config.stats.planeLoc.Inc()
 			}
@@ -94,16 +94,13 @@ func (s *Sink) sendLocationList() {
 // OnEvent gets called once for each message we want to send on the bus
 func (s *Sink) OnEvent(e tracker.Event) {
 	var err error
-	switch e.(type) {
-	case *tracker.PlaneLocationEvent:
-		le := e.(*tracker.PlaneLocationEvent)
-
+	if le, ok := e.(*tracker.PlaneLocationEvent); ok {
 		if 0 == s.config.sendDelay {
 			// warning, this code is a duplicate of the sendLocationList handling
 			var jsonBuf []byte
 			jsonBuf, err = s.trackerMsgJson(le)
 			if nil != jsonBuf && nil == err {
-				err = s.dest.PublishJson(QueueLocationUpdates, jsonBuf)
+				_ = s.dest.PublishJson(QueueLocationUpdates, jsonBuf)
 				if nil != s.config.stats.planeLoc {
 					s.config.stats.planeLoc.Inc()
 				}

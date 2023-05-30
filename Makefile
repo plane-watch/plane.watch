@@ -18,6 +18,14 @@ vet:
 test:
 	go test ./...
 
+lint:
+	docker pull golangci/golangci-lint:latest
+	docker run -t --rm -v `pwd`:/app -w /app golangci/golangci-lint:latest golangci-lint run -v
+
+leakcheck:
+	docker pull ghcr.io/gitleaks/gitleaks:latest
+	docker run -it --rm -w /app -v `pwd`:/app ghcr.io/gitleaks/gitleaks:latest detect --source="/app" --report-path gitleaks-report.json
+
 race:
 	go install -race ./...
 

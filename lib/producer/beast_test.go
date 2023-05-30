@@ -290,7 +290,7 @@ func BenchmarkScanBeast(b *testing.B) {
 	}
 
 	for n := 0; n < b.N; n++ {
-		f.Seek(0, 0)
+		_, _ = f.Seek(0, 0)
 		scanner := bufio.NewScanner(f)
 		scanner.Split(ScanBeast())
 		for scanner.Scan() {
@@ -306,7 +306,7 @@ func BenchmarkBeastDecode(b *testing.B) {
 	}
 
 	for n := 0; n < b.N; n++ {
-		f.Seek(0, 0)
+		_, _ = f.Seek(0, 0)
 		scanner := bufio.NewScanner(f)
 		scanner.Split(ScanBeast())
 		for scanner.Scan() {

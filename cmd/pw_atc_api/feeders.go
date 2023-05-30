@@ -31,7 +31,7 @@ func (sa *FeederApiHandler) feederHandler(msg *nats.Msg) {
 	// capture how long we spend searching
 	tStart := time.Now()
 	defer func() {
-		d := time.Now().Sub(tStart)
+		d := time.Since(tStart)
 		prometheusCounterFeederSummary.Observe(float64(d.Microseconds()))
 	}()
 	prometheusCounterFeeder.Inc()

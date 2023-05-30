@@ -58,7 +58,7 @@ func (sa *EnrichmentApiHandler) enrichHandler(msg *nats.Msg) {
 	// capture how long we spend searching
 	tStart := time.Now()
 	defer func() {
-		d := time.Now().Sub(tStart)
+		d := time.Since(tStart)
 		prometheusCounterEnrichSummary.Observe(float64(d.Microseconds()))
 	}()
 	prometheusCounterEnrich.Inc()
@@ -85,7 +85,7 @@ func (sa *EnrichmentApiHandler) enrichHandler(msg *nats.Msg) {
 				respondErr = msg.Respond(sa.emptyAircraft)
 			}
 		} else {
-			sa.log.Error().Err(respondErr).Msg("Failed to enrich aircraft")
+			sa.log.Error().Err(respondErr).Str("ICAO", icao).Msg("Failed to enrich aircraft")
 			respondErr = msg.Respond(sa.emptyAircraft)
 		}
 	case export.NatsApiEnrichRouteV1:
@@ -116,7 +116,7 @@ func (sa *EnrichmentApiHandler) enrichHandler(msg *nats.Msg) {
 			routeStr = strings.Trim(routeStr, "-")
 			response.Route.RouteCode = &routeStr
 		} else {
-			sa.log.Error().Err(respondErr).Msg("Failed to enrich aircraft")
+			sa.log.Error().Err(respondErr).Str("call sign", callSign).Msg("Failed to enrich route")
 		}
 		if nil == respondErr {
 			json := jsoniter.ConfigFastest

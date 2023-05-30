@@ -27,8 +27,6 @@ type (
 		sourceTag      string
 		connectionName string
 
-		createTestQueues bool
-
 		stats struct {
 			frame, planeLoc prometheus.Counter
 		}

@@ -236,6 +236,7 @@ func TestCprDecodeExample(t *testing.T) {
 	}
 	if nil == loc {
 		t.Error("Failed to decode position")
+		return
 	}
 	if !cpr.evenDecode {
 		t.Error("Expected to use even frame decoding")

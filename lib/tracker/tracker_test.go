@@ -57,9 +57,9 @@ func TestCprDecode(t *testing.T) {
 	for i, d := range testData {
 		plane := trk.GetPlane(11234)
 
-		plane.setCprOddLocation(d.oddLat, d.oddLon, time.Now())
-		time.Sleep(2)
-		plane.setCprEvenLocation(d.evenLat, d.evenLon, time.Now())
+		_ = plane.setCprOddLocation(d.oddLat, d.oddLon, time.Now())
+		time.Sleep(2 * time.Microsecond)
+		_ = plane.setCprEvenLocation(d.evenLat, d.evenLon, time.Now())
 		loc, err := plane.cprLocation.decodeGlobalAir()
 		if err != nil {
 			t.Error(err)
@@ -82,9 +82,9 @@ func TestCprDecode(t *testing.T) {
 			t.Error("AirDlat1 is wrong")
 		}
 
-		plane.setCprEvenLocation(d.evenLat, d.evenLon, time.Now())
-		time.Sleep(2)
-		plane.setCprOddLocation(d.oddLat, d.oddLon, time.Now())
+		_ = plane.setCprEvenLocation(d.evenLat, d.evenLon, time.Now())
+		time.Sleep(2 * time.Microsecond)
+		_ = plane.setCprOddLocation(d.oddLat, d.oddLon, time.Now())
 		loc, err = plane.cprLocation.decodeGlobalAir()
 		if err != nil {
 			t.Error(err)

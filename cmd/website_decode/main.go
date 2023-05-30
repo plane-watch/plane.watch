@@ -165,7 +165,7 @@ func runHttpServer(c *cli.Context) error {
 		go listenHttps(exitChan, cert, certKey, c.String("listen-https"))
 	}
 	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	select {
 	case <-exitChan:
 		log.Error().Msg("There as an error and we are exiting")

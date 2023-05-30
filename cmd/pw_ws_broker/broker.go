@@ -70,7 +70,7 @@ func (b *PwWsBroker) Run() {
 
 func (b *PwWsBroker) Wait() {
 	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	select {
 	case <-b.exitChan:
 		log.Debug().Msg("We are exiting")
@@ -84,5 +84,4 @@ func (b *PwWsBroker) Close() {
 		log.Error().Err(err).Msg("Failed to close web server cleanly")
 	}
 	b.input.close()
-	return
 }

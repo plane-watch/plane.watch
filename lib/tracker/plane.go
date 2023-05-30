@@ -596,7 +596,7 @@ func (p *Plane) setHeading(heading float64, ts time.Time) bool {
 	p.rwLock.Lock()
 	defer p.rwLock.Unlock()
 	// set the current altitude
-	hasChanged := p.location.heading != heading || p.location.hasHeading != true
+	hasChanged := p.location.heading != heading || !p.location.hasHeading
 
 	p.location.heading = heading
 	p.location.hasHeading = true
@@ -635,7 +635,7 @@ func (p *Plane) setVelocity(velocity float64, ts time.Time) bool {
 	p.rwLock.Lock()
 	defer p.rwLock.Unlock()
 	// set the current altitude
-	hasChanged := p.location.hasVelocity != true || p.location.velocity != velocity
+	hasChanged := !p.location.hasVelocity || p.location.velocity != velocity
 
 	p.location.hasVelocity = true
 	p.location.velocity = velocity
@@ -674,7 +674,7 @@ func (p *Plane) DistanceTravelled() DistanceTravelled {
 func (p *Plane) setVerticalRate(rate int, ts time.Time) bool {
 	p.rwLock.Lock()
 	defer p.rwLock.Unlock()
-	hasChanged := p.location.hasVerticalRate != true || p.location.verticalRate != rate
+	hasChanged := !p.location.hasVerticalRate || p.location.verticalRate != rate
 	p.location.hasVerticalRate = true
 	p.location.verticalRate = rate
 	p.location.verticalRateTs = ts

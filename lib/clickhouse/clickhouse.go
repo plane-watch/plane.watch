@@ -119,7 +119,7 @@ func (chs *Server) Select(ctx context.Context, dest any, query string, args ...a
 
 	t1 := time.Now()
 	defer func() {
-		d := time.Now().Sub(t1)
+		d := time.Since(t1)
 		if d > 500*time.Millisecond {
 			chs.log.Warn().
 				Str("Query", query).
