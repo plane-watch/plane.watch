@@ -2,6 +2,7 @@ package dedupe
 
 import (
 	"github.com/rs/zerolog"
+	"plane.watch/lib/tracker"
 	"plane.watch/lib/tracker/beast"
 	"testing"
 )
@@ -17,14 +18,15 @@ func TestFilter_Handle(t *testing.T) {
 	if nil != err {
 		t.Error(err)
 	}
+	fe := tracker.NewFrameEvent(&frame, nil)
 
-	resp := filter.Handle(&frame)
+	resp := filter.Handle(&fe)
 
 	if resp == nil {
 		t.Errorf("Expected the same frame back")
 	}
 
-	if nil != filter.Handle(&frame) {
+	if nil != filter.Handle(&fe) {
 		t.Errorf("Got a duplicated frame back")
 	}
 }
@@ -33,10 +35,11 @@ func BenchmarkFilter_HandleDuplicates(b *testing.B) {
 	filter := NewFilter()
 
 	frame, _ := beast.NewFrame(beastModeSShort, false)
-	filter.Handle(&frame)
+	fe := tracker.NewFrameEvent(&frame, nil)
+	filter.Handle(&fe)
 
 	for n := 0; n < b.N; n++ {
-		if nil != filter.Handle(&frame) {
+		if nil != filter.Handle(&fe) {
 			b.Error("Should not have gotten a non empty response - duplicate handled incorrectly!?")
 		}
 	}
@@ -49,11 +52,12 @@ func BenchmarkFilter_HandleUnique(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		beastModeSTest := []byte{0x1a, 0x32, 0x22, 0x1b, 0x54, 0xf0, 0x81, 0x2b, 0x26, byte(n >> 24), byte(n >> 16), byte(n >> 8), byte(n), 0, 0, 0}
 		msg, _ := beast.NewFrame(beastModeSTest, false)
+		fe := tracker.NewFrameEvent(&msg, nil)
 
-		if nil == filter.Handle(&msg) {
+		if nil == filter.Handle(&fe) {
 			b.Fatal("Expected to insert new message")
 		}
-		if nil != filter.Handle(&msg) {
+		if nil != filter.Handle(&fe) {
 			b.Fatal("Failed duplicate insert")
 		}
 	}

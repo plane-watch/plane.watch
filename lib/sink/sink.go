@@ -49,6 +49,14 @@ func (s *Sink) Listen() chan tracker.Event {
 	return s.events
 }
 
+// Server pokes a hole in the abstraction to get to the nats server
+func (s *Sink) Server() any {
+	if ns, ok := s.dest.(*NatsSink); ok {
+		return ns.server
+	}
+	return nil
+}
+
 func (s *Sink) Stop() {
 	close(s.events)
 	s.config.Finish()

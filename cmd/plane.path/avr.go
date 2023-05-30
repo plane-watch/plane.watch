@@ -42,12 +42,18 @@ var lastSeenMap sync.Map
 
 // Handle ensures we have enough time between messages for a plane to have travelled the distance it says it did
 // this is because we do not have the timestamp for when it was collected when processing AVR frames
-func (fm *timeFiddler) Handle(f tracker.Frame) tracker.Frame {
-	switch f.(type) {
+func (fm *timeFiddler) Handle(fe *tracker.FrameEvent) tracker.Frame {
+	if nil == fe {
+		return nil
+	}
+	f := fe.Frame()
+	if nil == f {
+		return nil
+	}
+	switch frame := f.(type) {
 	case *mode_s.Frame:
 		lastSeen, _ := lastSeenMap.LoadOrStore(f.Icao(), time.Now().Add(-24*time.Hour))
 		t := lastSeen.(time.Time)
-		frame := f.(*mode_s.Frame)
 		if 17 == frame.DownLinkType() {
 			switch frame.MessageTypeString() {
 			case mode_s.DF17FrameSurfacePos, mode_s.DF17FrameAirPositionGnss, mode_s.DF17FrameAirPositionBarometric:

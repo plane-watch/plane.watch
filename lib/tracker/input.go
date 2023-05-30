@@ -58,7 +58,7 @@ type (
 	// Middleware has a chance to modify a frame before we send it to the plane Tracker
 	Middleware interface {
 		fmt.Stringer
-		Handle(Frame) Frame
+		Handle(*FrameEvent) Frame
 	}
 )
 
@@ -202,7 +202,7 @@ func (t *Tracker) decodeQueue() {
 		}
 
 		for _, m := range t.middlewares {
-			frame = m.Handle(frame)
+			frame = m.Handle(f)
 			if nil == frame {
 				break
 			}
