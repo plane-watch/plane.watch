@@ -248,8 +248,11 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 		if 5 == frame.DownLinkType() { // || 21 == frame.DownLinkType()
 			siBefore := p.SquawkIdentity() // temp while troubleshooting
 			hasChanged = p.setSquawkIdentity(frame.SquawkIdentity(), frame.TimeStamp()) || hasChanged
-			siAfter := p.SquawkIdentity()                                                                  // temp while troubleshooting
-			log.Debug().Uint32("before", siBefore).Uint32("after", siAfter).Caller().Msg("squawk changed") // temp while troubleshooting
+			siAfter := p.SquawkIdentity() // temp while troubleshooting
+			if siBefore != siAfter {
+				log.Debug().Uint32("before", siBefore).Uint32("after", siAfter).Caller().Msg("squawk changed")
+			} // temp while troubleshooting
+
 		}
 
 		debugMessage(" is at %d %s and flight status is: %s. \033[2mMode S Frame: %d \033[0m",
@@ -366,8 +369,10 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 				if frame.SquawkIdentity() > 0 {
 					siBefore := p.SquawkIdentity() // temp while troubleshooting
 					hasChanged = p.setSquawkIdentity(frame.SquawkIdentity(), frame.TimeStamp()) || hasChanged
-					siAfter := p.SquawkIdentity()                                                                  // temp while troubleshooting
-					log.Debug().Uint32("before", siBefore).Uint32("after", siAfter).Caller().Msg("squawk changed") // temp while troubleshooting
+					siAfter := p.SquawkIdentity() // temp while troubleshooting
+					if siBefore != siAfter {
+						log.Debug().Uint32("before", siBefore).Uint32("after", siAfter).Caller().Msg("squawk changed")
+					} // temp while troubleshooting
 				}
 			}
 		case mode_s.DF17FrameSurfaceSystemStatus: //, "Surface System status":
@@ -383,8 +388,10 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 				}
 				siBefore := p.SquawkIdentity() // temp while troubleshooting
 				hasChanged = p.setSquawkIdentity(frame.SquawkIdentity(), frame.TimeStamp()) || hasChanged
-				siAfter := p.SquawkIdentity()                                                                  // temp while troubleshooting
-				log.Debug().Uint32("before", siBefore).Uint32("after", siAfter).Caller().Msg("squawk changed") // temp while troubleshooting
+				siAfter := p.SquawkIdentity() // temp while troubleshooting
+				if siBefore != siAfter {
+					log.Debug().Uint32("before", siBefore).Uint32("after", siAfter).Caller().Msg("squawk changed")
+				} // temp while troubleshooting
 			}
 		case mode_s.DF17FrameTcasRA: //, "Extended Squitter Aircraft status (1090ES TCAS RA)":
 			{
@@ -408,8 +415,10 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 		case mode_s.BdsElsDataLinkCap: // 1.0
 			siBefore := p.SquawkIdentity() // temp while troubleshooting
 			hasChanged = p.setSquawkIdentity(frame.SquawkIdentity(), frame.TimeStamp()) || hasChanged
-			siAfter := p.SquawkIdentity()                                                                  // temp while troubleshooting
-			log.Debug().Uint32("before", siBefore).Uint32("after", siAfter).Caller().Msg("squawk changed") // temp while troubleshooting
+			siAfter := p.SquawkIdentity() // temp while troubleshooting
+			if siBefore != siAfter {
+				log.Debug().Uint32("before", siBefore).Uint32("after", siAfter).Caller().Msg("squawk changed")
+			} // temp while troubleshooting
 		case mode_s.BdsElsGicbCap: // 1.7
 			if frame.AltitudeValid() {
 				hasChanged = p.setAltitude(frame.MustAltitude(), frame.AltitudeUnits(), frame.TimeStamp()) || hasChanged
