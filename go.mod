@@ -18,7 +18,7 @@ require (
 )
 
 require (
-	github.com/ClickHouse/clickhouse-go/v2 v2.10.0
+	github.com/ClickHouse/clickhouse-go/v2 v2.10.1
 	github.com/google/btree v1.1.2
 	github.com/google/uuid v1.3.0
 	github.com/jmoiron/sqlx v1.3.5
