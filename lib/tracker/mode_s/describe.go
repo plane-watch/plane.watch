@@ -225,8 +225,8 @@ var asdbFeatures = map[string][]featureBreakdown{
 				{name: "??", start: 40, end: 88},
 			},
 			"1": { // EMERGENCY (or priority), status
-				{name: "EID", start: 40, end: 43},
-				{name: "ID", start: 43, end: 56},
+				{name: "EID", start: 40, end: 43}, //3
+				{name: "ID", start: 43, end: 56},  // 5 + 8
 				{name: "  ", start: 56, end: 88},
 			},
 			"2": { // TCAS Resolution Advisory
@@ -939,6 +939,7 @@ func (f *Frame) formatBitString(features []featureBreakdown) string {
 			}
 
 			//footer += fmt.Sprintf("-- Field=%s -- SubFields -- %s: %s \n", feat.name, feature.field, feature.meaning)
+			ssk := strconv.Itoa(int(f.messageSubType))
 			for _, sf := range feat.subFields[sk] {
 				if subFieldBitCounter != sf.start {
 					log.Warn().
@@ -946,20 +947,20 @@ func (f *Frame) formatBitString(features []featureBreakdown) string {
 						Msgf("Describe: Second Level Fields Not Adding up. (%d %s %d). Expected Start=%d, got=%d", f.downLinkFormat, sk, f.messageSubType, sf.start, subFieldBitCounter)
 				}
 				subFieldBitCounter = sf.end
-				if 0 == len(sf.subFields[sk]) {
+				if 0 == len(sf.subFields[ssk]) {
 					doMakeBitString(sf)
 					doMakeFooterString(sf, " -> ")
 
 				} else {
 					feature = featureDescription[sf.name]
 					subSubFieldBitCounter = sf.start
-					ssk := strconv.Itoa(int(f.messageSubType))
 					for _, ssf := range sf.subFields[ssk] {
 						if subSubFieldBitCounter != ssf.start {
 							log.Warn().
 								Str("frame", f.RawString()).
 								Msgf("Describe: Third Level Fields Not Adding up. (%d %s %d). Expected Start=%d, got=%d", f.downLinkFormat, sk, f.messageSubType, ssf.start, subSubFieldBitCounter)
 						}
+						subSubFieldBitCounter = ssf.end
 						doMakeBitString(ssf)
 						doMakeFooterString(ssf, "   -> ")
 					}

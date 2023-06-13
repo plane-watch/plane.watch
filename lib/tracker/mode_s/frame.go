@@ -557,8 +557,6 @@ func (f *Frame) MessageTypeString() string {
 	} else if f.messageType == 28 {
 		if f.messageSubType == 1 {
 			name = DF17FrameEmergencyPriority
-			f.decodeFlightNumber()
-
 		} else if f.messageSubType == 2 {
 			name = DF17FrameTcasRA
 		} else {

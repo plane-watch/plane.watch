@@ -194,6 +194,12 @@ func (f *Frame) decodeAdsb() {
 			var emergencyId = int((f.message[5] & 0xe0) >> 5)
 			f.alert = emergencyId != 0
 			f.emergency = emergencyStateTable[emergencyId]
+			var squawkRaw uint32
+
+			squawkRaw = uint32(f.message[5]&0x1F) << 8   // take the last 5 bits
+			squawkRaw = squawkRaw | uint32(f.message[6]) // all of byte 6
+
+			f.identity = decodeSquawkIdentityFromBits(squawkRaw)
 
 			// can get the Mode A Address too
 			//mode_a_code = (short) (msg[2]|((msg[1]&0x1F)<<8));
