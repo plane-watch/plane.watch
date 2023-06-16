@@ -409,7 +409,7 @@ var (
 		12: "Not assigned.",
 		13: "Not assigned.",
 		14: "Not assigned.",
-		15: "Request to send 30 segments signified by 15+n.",
+		15: "Request to send 30 segments signified by 15+n.", // Downlink ELM Protocol (3.1.2.7.7.1)
 		16: "Request to send 31 segments signified by 15+n.",
 		17: "Request to send 32 segments signified by 15+n.",
 		18: "Request to send 33 segments signified by 15+n.",

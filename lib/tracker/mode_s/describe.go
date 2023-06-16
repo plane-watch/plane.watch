@@ -222,62 +222,118 @@ var asdbFeatures = map[string][]featureBreakdown{
 		{name: "SUB", start: 37, end: 40},
 		{name: "??", start: 40, end: 88, subFields: map[string][]featureBreakdown{
 			"0": {
-				{name: "??", start: 40, end: 88},
+				{name: "??", start: 40, end: 88, longName: "RESERVED"},
 			},
 			"1": { // EMERGENCY (or priority), status
 				{name: "EID", start: 40, end: 43}, //3
 				{name: "ID", start: 43, end: 56},  // 5 + 8
 				{name: "  ", start: 56, end: 88},
 			},
-			"2": { // TCAS Resolution Advisory
-				{name: "??", start: 40, end: 88},
+			"2": {
+				{name: "??", start: 40, end: 88, longName: "ACAS RA Broadcast"},
 			},
 			"3": {
-				{name: "??", start: 40, end: 88},
+				{name: "??", start: 40, end: 88, longName: "RESERVED"},
 			},
 			"4": {
-				{name: "??", start: 40, end: 88},
+				{name: "??", start: 40, end: 88, longName: "RESERVED"},
 			},
 			"5": {
-				{name: "??", start: 40, end: 88},
+				{name: "??", start: 40, end: 88, longName: "RESERVED"},
 			},
 			"6": {
-				{name: "??", start: 40, end: 88},
+				{name: "??", start: 40, end: 88, longName: "RESERVED"},
 			},
 			"7": {
-				{name: "??", start: 40, end: 88},
+				{name: "??", start: 40, end: 88, longName: "RESERVED"},
 			},
-		},
-		},
+		}},
 	},
 	"29": {
 		{name: "TC", start: 32, end: 37},
-		{name: "SUB", start: 37, end: 40},
-		{name: "??", start: 40, end: 88},
+		{name: "SUB", start: 37, end: 39},
+		{name: "??", start: 39, end: 88, subFields: map[string][]featureBreakdown{
+			"0": {
+				// 39 == MB Field Bit 8 in doco, 7 in 0 based
+				{name: "  ", start: 39, end: 41, longName: "Vertical Data Available / Source Indicator"},
+				{name: "  ", start: 41, end: 42, longName: "Target Altitude Type"},
+				{name: "  ", start: 42, end: 43, longName: "Backward Compatibility Flag"},
+				{name: "  ", start: 43, end: 45, longName: "Target Altitude Capability"},
+				{name: "  ", start: 45, end: 47, longName: "Vertical Mode Indicator"},
+				{name: "  ", start: 47, end: 57, longName: "Target Altitude"},
+				{name: "  ", start: 57, end: 59, longName: "Horizontal Data Available"},
+				{name: "  ", start: 59, end: 68, longName: "Target Heading / Track Angle"},
+				{name: "  ", start: 68, end: 69, longName: "Target Heading / Track Indicator"},
+				{name: "  ", start: 69, end: 71, longName: "Horizontal Mode Indicator"},
+				{name: "  ", start: 71, end: 75, longName: "Navigation Accuracy Category — Position (NACP)"},
+				{name: "  ", start: 75, end: 76, longName: "Navigation Integrity Category — Baro (NICBARO)"},
+				{name: "  ", start: 76, end: 78, longName: "Surveillance Integrity Level (SIL)"},
+				{name: "  ", start: 78, end: 83, longName: "Reserved"},
+				{name: "  ", start: 83, end: 85, longName: "Capability / Mode Codes"},
+				{name: "  ", start: 85, end: 88, longName: "Emergency / Priority Status"},
+			},
+			"1": {
+				{name: "  ", start: 39, end: 40, longName: "SIL Supplement"},
+				{name: "  ", start: 40, end: 41, longName: "Selected Altitude Type"},
+				{name: "  ", start: 41, end: 52, longName: "MCP / FCU | FMS Selected Altitude"},
+				{name: "  ", start: 52, end: 61, longName: "Barometric Pressure Setting"},
+				{name: "  ", start: 61, end: 62, longName: "Status"},
+				{name: "  ", start: 62, end: 63, longName: "Sign"},
+				{name: "  ", start: 63, end: 71, longName: "Selected Heading"},
+				{name: "  ", start: 71, end: 75, longName: "Navigation Accuracy Category for Position (NACp)"},
+				{name: "  ", start: 75, end: 76, longName: "Navigation Integrity Category for Baro (NICbaro)"},
+				{name: "  ", start: 76, end: 78, longName: "Source Integrity Level (SIL)"},
+				{name: "  ", start: 78, end: 79, longName: "Status of MCP / FCU Mode Bits"},
+				{name: "ap", start: 79, end: 80, longName: "Autopilot Engaged"},
+				{name: "  ", start: 80, end: 81, longName: "VNAV Mode Engaged"},
+				{name: "ah", start: 81, end: 82, longName: "Altitude Hold Mode"},
+				{name: "  ", start: 82, end: 83, longName: "Reserved for ADS-R Flag"},
+				{name: "  ", start: 83, end: 84, longName: "Approach Mode"},
+				{name: "  ", start: 84, end: 85, longName: "TCAS/ACAS Operational"},
+				{name: "  ", start: 85, end: 86, longName: "LNAV Mode"},
+				{name: "  ", start: 86, end: 88, longName: "Reserved"},
+			},
+			"2": {
+				{name: "??", start: 39, end: 88, longName: "RESERVED"},
+			},
+			"3": {
+				{name: "??", start: 39, end: 88, longName: "RESERVED"},
+			},
+		}},
 	},
 	"31": {
 		{name: "TC", start: 32, end: 37},
 		{name: "SUB", start: 37, end: 40},
-		{name: "CCC", start: 40, end: 56, subFields: map[string][]featureBreakdown{
+		{name: "CCC", start: 40, end: 88, subFields: map[string][]featureBreakdown{
+			// ADSB Version 0
 			"0": { // airborne
-				{name: "CCC", start: 40, end: 56},
+				{name: "CC ", start: 40, end: 56, longName: "Airborne Capability Class Codes"},
+				{name: "OM ", start: 56, end: 72, longName: "Airborne Operational Mode Codes"},
+				{name: "Ver", start: 72, end: 75, longName: "ADSB Version Number"},
+				{name: "   ", start: 75, end: 76, longName: "NIC Supplement-A"},
+				{name: "   ", start: 76, end: 80, longName: "Navigational Accuracy Category – Position NACp"},
+				{name: "   ", start: 80, end: 82, longName: "GVA"},
+				{name: "   ", start: 82, end: 84, longName: "Source Integrity Level (SIL)"},
+				{name: "   ", start: 84, end: 85, longName: "NIC baro"},
+				{name: "   ", start: 85, end: 86, longName: "HRD"},
+				{name: "   ", start: 86, end: 87, longName: "SIL Supplement"},
+				{name: "   ", start: 87, end: 88, longName: "Reserved"},
 			},
 			"1": { //surface
-				{name: "??", start: 40, end: 44},
-				{name: "CCC", start: 44, end: 52},
-				{name: "APLW", start: 52, end: 56},
+				{name: "CC", start: 40, end: 52, longName: "Surface Capability Class Codes"},
+				{name: "APLW", start: 52, end: 56, longName: "Length/Width Codes"},
+				{name: "OM  ", start: 56, end: 72, longName: "Surface Operational Mode Codes"},
+				{name: "Ver ", start: 72, end: 75, longName: "ADSB Version Number"},
+				{name: "    ", start: 75, end: 76, longName: "NIC Supplement-A"},
+				{name: "    ", start: 76, end: 80, longName: "Navigational Accuracy Category – Position NACp"},
+				{name: "    ", start: 80, end: 82, longName: "RESERVED"},
+				{name: "    ", start: 82, end: 84, longName: "Source Integrity Level (SIL)"},
+				{name: "    ", start: 84, end: 85, longName: "TRK/HDG"},
+				{name: "    ", start: 85, end: 86, longName: "HRD"},
+				{name: "    ", start: 86, end: 87, longName: "SIL Supplement"},
+				{name: "    ", start: 87, end: 88, longName: "Reserved"},
 			},
-		},
-		},
-		{name: "OMC", start: 56, end: 72},
-		{name: "VER", start: 72, end: 75},  //VERSION
-		{name: "NICp", start: 75, end: 76}, //Navigation Integrity Category Supplement A
-		{name: "NACv", start: 76, end: 80}, //Navigation Accuracy Category Position
-		{name: "GVA", start: 80, end: 82},  // geometric_vertical_accuracy
-		{name: "SIL", start: 82, end: 84},  // sil
-		{name: "NTH", start: 84, end: 85},  //nic_trk_hdg
-		{name: "HRD", start: 85, end: 86},  // hrd
-		{name: "??", start: 86, end: 88},
+		}},
 	},
 }
 

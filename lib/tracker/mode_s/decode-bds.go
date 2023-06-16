@@ -117,6 +117,8 @@ func inferCommBMessageType(mb []byte) (byte, byte, error) {
 		return 0, 0, CommBIncorrectLength
 	}
 
+	// BDS == Comm-B Data Selector
+
 	// Starting with ELS Detection
 
 	// BDS 1,0 - Data Link Capability Report

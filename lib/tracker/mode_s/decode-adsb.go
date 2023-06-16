@@ -29,7 +29,6 @@ func (f *Frame) decodeAdsb() {
 	// Down Link Format 17 Message Types
 	f.messageType = f.message[4] >> 3
 	f.messageSubType = f.message[4] & 7
-	//panic(f.messageType)
 
 	switch f.messageType {
 	case 1, 2, 3, 4:
@@ -173,11 +172,12 @@ func (f *Frame) decodeAdsb() {
 			f.haeDelta = multiplier * int((f.message[10]&0x7f)-1)
 		}
 	case 23:
-		if f.messageSubType == 7 {
+		switch f.messageSubType {
+		case 0: // test message
+		case 1, 2, 3, 4, 5, 6: // Reserved
+		case 7: //Allocated for national use
 			// TEST MESSAGE with  squawk - decode it!
 			f.decodeSquawkIdentity(5, 6)
-		} else {
-			//??
 		}
 
 	case 24:
@@ -185,11 +185,14 @@ func (f *Frame) decodeAdsb() {
 	//NoOp
 	// subType=1 is for Multilateration System Status (Allocated for national use)
 	// this is a per system manufacturer message
-	case 25, 26, 27:
+	case 25, 26:
 		// RESERVED
+	case 27:
 		// ADS-B Messages with TYPE Code=27 are Reserved for future expansion of these MOPS to specify Trajectory Change Message formats.
 	case 28:
-		if f.messageSubType == 1 {
+		switch f.messageSubType {
+		case 0: // reserved
+		case 1: // Emergency/priority status (§B.2.3.8)
 			// EMERGENCY (or priority), EMERGENCY, THERE'S AN EMERGENCY GOING ON
 			var emergencyId = int((f.message[5] & 0xe0) >> 5)
 			f.alert = emergencyId != 0
@@ -203,15 +206,17 @@ func (f *Frame) decodeAdsb() {
 
 			// can get the Mode A Address too
 			//mode_a_code = (short) (msg[2]|((msg[1]&0x1F)<<8));
+		case 2:
+		// ACAS RA broadcast
+		case 3, 4, 5, 6, 7: //RESERVED
 
-		} else if f.messageSubType == 2 {
-			// TCAS Resolution Advisory
 		}
 	case 29:
 		// Target State and Status Message
 		// DO-260 - unused
 		// DO-260A = Target State and Status Information Message
 		// DO-260B =
+
 		if f.messageSubType == 0 {
 			// DO-260A
 		} else if f.messageSubType == 1 {
