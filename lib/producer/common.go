@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"io"
 	"math/rand"
@@ -31,12 +32,14 @@ type (
 		tracker.FrameSource
 		producerType int
 
+		log zerolog.Logger
+
 		out chan tracker.FrameEvent
 
 		cmdChan chan int
 
-		splitter   bufio.SplitFunc
-		beastDelay bool
+		splitter                      bufio.SplitFunc
+		beastDelay, keepAliveRepeater bool
 
 		run func()
 
@@ -45,6 +48,8 @@ type (
 		}
 
 		hasFetcher, fetcherConnected bool
+
+		repeater *keepAliveRepeater
 	}
 
 	Option func(*Producer)
@@ -66,6 +71,7 @@ func New(opts ...Option) *Producer {
 			os.Exit(1)
 		},
 	}
+	p.log = log.With().Logger()
 
 	for _, opt := range opts {
 		opt(p)
@@ -79,6 +85,16 @@ func New(opts ...Option) *Producer {
 	}
 	if "" == p.Name {
 		p.Name = producerType(p.producerType)
+	}
+	p.log = log.With().
+		Str("Name", p.Name).
+		Str("ProducerType", producerType(p.producerType)).
+		Logger()
+
+	if p.keepAliveRepeater {
+		p.log.Debug().Msg("Setting up repeater")
+		p.repeater = newKeepAliveRepeater()
+		go p.repeater.processor(p)
 	}
 
 	return p
@@ -106,13 +122,13 @@ func WithListener(host, port string) Option {
 			ln, err := net.Listen("tcp", addr)
 			if err != nil {
 				// handle error
-				log.Error().Err(err).Str("host:port", addr).Msg("Failed to listen")
+				p.log.Error().Err(err).Str("host:port", addr).Msg("Failed to listen")
 			}
 			for {
 				conn, errConn := ln.Accept()
 				if errConn != nil {
 					// handle error
-					log.Error().Err(errConn).Msg("Failed to accept a connection")
+					p.log.Error().Err(errConn).Msg("Failed to accept a connection")
 				}
 
 				go func(c net.Conn) {
@@ -120,7 +136,7 @@ func WithListener(host, port string) Option {
 					scan.Split(p.splitter)
 					errRead := p.readFromScanner(scan)
 					if nil != errRead {
-						log.Error().Err(errRead).Msg("No more reading")
+						p.log.Error().Err(errRead).Msg("No more reading")
 					}
 				}(conn)
 			}
@@ -184,7 +200,7 @@ func WithType(producerType int) Option {
 			p.producerType = producerType
 			p.splitter = ScanBeast()
 		default:
-			log.Error().Msgf("Unknown Producer Type")
+			p.log.Error().Msgf("Unknown Producer Type")
 		}
 	}
 }
@@ -215,9 +231,14 @@ func (p *Producer) readFromScanner(scan *bufio.Scanner) error {
 // WithReferenceLatLon sets up the reference lat/lon for decoding surface position messages
 func WithReferenceLatLon(lat, lon float64) Option {
 	return func(p *Producer) {
-		log.Debug().Float64("lat", lat).Float64("lon", lon).Msg("With Reference Lat/Lon")
+		p.log.Debug().Float64("lat", lat).Float64("lon", lon).Msg("With Reference Lat/Lon")
 		p.RefLat = &lat
 		p.RefLon = &lon
+	}
+}
+func WithKeepAliveRepeater() Option {
+	return func(p *Producer) {
+		p.keepAliveRepeater = true
 	}
 }
 
@@ -231,19 +252,24 @@ func (p *Producer) Listen() chan tracker.FrameEvent {
 }
 
 func (p *Producer) addFrame(f tracker.Frame, s *tracker.FrameSource) {
-	p.AddEvent(tracker.NewFrameEvent(f, s))
+	fe := tracker.NewFrameEvent(f, s)
+	if p.keepAliveRepeater {
+		// update the repeater for this listFrames
+		p.repeater.chanFrame <- fe
+	}
+	p.AddEvent(fe)
 }
 
 func (p *Producer) addDebug(sfmt string, v ...interface{}) {
-	log.Debug().Str("section", p.Name).Msgf(sfmt, v...)
+	p.log.Debug().Str("section", p.Name).Msgf(sfmt, v...)
 }
 
 func (p *Producer) addInfo(sfmt string, v ...interface{}) {
-	log.Info().Str("section", p.Name).Msgf(sfmt, v...)
+	p.log.Info().Str("section", p.Name).Msgf(sfmt, v...)
 }
 
 func (p *Producer) addError(err error) {
-	log.Error().Str("section", p.Name).Err(err).Send()
+	p.log.Error().Str("section", p.Name).Err(err).Send()
 }
 
 func (p *Producer) HealthCheck() bool {
@@ -264,7 +290,7 @@ func (p *Producer) Stop() {
 func (p *Producer) AddEvent(e tracker.FrameEvent) {
 	defer func() {
 		if r := recover(); nil != r {
-			log.Error().Interface("recover", r).Msg("Failed to add event")
+			p.log.Error().Interface("recover", r).Msg("Failed to add event")
 		}
 	}()
 	p.out <- e

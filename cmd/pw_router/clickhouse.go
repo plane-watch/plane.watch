@@ -66,11 +66,15 @@ func NewDataStreams(chs *clickhouse.Server) *DataStream {
 }
 
 func (ds *DataStream) AddLow(frame *export.PlaneLocation) {
-	ds.low <- frame
+	if "repeat" != frame.SourceTag {
+		ds.low <- frame
+	}
 }
 
 func (ds *DataStream) AddHigh(frame *export.PlaneLocation) {
-	ds.high <- frame
+	if "repeat" != frame.SourceTag {
+		ds.high <- frame
+	}
 }
 
 // handleQueue single threadedly accumulates and sends data to clickhouse for the given queue/table

@@ -109,7 +109,7 @@ func commonSetup(c *cli.Context) (*tracker.Tracker, error) {
 
 	if c.Bool(DedupeFilter) {
 		trk.AddMiddleware(dedupe.NewFilter(dedupe.WithDedupeCounter(prometheusOutputFrameDedupe)))
-		//trk.AddMiddleware(dedupe.NewFilterBTree(dedupe.WithDedupeCounterBTree(prometheusOutputFrameDedupe), dedupe.WithBtreeDegree(16)))
+		// trk.AddMiddleware(dedupe.NewFilterBTree(dedupe.WithDedupeCounterBTree(prometheusOutputFrameDedupe), dedupe.WithBtreeDegree(16)))
 	}
 	sink, err := setup.HandleSinkFlag(c, "pw_ingest")
 	if nil != err {
