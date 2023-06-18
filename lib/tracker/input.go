@@ -1,6 +1,7 @@
 package tracker
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -40,8 +41,8 @@ type (
 	}
 
 	// A Producer can listen for or generate Frames, it provides the output via a channel that the handler can then
-	// processes further.
-	// A Producer can send *LogEvent and  *FrameEvent events
+	// process further.
+	// A Producer can send *FrameEvent events
 	Producer interface {
 		EventMaker
 		fmt.Stringer
@@ -140,7 +141,7 @@ func (t *Tracker) SetSink(s Sink) {
 	monitoring.AddHealthCheck(s)
 }
 
-// Stop attempts to stop all the things, mid flight. Use this if you have something else waiting for things to finish
+// Stop attempts to stop all the things, mid-flight. Use this if you have something else waiting for things to finish
 // use this if you are listening to remote sources
 func (t *Tracker) Stop() {
 	t.Finish()
@@ -150,7 +151,7 @@ func (t *Tracker) Stop() {
 	t.middlewareWaiter.Wait()
 }
 
-// StopOnCancel listens for SigInt etc and gracefully stops
+// StopOnCancel listens for SigInt etc. and gracefully stops
 func (t *Tracker) StopOnCancel() {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
@@ -194,7 +195,7 @@ func (t *Tracker) decodeQueue() {
 		frame := f.Frame()
 		err := frame.Decode()
 		if nil != err {
-			if mode_s.ErrNoOp != err {
+			if !errors.Is(mode_s.ErrNoOp, err) {
 				// the decode operation failed to produce valid output, and we tell someone about it
 				t.log.Error().Err(err).Str("Tag", f.Source().Tag).Send()
 			}
@@ -213,15 +214,15 @@ func (t *Tracker) decodeQueue() {
 		}
 		plane := t.GetPlane(frame.Icao())
 
-		switch frame.(type) {
+		switch typeFrame := frame.(type) {
 		case *beast.Frame:
-			b := frame.(*beast.Frame)
-			plane.HandleModeSFrame(b.AvrFrame(), f.Source().RefLat, f.Source().RefLon)
-			plane.setSignalLevel(b.SignalRssi())
+
+			plane.HandleModeSFrame(typeFrame.AvrFrame(), f.Source().RefLat, f.Source().RefLon)
+			plane.setSignalLevel(typeFrame.SignalRssi())
 		case *mode_s.Frame:
-			plane.HandleModeSFrame(frame.(*mode_s.Frame), f.Source().RefLat, f.Source().RefLon)
+			plane.HandleModeSFrame(typeFrame, f.Source().RefLat, f.Source().RefLon)
 		case *sbs1.Frame:
-			plane.HandleSbs1Frame(frame.(*sbs1.Frame))
+			plane.HandleSbs1Frame(typeFrame)
 		default:
 			t.log.Error().Str("Tag", f.Source().Tag).Msg("unknown frame type, cannot track")
 		}

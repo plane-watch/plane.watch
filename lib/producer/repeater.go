@@ -37,15 +37,15 @@ func (r *keepAliveRepeater) processor(p *Producer) {
 	var ka *keepAlive
 	var ok bool
 	for msg := range r.chanFrame {
+		msg.Source().Tag = "repeat"
 		icao := msg.Frame().Icao()
 		p.log.Debug().Str("ICAO", msg.Frame().IcaoStr()).Msg("New Repeating Frame")
 		ka, ok = r.listFrames[icao]
 		if !ok {
-			ka = &keepAlive{}
+			ka = &keepAlive{msg: msg}
 			r.listFrames[icao] = ka
-			go ka.repeat(p)
 		} else {
-			ka.repeater.Stop()
+			ka.stop()
 		}
 		ka.msg = msg
 		ka.repeater = time.NewTicker(r.frequency)
@@ -66,7 +66,7 @@ func (ka *keepAlive) repeat(p *Producer) {
 	for t := range ka.repeater.C {
 		if t.After(ka.until) {
 			p.log.Debug().Str("ICAO", icaoStr).Msg("Repeating Event Expired")
-			ka.repeater.Stop()
+			ka.stop()
 		} else {
 			p.log.Debug().Str("ICAO", icaoStr).Msg("Repeating Event")
 			p.AddEvent(ka.msg)
