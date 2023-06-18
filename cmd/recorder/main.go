@@ -122,7 +122,11 @@ func (fp *frameProcessor) String() string {
 func (fp *frameProcessor) Listen() chan tracker.Event {
 	return fp.events
 }
-func (fp *frameProcessor) Handle(frame tracker.Frame) tracker.Frame {
+func (fp *frameProcessor) Handle(fe *tracker.FrameEvent) tracker.Frame {
+	if nil == fe {
+		return nil
+	}
+	frame := fe.Frame()
 	if nil == frame {
 		return nil
 	}

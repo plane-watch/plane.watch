@@ -266,7 +266,8 @@ func (cl *ClientList) performSearch(query string) ws_protocol.SearchResult {
 
 	// Airport Lookup, if we have a nats connection
 	if nil != cl.broker.natsRpc {
-		resp, err := cl.broker.natsRpc.Request(export.NatsApiSearchAirportV1, []byte(query), time.Second)
+		headers := map[string]string{}
+		resp, err := cl.broker.natsRpc.Request(export.NatsApiSearchAirportV1, []byte(query), headers, time.Second)
 		if nil != err {
 			log.Error().Err(err).Msg("Failed to search for airport")
 		} else {

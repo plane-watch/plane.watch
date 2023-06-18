@@ -80,7 +80,11 @@ func (f *Filter) String() string {
 	return "Example Finder/Filter"
 }
 
-func (f *Filter) Handle(frame tracker.Frame) tracker.Frame {
+func (f *Filter) Handle(fe *tracker.FrameEvent) tracker.Frame {
+	if nil == fe {
+		return nil
+	}
+	frame := fe.Frame()
 	if nil == frame {
 		return nil
 	}

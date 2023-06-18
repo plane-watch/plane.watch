@@ -148,6 +148,23 @@ func (n *Server) Publish(queue string, msg []byte) error {
 	}
 	return err
 }
+func (n *Server) PublishWithHeaders(queue string, msg []byte, headers map[string]string) error {
+	if nil == n.outgoing {
+		return errors.New("outgoing nats connection not set up")
+	}
+	m := nats.NewMsg(queue)
+	for k, v := range headers {
+		m.Header.Add(k, v)
+	}
+	m.Data = msg
+	err := n.outgoing.PublishMsg(m)
+	if nil != err {
+		if nats.ErrInvalidConnection == err || nats.ErrConnectionClosed == err || nats.ErrConnectionDraining == err {
+			n.log.Error().Err(err).Msg("Connection not in a valid state")
+		}
+	}
+	return err
+}
 
 func (n *Server) Close() {
 	if nil != n.incoming && n.incoming.IsConnected() {
@@ -197,11 +214,16 @@ func (n *Server) SubscribeQueueGroup(subject, queueGroup string) (chan *nats.Msg
 	return ch, nil
 }
 
-func (n *Server) Request(subject string, data []byte, timeout time.Duration) ([]byte, error) {
+func (n *Server) Request(subject string, data []byte, headers map[string]string, timeout time.Duration) ([]byte, error) {
 	if nil == n.outgoing {
 		return nil, errors.New("outgoing nats connection not set up")
 	}
-	msg, err := n.outgoing.Request(subject, data, timeout)
+	msg := nats.NewMsg(subject)
+	msg.Data = data
+	for k, v := range headers {
+		msg.Header.Add(k, v)
+	}
+	msg, err := n.outgoing.RequestMsg(msg, timeout)
 	if nil != err {
 		n.log.Error().Err(err).Str("subject", subject).Msg("Failed to request")
 		return nil, err

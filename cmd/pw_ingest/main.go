@@ -9,8 +9,11 @@ import (
 	"plane.watch/lib/dedupe"
 	"plane.watch/lib/example_finder"
 	"plane.watch/lib/logging"
+	"plane.watch/lib/middleware"
 	"plane.watch/lib/monitoring"
+	"plane.watch/lib/nats_io"
 	"plane.watch/lib/setup"
+	"plane.watch/lib/sink"
 	"plane.watch/lib/tracker"
 )
 
@@ -111,11 +114,17 @@ func commonSetup(c *cli.Context) (*tracker.Tracker, error) {
 		trk.AddMiddleware(dedupe.NewFilter(dedupe.WithDedupeCounter(prometheusOutputFrameDedupe)))
 		// trk.AddMiddleware(dedupe.NewFilterBTree(dedupe.WithDedupeCounterBTree(prometheusOutputFrameDedupe), dedupe.WithBtreeDegree(16)))
 	}
-	sink, err := setup.HandleSinkFlag(c, "pw_ingest")
+	sinkDest, err := setup.HandleSinkFlag(c, "pw_ingest")
 	if nil != err {
 		return nil, err
 	}
-	trk.SetSink(sink)
+	trk.SetSink(sinkDest)
+
+	if sinkType, ok := sinkDest.(*sink.Sink); ok {
+		if ns, ok := sinkType.Server().(*nats_io.Server); ok {
+			trk.AddMiddleware(middleware.NewIngestTap(ns))
+		}
+	}
 
 	producers, err := setup.HandleSourceFlags(c)
 	if nil != err {
