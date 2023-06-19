@@ -12,7 +12,7 @@ require (
 	github.com/rs/zerolog v1.29.1
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/spf13/viper v1.16.0
-	github.com/urfave/cli/v2 v2.25.6
+	github.com/urfave/cli/v2 v2.25.7
 	golang.org/x/oauth2 v0.9.0
 	nhooyr.io/websocket v1.8.7
 )
