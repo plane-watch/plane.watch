@@ -47,9 +47,9 @@ func WithConnections(incoming, outgoing bool) Option {
 	}
 }
 
-func WithServer(serverUrl, connectionName string) Option {
+func WithServer(serverURL, connectionName string) Option {
 	return func(server *Server) {
-		server.SetUrl(serverUrl)
+		server.SetURL(serverURL)
 		server.connectionName = connectionName
 	}
 }
@@ -70,16 +70,16 @@ func NewServer(opts ...Option) (*Server, error) {
 	return n, nil
 }
 
-func (n *Server) SetUrl(serverUrl string) {
-	serverUrlParts, err := url.Parse(serverUrl)
+func (n *Server) SetURL(serverURL string) {
+	serverURLParts, err := url.Parse(serverURL)
 	if nil == err {
-		if "" == serverUrlParts.Port() {
-			serverUrlParts.Host = net.JoinHostPort(serverUrlParts.Hostname(), "4222")
+		if serverURLParts.Port() == "" {
+			serverURLParts.Host = net.JoinHostPort(serverURLParts.Hostname(), "4222")
 		}
 	} else {
 		log.Error().Err(err).Msg("invalid url")
 	}
-	n.url = serverUrlParts.String()
+	n.url = serverURLParts.String()
 }
 func (n *Server) DroppedCounter(counter prometheus.Counter) {
 	n.droppedMessageCounter = counter
@@ -101,7 +101,7 @@ func (n *Server) NatsErrHandler(conn *nats.Conn, sub *nats.Subscription, err err
 	}
 	l.Send()
 
-	if nil != n.droppedMessageCounter && err == nats.ErrSlowConsumer {
+	if nil != n.droppedMessageCounter && errors.Is(err, nats.ErrSlowConsumer) {
 		n.droppedMessageCounter.Inc()
 	}
 }
@@ -116,7 +116,11 @@ func (n *Server) Connect() error {
 			nats.Name(n.connectionName+"+incoming"),
 		)
 		if nil != err {
-			n.log.Error().Err(err).Str("dir", "incoming").Msg("Unable to connect to NATS server")
+			n.log.Error().
+				Err(err).
+				Str("dir", "incoming").
+				Str("url", n.url).
+				Msg("Unable to connect to NATS server")
 			return err
 		}
 	}
@@ -142,7 +146,7 @@ func (n *Server) Publish(queue string, msg []byte) error {
 	}
 	err := n.outgoing.Publish(queue, msg)
 	if nil != err {
-		if nats.ErrInvalidConnection == err || nats.ErrConnectionClosed == err || nats.ErrConnectionDraining == err {
+		if errors.Is(err, nats.ErrInvalidConnection) || errors.Is(err, nats.ErrConnectionClosed) || errors.Is(err, nats.ErrConnectionDraining) {
 			n.log.Error().Err(err).Msg("Connection not in a valid state")
 		}
 	}
