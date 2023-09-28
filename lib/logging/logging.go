@@ -13,7 +13,7 @@ const (
 	VeryVerbose = "very-verbose"
 	Debug       = "debug"
 	Quiet       = "quiet"
-	CpuProfile  = "cpu-profile"
+	CPUProfile  = "cpu-profile"
 )
 
 func IncludeVerbosityFlags(app *cli.App) {
@@ -33,7 +33,7 @@ func IncludeVerbosityFlags(app *cli.App) {
 			EnvVars: []string{"QUIET"},
 		},
 		&cli.StringFlag{
-			Name:  CpuProfile,
+			Name:  CPUProfile,
 			Usage: "Specifying this parameter causes a CPU Profile to be generated",
 		},
 	)
@@ -59,8 +59,8 @@ func SetLoggingLevel(c *cli.Context) {
 		c.Bool(Debug),
 		c.Bool(Quiet),
 	)
-	if "" != c.String(CpuProfile) {
-		ConfigureForProfiling(c.String(CpuProfile))
+	if c.String(CPUProfile) != "" {
+		ConfigureForProfiling(c.String(CPUProfile))
 	}
 }
 
@@ -75,7 +75,7 @@ func SetVerboseOrQuiet(trace, verbose, quiet bool) {
 	if quiet {
 		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
 	}
-	//log.Info().Str("log-level", zerolog.GlobalLevel().String()).Msg("Logging Set")
+	// log.Info().Str("log-level", zerolog.GlobalLevel().String()).Msg("Logging Set")
 }
 
 func cliWriter() zerolog.ConsoleWriter {
@@ -98,7 +98,7 @@ func ConfigureForProfiling(outFile string) {
 }
 
 func StopProfiling(c *cli.Context) error {
-	if fileName := c.String(CpuProfile); "" != fileName {
+	if fileName := c.String(CPUProfile); fileName != "" {
 		pprof.StopCPUProfile()
 		println("To analyze the profile, use this cmd")
 		println("go tool pprof -http=:7777", fileName)
