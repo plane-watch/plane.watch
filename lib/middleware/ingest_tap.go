@@ -13,6 +13,8 @@ import (
 	"sync"
 )
 
+const NatsAPIv1PwIngestTap = "v1.pw-ingest.tap"
+
 type (
 	IngestTap struct {
 		head, tail *condition
@@ -45,7 +47,7 @@ func NewIngestTap(natsServer *nats_io.Server) tracker.Middleware {
 	}
 	var err error
 	tap.natsQueue = "pw-ingest-tap-" + randstr.RandString(20)
-	tap.sub, err = tap.natsServer.SubscribeReply("v1.pw-ingest.tap", tap.natsQueue, tap.requestHandler)
+	tap.sub, err = tap.natsServer.SubscribeReply(NatsAPIv1PwIngestTap, tap.natsQueue, tap.requestHandler)
 	if err != nil {
 		return nil
 	}
@@ -115,6 +117,15 @@ func (tap *IngestTap) requestHandler(msg *nats.Msg) {
 
 func (tap *IngestTap) String() string {
 	return "Ingest Tap"
+}
+
+func (tap *IngestTap) HealthCheckName() string {
+	return "Ingest Tap"
+}
+
+func (tap *IngestTap) HealthCheck() bool {
+
+	return true
 }
 
 func (tap *IngestTap) Handle(frame *tracker.FrameEvent) tracker.Frame {
