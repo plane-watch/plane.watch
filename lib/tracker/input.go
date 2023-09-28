@@ -59,6 +59,7 @@ type (
 	// Middleware has a chance to modify a frame before we send it to the plane Tracker
 	Middleware interface {
 		fmt.Stringer
+		monitoring.HealthCheck
 		Handle(*FrameEvent) Frame
 	}
 )
@@ -125,6 +126,7 @@ func (t *Tracker) AddMiddleware(m Middleware) {
 	if nil == m {
 		return
 	}
+	monitoring.AddHealthCheck(m)
 	t.log.Debug().Str("name", m.String()).Msg("Adding middleware")
 	t.middlewares = append(t.middlewares, m)
 
@@ -156,16 +158,30 @@ func (t *Tracker) StopOnCancel() {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	isStopping := false
+	exitChan := make(chan bool, 3)
 	for {
-		sig := <-ch
-		log.Info().Str("Signal", sig.String()).Msg("Received Interrupt, stopping")
-		if !isStopping {
-			isStopping = true
-			t.Stop()
-			log.Info().Msg("Done Stopping")
-		} else {
-			log.Info().Str("Signal", sig.String()).Msg("Second Interrupt, forcing exit")
-			os.Exit(1)
+		select {
+		case sig := <-ch:
+			log.Info().Str("Signal", sig.String()).Msg("Received Interrupt, stopping")
+			if !isStopping {
+				isStopping = true
+				go func() {
+					t.Stop()
+					exitChan <- true
+					log.Info().Msg("Done Stopping")
+				}()
+				go func() {
+					time.Sleep(time.Second * 5)
+					exitChan <- true
+					log.Info().Msg("Timeout after 5 seconds, force stopping")
+					os.Exit(1)
+				}()
+			} else {
+				log.Info().Str("Signal", sig.String()).Msg("Second Interrupt, forcing exit")
+				os.Exit(1)
+			}
+		case <-exitChan:
+			return
 		}
 	}
 }
