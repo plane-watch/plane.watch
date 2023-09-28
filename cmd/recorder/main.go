@@ -30,6 +30,14 @@ type (
 	}
 )
 
+func (fp *frameProcessor) HealthCheckName() string {
+	return "Frame Processor"
+}
+
+func (fp *frameProcessor) HealthCheck() bool {
+	return true
+}
+
 func main() {
 	app := cli.NewApp()
 	app.Name = "Frame Recorder"
