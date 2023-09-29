@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
@@ -35,6 +36,8 @@ type (
 		tapper *PlaneWatchTapper
 
 		focusIcaoList []string
+
+		help help.Model
 
 		statsTable       table.Model
 		selectedTable    table.Model
@@ -81,6 +84,7 @@ func initialModel(natsURL, wsURL string) (*model, error) {
 		logger:        logger.With().Str("app", "model").Logger(),
 		startTime:     time.Now(),
 		tapper:        NewPlaneWatchTapper(WithLogger(logger)),
+		help:          help.New(),
 		tickDuration:  time.Millisecond * 16,
 		focusIcaoList: make([]string, 0),
 		source:        planesSourceWSLow,

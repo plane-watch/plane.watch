@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -21,6 +22,22 @@ const (
 	planesSourceWSLow
 	planesSourceWSHigh
 )
+
+type keyMap map[string]key.Binding
+
+var keyBindings = keyMap{
+	"Up":       key.NewBinding(key.WithKeys("up"), key.WithHelp("↑", "Move up in the aircraft list")),
+	"Down":     key.NewBinding(key.WithKeys("up"), key.WithHelp("↓", "Move up in the aircraft list")),
+	"PageUp":   key.NewBinding(key.WithKeys("up"), key.WithHelp("PgUp", "Move a page up in the aircraft list")),
+	"PageDown": key.NewBinding(key.WithKeys("up"), key.WithHelp("PgDn", "Move a page down in the aircraft list")),
+
+	"Source": key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "Switch Plane List Data Source")),
+	"Select": key.NewBinding(key.WithKeys(tea.KeyEnter.String()), key.WithHelp(tea.KeyEnter.String(), "Select a plane")),
+
+	"Quit": key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q/ctrl+c", "Exit")),
+
+	"Help": key.NewBinding(key.WithKeys("h", "?"), key.WithHelp("h/?", "Show Help")),
+}
 
 func runTui(c *cli.Context) error {
 	m, err := initialModel(c.String(natsURL), c.String(websocketURL))
@@ -67,18 +84,24 @@ func (m *model) Init() tea.Cmd {
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch tMsg := msg.(type) {
 	case tea.KeyMsg:
-		switch tMsg.String() {
-		case "ctrl+c", "q":
+		switch {
+		case key.Matches(tMsg, keyBindings["Quit"]):
 			return m, tea.Quit
-		case "s":
+		case key.Matches(tMsg, keyBindings["Source"]):
 			if m.source == planesSourceWSHigh {
 				m.source = planesSourceIngest
 			} else {
 				m.source++
 			}
-		case tea.KeyEnter.String():
+		case key.Matches(tMsg, keyBindings["Select"]):
 			m.selectedIcao = m.planesTable.SelectedRow()[0]
 			m.selectedCallSign = m.planesTable.SelectedRow()[2]
+			m.logger.Info().
+				Str("icao", m.selectedIcao).
+				Str("callsign", m.selectedCallSign).
+				Msg("Selecting Aircraft")
+		case key.Matches(tMsg, keyBindings["Help"]):
+			m.help.ShowAll = !m.help.ShowAll
 		}
 	case tea.WindowSizeMsg:
 		m.width = tMsg.Width
@@ -106,6 +129,7 @@ func (m *model) handleWindowSizing() {
 	m.statsTable.SetWidth(m.width)
 	m.selectedTable.SetWidth(m.width)
 	m.planesTable.SetWidth(m.width)
+	m.help.Width = m.width
 
 	headingHeight := lipgloss.Height(m.heading.Render("test"))
 	statsTableHeight := 3
@@ -208,6 +232,7 @@ func (m *model) selectedTableRow(source planesSource, data *sourceInfo) table.Ro
 		loc.LonStr(),
 		loc.AltitudeStr(),
 		loc.VerticalRateStr(),
+		loc.HeadingStr(),
 	}
 }
 
@@ -276,6 +301,8 @@ func (m *model) View() string {
 		view += m.heading.Render("Logs") + "\n"
 		view += m.logView.View() + "\n"
 	}
+
+	view += m.help.View(keyBindings)
 	return view
 }
 
@@ -283,4 +310,16 @@ func (m *model) tickCmd() tea.Cmd {
 	return tea.Tick(m.tickDuration, func(t time.Time) tea.Msg {
 		return timerTick(t)
 	})
+}
+
+func (k keyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k["Help"], k["Quit"]}
+}
+
+func (k keyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{k["Up"], k["Down"], k["PgUp"], k["PgDn"]},
+		{k["Source"], k["Select"]},
+		{k["Help"], k["Quit"]},
+	}
 }

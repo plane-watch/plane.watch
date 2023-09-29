@@ -378,6 +378,9 @@ func (pl *PlaneLocation) SquawkStr() string {
 	if nil == pl {
 		return ""
 	}
+	if pl.Squawk == "0" {
+		return ""
+	}
 	return pl.Squawk
 }
 
