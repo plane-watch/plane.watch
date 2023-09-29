@@ -608,7 +608,7 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 			}
 		case planeMsg := <-c.outChan:
 			// if we have a subscription to this planes tile or all tiles
-			//log.Debug().Str("tile", planeMsg.tile).Str("highlow", planeMsg.highLow).Msg("info")
+			// log.Debug().Str("tile", planeMsg.tile).Str("highlow", planeMsg.highLow).Msg("info")
 			tileSub, tileOk := subs[planeMsg.tile]
 			allSub, allOk := subs["all"+planeMsg.highLow]
 			if (tileSub && tileOk) || (allSub && allOk) {
@@ -647,7 +647,6 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 	// tell prometheus we are no longer caring about the tiles
 	for k := range subs {
 		prometheusSubscriptions.WithLabelValues(k).Dec()
-
 	}
 	return err
 }

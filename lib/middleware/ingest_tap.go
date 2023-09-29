@@ -13,7 +13,7 @@ import (
 	"sync"
 )
 
-const NatsAPIv1PwIngestTap = "v1.pw-ingest.tap"
+const NatsAPIv1PwIngestTap = "v1.pw-ingest.tap" //nolint:gosec
 
 type (
 	IngestTap struct {
@@ -93,7 +93,7 @@ func (tap *IngestTap) requestHandler(msg *nats.Msg) {
 	var err error
 	var uIcao uint64
 
-	if "" != icao {
+	if icao != "" {
 		uIcao, err = strconv.ParseUint(icao, 16, 32)
 		if nil != err {
 			log.Error().Err(err).Str("icao", icao).Msg("Failed to convert ICAO string into a uint")
@@ -124,7 +124,6 @@ func (tap *IngestTap) HealthCheckName() string {
 }
 
 func (tap *IngestTap) HealthCheck() bool {
-
 	return true
 }
 
@@ -201,17 +200,17 @@ func (c *condition) match(fe *tracker.FrameEvent) bool {
 	if nil == fe {
 		return false
 	}
-	isMatchApiKey := true
-	if "" != c.apiKey {
+	isMatchAPIKey := true
+	if c.apiKey != "" {
 		source := fe.Source()
 		if nil == source {
 			return false
 		}
-		isMatchApiKey = source.Tag == c.apiKey
+		isMatchAPIKey = source.Tag == c.apiKey
 	}
 
 	isMatchIcao := true
-	if 0 != c.icao {
+	if c.icao != 0 {
 		frame := fe.Frame()
 		if nil == frame {
 			return false
@@ -219,5 +218,5 @@ func (c *condition) match(fe *tracker.FrameEvent) bool {
 		isMatchIcao = frame.Icao() == c.icao
 	}
 
-	return isMatchApiKey && isMatchIcao
+	return isMatchAPIKey && isMatchIcao
 }
