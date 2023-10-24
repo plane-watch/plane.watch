@@ -35,6 +35,17 @@ RUN upx --brute -9 /app/pw_atc_api
 # test binary (make sure it runs after compressing)
 RUN ./pw_atc_api --help
 
+FROM alpine:latest as dev
+LABEL org.opencontainers.image.description="Plane.Watch ATC API"
+
+WORKDIR /app
+COPY --from=build /app/pw_atc_api /app
+
+HEALTHCHECK --interval=15s --timeout=3s CMD wget --spider http://localhost:9602/status
+
+# Command to run
+CMD [ "/app/pw_atc_api", "daemon" ]
+
 FROM alpine:latest
 LABEL org.opencontainers.image.description="Plane.Watch ATC API"
 

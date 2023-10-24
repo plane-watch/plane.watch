@@ -35,6 +35,17 @@ RUN upx --brute -9 /app/pw_router
 # test binary (make sure it runs after compressing)
 RUN ./pw_router --help
 
+FROM alpine:latest as dev
+LABEL org.opencontainers.image.description="Plane.Watch Router"
+
+WORKDIR /app
+COPY --from=build /app/pw_router /app
+
+HEALTHCHECK --interval=15s --timeout=3s CMD wget --spider http://localhost:9601/status
+
+# Command to run
+CMD [ "/app/pw_router", "daemon" ]
+
 FROM alpine:latest
 LABEL org.opencontainers.image.description="Plane.Watch Router"
 

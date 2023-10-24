@@ -35,6 +35,20 @@ RUN upx --brute -9 /app/pw_ingest
 # test binary (make sure it runs after compressing)
 RUN ./pw_ingest --help
 
+FROM alpine:latest as dev
+LABEL org.opencontainers.image.description="Plane.Watch Ingest"
+
+WORKDIR /app
+COPY --from=build /app/pw_ingest /app
+
+# limit ourselves to just location updates
+ENV PUBLISH_TYPES=location-updates
+
+HEALTHCHECK --interval=15s --timeout=3s CMD wget --spider http://localhost:9602/status
+
+# Command to run
+CMD [ "/app/pw_ingest", "daemon" ]
+
 FROM alpine:latest
 LABEL org.opencontainers.image.description="Plane.Watch Ingest"
 

@@ -35,6 +35,18 @@ RUN upx --brute -9 /app/pw_ws_broker
 # test binary (make sure it runs after compressing)
 RUN ./pw_ws_broker --help
 
+FROM alpine:latest as dev
+LABEL org.opencontainers.image.description="Plane.Watch Websocket Broker"
+
+WORKDIR /app
+COPY --from=build /app/pw_ws_broker /app
+EXPOSE 80 443
+
+HEALTHCHECK --interval=15s --timeout=3s CMD wget --spider http://localhost:9603/status
+
+# Command to run
+CMD [ "/app/pw_ws_broker", "daemon" ]
+
 FROM alpine:latest
 LABEL org.opencontainers.image.description="Plane.Watch Websocket Broker"
 
