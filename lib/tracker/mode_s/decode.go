@@ -117,37 +117,37 @@ func (f *Frame) parse() error {
 		f.decodeDownLinkRequest()
 		f.decodeUtilityMessage()
 		err = f.decode13bitAltitudeCode()
-	case 5: //DF_5
+	case 5: // DF_5
 		f.decodeICAO()
 		f.decodeFlightStatus()
 		f.decodeDownLinkRequest()
 		f.decodeUtilityMessage()
 		f.decodeSquawkIdentity(2, 3) // gillham encoded squawk
-	case 11: //DF_11
+	case 11: // DF_11
 		f.decodeICAO()
 		f.decodeCapability()
-	case 16: //DF_16
+	case 16: // DF_16
 		f.decodeICAO()
 		f.decodeVerticalStatus()
 		err = f.decode13bitAltitudeCode()
 		f.decodeReplyInformation()
 		f.decodeSensitivityLevel()
-	case 17: //DF_17
+	case 17: // DF_17
 		f.decodeICAO()
 		f.decodeCapability()
 		f.decodeAdsb()
-	case 18: //DF_18
+	case 18: // DF_18
 		f.decodeCapability() // control field
-		if 0 == f.ca {
+		if f.ca == 0 {
 			f.decodeICAO()
 			f.decodeAdsb()
 		}
-	case 20: //DF_20
+	case 20: // DF_20
 		f.decodeICAO()
 		f.decodeFlightStatus()
 		_ = f.decode13bitAltitudeCode()
 		err = f.decodeCommB()
-	case 21: //DF_21
+	case 21: // DF_21
 		f.decodeICAO()
 		f.decodeFlightStatus()
 		f.decodeSquawkIdentity(2, 3) // gillham encoded squawk

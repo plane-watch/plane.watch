@@ -25,6 +25,9 @@ const (
 	ResponseTypePlaneLocations  = "plane-location-list"
 	ResponseTypePlaneLocHistory = "plane-location-history"
 	ResponseTypeSearchResults   = "search-results"
+
+	GridTileAllLow  = "all_low"
+	GridTileAllHigh = "all_high"
 )
 
 type (

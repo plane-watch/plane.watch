@@ -114,7 +114,7 @@ func (f *ForgetfulSyncMap) sweep() {
 	f.lookup.Range(func(key, value interface{}) bool {
 		m, ok := value.(*marble)
 		if !ok {
-			// not entirely sure how a non marble object got in, but whatever
+			// not entirely sure how a non-marble object got in, but whatever
 			return true
 		}
 
@@ -183,11 +183,11 @@ func (f *ForgetfulSyncMap) Load(key any) (any, bool) {
 	retVal, retBool := f.lookup.Load(key)
 
 	if retBool {
-		if t, tok := retVal.(*marble); tok {
+		t, tok := retVal.(*marble)
+		if tok {
 			return t.value, retBool
-		} else {
-			return nil, false
 		}
+		return nil, false
 	} else {
 		return retVal, retBool
 	}
@@ -224,7 +224,6 @@ func (f *ForgetfulSyncMap) Range(rangeFunc func(key, value interface{}) bool) {
 		} else {
 			return rangeFunc(key, value)
 		}
-
 	})
 }
 

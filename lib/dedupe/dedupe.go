@@ -2,6 +2,7 @@ package dedupe
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rs/zerolog/log"
 	"plane.watch/lib/dedupe/forgetfulmap"
 	"plane.watch/lib/tracker"
 	"plane.watch/lib/tracker/beast"
@@ -41,6 +42,18 @@ func NewFilter(opts ...Option) *Filter {
 	}
 
 	return &f
+}
+func (f *Filter) HealthCheckName() string {
+	return "Dedupe Filter"
+}
+
+func (f *Filter) HealthCheck() bool {
+	log.Info().
+		Str("what", "Dedupe Middleware").
+		Int32("Num Entries", f.list.Len()).
+		Msg("Health Check")
+
+	return true
 }
 
 func (f *Filter) Handle(fe *tracker.FrameEvent) tracker.Frame {

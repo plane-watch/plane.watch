@@ -79,6 +79,12 @@ func NewFilter(opts ...Option) *Filter {
 func (f *Filter) String() string {
 	return "Example Finder/Filter"
 }
+func (f *Filter) HealthCheckName() string {
+	return "Example Finder/Filter"
+}
+func (f *Filter) HealthCheck() bool {
+	return true
+}
 
 func (f *Filter) Handle(fe *tracker.FrameEvent) tracker.Frame {
 	if nil == fe {

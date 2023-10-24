@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"sync"
 	"time"
 
@@ -333,7 +334,7 @@ func IsLocationPossible(prev, next PlaneLocation) bool {
 	deltaBearing := prev.Heading - bearing
 	absDeltaBearing := math.Abs(math.Mod(deltaBearing+180, 360) - 180)
 
-	if absDeltaBearing < 90 { //don't make this less than ~45 degrees, otherwise it'll be inaccurate due to possible wind.
+	if absDeltaBearing < 90 { // don't make this less than ~45 degrees, otherwise it'll be inaccurate due to possible wind.
 		if log.Trace().Enabled() {
 			log.Trace().Str("CallSign", unPtr(next.CallSign)).
 				Str("Next", fmt.Sprintf("(%f,%f)", next.Lat, next.Lon)).
@@ -361,4 +362,74 @@ func IsLocationPossible(prev, next PlaneLocation) bool {
 			Msg("Rejected Position")
 	}
 	return false
+}
+
+func (pl *PlaneLocation) CallSignStr() string {
+	if nil == pl {
+		return ""
+	}
+	if nil == pl.CallSign {
+		return ""
+	}
+	return *pl.CallSign
+}
+
+func (pl *PlaneLocation) SquawkStr() string {
+	if nil == pl {
+		return ""
+	}
+	if pl.Squawk == "0" {
+		return ""
+	}
+	return pl.Squawk
+}
+
+func (pl *PlaneLocation) LatStr() string {
+	if nil == pl {
+		return ""
+	}
+	if !pl.HasLocation {
+		return ""
+	}
+	return strconv.FormatFloat(pl.Lat, 'f', 4, 64)
+}
+
+func (pl *PlaneLocation) LonStr() string {
+	if nil == pl {
+		return ""
+	}
+	if !pl.HasLocation {
+		return ""
+	}
+	return strconv.FormatFloat(pl.Lon, 'f', 4, 64)
+}
+
+func (pl *PlaneLocation) AltitudeStr() string {
+	if nil == pl {
+		return ""
+	}
+	if !pl.HasAltitude {
+		return ""
+	}
+	return strconv.Itoa(pl.Altitude) + " " + pl.AltitudeUnits
+}
+
+func (pl *PlaneLocation) VerticalRateStr() string {
+	if nil == pl {
+		return ""
+	}
+	if !pl.HasVerticalRate {
+		return ""
+	}
+	return strconv.Itoa(pl.VerticalRate)
+}
+
+func (pl *PlaneLocation) HeadingStr() string {
+	if nil == pl {
+		return ""
+	}
+	if !pl.HasHeading {
+		return ""
+	}
+	return strconv.FormatFloat(pl.Heading, 'f', 1, 64)
 }

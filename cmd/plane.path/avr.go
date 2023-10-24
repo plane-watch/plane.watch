@@ -11,14 +11,22 @@ import (
 	"time"
 )
 
-type timeFiddler struct {
+type TimeFiddler struct {
 }
 
-func NewTimeFiddler() *timeFiddler {
-	return &timeFiddler{}
+func (fm *TimeFiddler) HealthCheckName() string {
+	return "Time Fiddler"
 }
 
-func (fm *timeFiddler) String() string {
+func (fm *TimeFiddler) HealthCheck() bool {
+	return true
+}
+
+func NewTimeFiddler() *TimeFiddler {
+	return &TimeFiddler{}
+}
+
+func (fm *TimeFiddler) String() string {
 	return "Time Fiddler"
 }
 
@@ -42,7 +50,7 @@ var lastSeenMap sync.Map
 
 // Handle ensures we have enough time between messages for a plane to have travelled the distance it says it did
 // this is because we do not have the timestamp for when it was collected when processing AVR frames
-func (fm *timeFiddler) Handle(fe *tracker.FrameEvent) tracker.Frame {
+func (fm *TimeFiddler) Handle(fe *tracker.FrameEvent) tracker.Frame {
 	if nil == fe {
 		return nil
 	}
