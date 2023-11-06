@@ -198,7 +198,7 @@ func WithType(producerType int) Option {
 			p.splitter = bufio.ScanLines
 		case Beast:
 			p.producerType = producerType
-			p.splitter = ScanBeast()
+			p.splitter = ScanBeast
 		default:
 			p.log.Error().Msgf("Unknown Producer Type")
 		}

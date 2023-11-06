@@ -204,7 +204,7 @@ func (cpr *CprLocation) computeLongitudeZone() error {
 func (cpr *CprLocation) checkFrameTiming() error {
 	d := cpr.time1.Sub(cpr.time0)
 	tt := math.Abs(float64(d.Milliseconds()))
-	if tt > 1500 { // allow for some network jitter + time of flight jitter
+	if tt > 10_000 { // allow for some network jitter + time of flight jitter
 		return errors.New("unable to decode this CPR Pair. they are too far apart in time")
 	}
 	return nil

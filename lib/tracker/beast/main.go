@@ -63,10 +63,9 @@ func (f *Frame) Decode() error {
 			f.hasDecoded = true
 		}
 		return err
-	} else {
-		f.hasDecoded = true
-		return mode_s.ErrNoOp
 	}
+	f.hasDecoded = true
+	return mode_s.ErrNoOp
 }
 
 func (f *Frame) TimeStamp() time.Time {

@@ -13,7 +13,7 @@ const tokenBufLen = 50
 func (p *Producer) beastScanner(scan *bufio.Scanner) error {
 	lastTimeStamp := time.Duration(0)
 	for scan.Scan() {
-		msg := scan.Bytes()
+		msg := bytes.Clone(scan.Bytes())
 		frame, err := beast.NewFrame(msg, false)
 		if nil != err {
 			continue
@@ -39,77 +39,69 @@ func (p *Producer) beastScanner(scan *bufio.Scanner) error {
 }
 
 // ScanBeast is a splitter for BEAST format messages
-func ScanBeast() func(data []byte, atEOF bool) (int, []byte, error) {
-	// slices are pointers in themselves
-	// let GoLang's garbage collection collect old buffers when they are no longer referenced
-	//var tokenBuf []byte
-	//var tokenBufIdx uint
-	//var l sync.Mutex
-
-	return func(data []byte, atEOF bool) (int, []byte, error) {
-		if atEOF && len(data) == 0 {
-			return 0, nil, nil
-		}
-
-		// skip until we get our first 0x1A (message start)
-		i := bytes.IndexByte(data, 0x1A)
-		if -1 == i || len(data) < i+11 {
-			// we do not even have the smallest message, let's get some more data
-			return 0, nil, nil
-		}
-		// byte 2 is our message type, so it tells us how long this message is
-		msgLen := 0
-		switch data[i+1] {
-		case 0x31:
-			// mode-ac 11 bytes (2+8)
-			// 1(esc), 1(type), 6(mlat), 1(signal), 2(mode-ac)
-			msgLen = 11
-		case 0x32:
-			// mode-s short 16 bytes
-			// 1(esc), 1(type), 6(mlat), 1(signal), 7(mode-s short)
-			msgLen = 16
-		case 0x33:
-			// mode-s long 23 bytes
-			// 1(esc), 1(type), 6(mlat), 1(signal), 14(mode-s extended squitter)
-			msgLen = 23
-		case 0x34:
-			// Config Settings and Stats
-			// 1(esc), 1(type), 6(mlat), 1(unused), (1)DIP Config, (1)timestamp error ticks
-			msgLen = 11
-		case 0x1A:
-			// found an escaped 0x1A, skip that too
-			return i + 2, nil, nil
-
-		default:
-			// unknown? assume we got an out of sequence and skip
-			return i + 1, nil, nil
-		}
-		bufLen := len(data) - i
-		//println("type", data[i+1], "input len", bufLen, "msg len",msgLen)
-		if bufLen >= tokenBufLen {
-			// we have enough in our buffer
-			// account for double escapes
-			bufferAdvance := i + msgLen
-
-			token := [tokenBufLen]byte{}
-
-			dataIndex := i // start at the <esc>/0x1a
-			tokenIndex := 0
-			for tokenIndex < msgLen && dataIndex < i+tokenBufLen {
-				token[tokenIndex] = data[dataIndex]
-
-				// if the next byte is an escaped 0x1A, jump it
-				if data[dataIndex] == 0x1A && data[dataIndex+1] == 0x1A { // skip over the second <esc>
-					bufferAdvance++
-					dataIndex++
-				}
-
-				dataIndex++
-				tokenIndex++
-			}
-			return bufferAdvance, token[0:msgLen], nil
-		}
-		// we want more data!
+func ScanBeast(data []byte, atEOF bool) (int, []byte, error) {
+	if atEOF && len(data) == 0 {
 		return 0, nil, nil
 	}
+
+	// skip until we get our first 0x1A (message start)
+	i := bytes.IndexByte(data, 0x1A)
+	if -1 == i || len(data) < i+11 {
+		// we do not even have the smallest message, let's get some more data
+		return 0, nil, nil
+	}
+	// byte 2 is our message type, so it tells us how long this message is
+	msgLen := 0
+	switch data[i+1] {
+	case 0x31:
+		// mode-ac 11 bytes (2+8)
+		// 1(esc), 1(type), 6(mlat), 1(signal), 2(mode-ac)
+		msgLen = 11
+	case 0x32:
+		// mode-s short 16 bytes
+		// 1(esc), 1(type), 6(mlat), 1(signal), 7(mode-s short)
+		msgLen = 16
+	case 0x33:
+		// mode-s long 23 bytes
+		// 1(esc), 1(type), 6(mlat), 1(signal), 14(mode-s extended squitter)
+		msgLen = 23
+	case 0x34:
+		// Config Settings and Stats
+		// 1(esc), 1(type), 6(mlat), 1(unused), (1)DIP Config, (1)timestamp error ticks
+		msgLen = 11
+	case 0x1A:
+		// found an escaped 0x1A, skip that too
+		return i + 2, nil, nil
+
+	default:
+		// unknown? assume we got an out of sequence and skip
+		return i + 1, nil, nil
+	}
+	bufLen := len(data) - i
+	//println("type", data[i+1], "input len", bufLen, "msg len",msgLen)
+	if bufLen >= tokenBufLen {
+		// we have enough in our buffer
+		// account for double escapes
+		bufferAdvance := i + msgLen
+
+		token := [tokenBufLen]byte{}
+
+		dataIndex := i // start at the <esc>/0x1a
+		tokenIndex := 0
+		for tokenIndex < msgLen && dataIndex < i+tokenBufLen {
+			token[tokenIndex] = data[dataIndex]
+
+			// if the next byte is an escaped 0x1A, jump it
+			if data[dataIndex] == 0x1A && data[dataIndex+1] == 0x1A { // skip over the second <esc>
+				bufferAdvance++
+				dataIndex++
+			}
+
+			dataIndex++
+			tokenIndex++
+		}
+		return bufferAdvance, token[0:msgLen], nil
+	}
+	// we want more data!
+	return 0, nil, nil
 }

@@ -259,7 +259,7 @@ func (f *Frame) parseRawToMessage() error {
 	frameLen := len(f.raw)
 
 	// cheap bitwise even number check!
-	if 0 != (frameLen & 1) {
+	if (frameLen & 1) != 0 {
 		return fmt.Errorf("frame is an odd length (%d), cannot decode unless length is even", frameLen)
 	}
 

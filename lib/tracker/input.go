@@ -99,8 +99,10 @@ func (t *Tracker) Finish() {
 }
 
 func (t *Tracker) EventListener(eventSource EventMaker, waiter *sync.WaitGroup) {
+	// todo: remove this level of indirection!
 	for e := range eventSource.Listen() {
-		t.decodingQueue <- &e
+		foobar := *(&e)
+		t.decodingQueue <- &foobar
 	}
 	waiter.Done()
 	t.log.Debug().Msg("Done with Event Source")
@@ -208,6 +210,7 @@ func (t *Tracker) decodeQueue() {
 		if nil != t.stats.decodedFrames {
 			t.stats.decodedFrames.Inc()
 		}
+
 		frame := f.Frame()
 		err := frame.Decode()
 		if nil != err {
@@ -232,7 +235,6 @@ func (t *Tracker) decodeQueue() {
 
 		switch typeFrame := frame.(type) {
 		case *beast.Frame:
-
 			plane.HandleModeSFrame(typeFrame.AvrFrame(), f.Source().RefLat, f.Source().RefLon)
 			plane.setSignalLevel(typeFrame.SignalRssi())
 		case *mode_s.Frame:
