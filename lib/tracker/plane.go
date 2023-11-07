@@ -814,7 +814,7 @@ func (p *Plane) addLatLong(lat, lon float64, ts time.Time) (warn error) {
 	p.location.cprDecodedTs = ts
 
 	needsLookup := true
-	if "" != p.location.gridTileLocation {
+	if p.location.gridTileLocation != "" {
 		if tile_grid.InGridLocation(lat, lon, p.location.gridTileLocation) {
 			needsLookup = false
 		}
