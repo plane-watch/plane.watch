@@ -41,7 +41,9 @@ type (
 		splitter                      bufio.SplitFunc
 		beastDelay, keepAliveRepeater bool
 
-		run func()
+		run         func()
+		running     bool
+		runningLock sync.Mutex
 
 		stats struct {
 			avr, beast, sbs1 prometheus.Counter
@@ -232,8 +234,8 @@ func (p *Producer) readFromScanner(scan *bufio.Scanner) error {
 func WithReferenceLatLon(lat, lon float64) Option {
 	return func(p *Producer) {
 		p.log.Debug().Float64("lat", lat).Float64("lon", lon).Msg("With Reference Lat/Lon")
-		p.RefLat = &lat
-		p.RefLon = &lon
+		p.FrameSource.RefLat = &lat
+		p.FrameSource.RefLon = &lon
 	}
 }
 func WithKeepAliveRepeater() Option {
@@ -243,11 +245,16 @@ func WithKeepAliveRepeater() Option {
 }
 
 func (p *Producer) String() string {
-	return p.Name
+	return p.FrameSource.Name
 }
 
 func (p *Producer) Listen() chan tracker.FrameEvent {
-	go p.run()
+	p.runningLock.Lock()
+	defer p.runningLock.Unlock()
+	if !p.running {
+		go p.run()
+		p.running = true
+	}
 	return p.out
 }
 
@@ -261,15 +268,15 @@ func (p *Producer) addFrame(f tracker.Frame, s *tracker.FrameSource) {
 }
 
 func (p *Producer) addDebug(sfmt string, v ...interface{}) {
-	p.log.Debug().Str("section", p.Name).Msgf(sfmt, v...)
+	p.log.Debug().Str("section", p.FrameSource.Name).Msgf(sfmt, v...)
 }
 
 func (p *Producer) addInfo(sfmt string, v ...interface{}) {
-	p.log.Info().Str("section", p.Name).Msgf(sfmt, v...)
+	p.log.Info().Str("section", p.FrameSource.Name).Msgf(sfmt, v...)
 }
 
 func (p *Producer) addError(err error) {
-	p.log.Error().Str("section", p.Name).Err(err).Send()
+	p.log.Error().Str("section", p.FrameSource.Name).Err(err).Send()
 }
 
 func (p *Producer) HealthCheck() bool {
@@ -297,7 +304,11 @@ func (p *Producer) AddEvent(e tracker.FrameEvent) {
 }
 
 func (p *Producer) Cleanup() {
-	defer func() { recover() }()
+	defer func() {
+		if r := recover(); nil != r {
+			p.log.Error().Interface("recover", r).Msg("Cleanup() had a panic")
+		}
+	}()
 	close(p.out)
 }
 
@@ -397,6 +408,7 @@ func (p *Producer) fetcher(host, port string, read func(net.Conn) error) {
 		}
 		p.addDebug("Done with Producer %s", p)
 		p.Cleanup()
+		p.addDebug("cleanup is done %s", p)
 	}()
 
 	go func() {
@@ -407,7 +419,9 @@ func (p *Producer) fetcher(host, port string, read func(net.Conn) error) {
 				wLock.Lock()
 				working = false
 				if nil != conn {
-					_ = conn.Close()
+					if err := conn.Close(); err != nil {
+						p.log.Error().Err(err).Msg("Err when closing socket")
+					}
 				}
 				wLock.Unlock()
 				return

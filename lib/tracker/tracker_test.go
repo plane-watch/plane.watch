@@ -565,15 +565,9 @@ func (tp *testProducer) addMsg() {
 	tp.idx++
 }
 
-func withDecodeQueueDepth(num int) Option {
-	return func(t *Tracker) {
-		t.decodingQueueDepth = num
-	}
-}
-
 func BenchmarkTracker_AddFrame(b *testing.B) {
 	b.StopTimer()
-	tracker := NewTracker(WithDecodeWorkerCount(1), withDecodeQueueDepth(1))
+	tracker := NewTracker(WithDecodeWorkerCount(1))
 	tp := newTestProducer()
 	tracker.AddProducer(tp)
 

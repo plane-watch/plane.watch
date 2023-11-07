@@ -32,8 +32,6 @@ type (
 		middlewareWaiter sync.WaitGroup
 
 		decodeWorkerCount   int
-		decodingQueue       chan *FrameEvent
-		decodingQueueDepth  int
 		decodingQueueWaiter sync.WaitGroup
 
 		finishDone   bool
@@ -70,14 +68,13 @@ func (d dummySink) HealthCheck() bool {
 // NewTracker creates a new tracker with which we can populate with plane tracking data
 func NewTracker(opts ...Option) *Tracker {
 	t := &Tracker{
-		producers:          []Producer{},
-		middlewares:        []Middleware{},
-		decodeWorkerCount:  5,
-		pruneTick:          10 * time.Second,
-		pruneAfter:         5 * time.Minute,
-		decodingQueueDepth: 1000,
-		sink:               dummySink{},
-		startTime:          time.Now(),
+		producers:         []Producer{},
+		middlewares:       []Middleware{},
+		decodeWorkerCount: 5,
+		pruneTick:         10 * time.Second,
+		pruneAfter:        5 * time.Minute,
+		sink:              dummySink{},
+		startTime:         time.Now(),
 
 		log: log.With().Str("Section", "Tracker").Logger(),
 	}
@@ -85,8 +82,6 @@ func NewTracker(opts ...Option) *Tracker {
 	for _, opt := range opts {
 		opt(t)
 	}
-
-	t.decodingQueue = make(chan *FrameEvent, t.decodingQueueDepth)
 
 	t.planeList = forgetfulmap.NewForgetfulSyncMap(
 		forgetfulmap.WithSweepInterval(t.pruneTick),
@@ -122,11 +117,6 @@ func NewTracker(opts ...Option) *Tracker {
 			return result
 		}),
 	)
-
-	t.decodingQueueWaiter.Add(t.decodeWorkerCount)
-	for i := 0; i < t.decodeWorkerCount; i++ {
-		go t.decodeQueue()
-	}
 
 	return t
 }
@@ -166,7 +156,7 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 		return
 	}
 	icao := frame.Icao()
-	if 0 == icao {
+	if icao == 0 {
 		return
 	}
 	var planeFormat string
@@ -174,14 +164,12 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 
 	p.setLastSeen(frame.TimeStamp())
 	p.incMsgCount()
-	p.addFrame(frame)
+	//p.addFrame(frame)
 
 	debugMessage := func(sfmt string, a ...interface{}) {
-		//if zerolog.GlobalLevel() <= zerolog.DebugLevel {
 		if p.tracker.log.Debug().Enabled() {
 			planeFormat = fmt.Sprintf("DF%02d - \033[0;97mPlane (\033[38;5;118m%s %-8s\033[0;97m)", frame.DownLinkType(), p.IcaoIdentifierStr(), p.FlightNumber())
 			p.tracker.log.Debug().Msgf(planeFormat+sfmt, a...)
-
 		}
 	}
 
@@ -201,7 +189,7 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 	// if there is no tile location for this plane and we have a refLat/refLon - let's assume it is in the same tile
 	// as the receiver. This will be "fixed" for aircraft sending lat/lon within a few frames if it is different.
 	// this means that all the aircraft that do not send locations, will at least have a chance of showing up.
-	if "" == p.GridTileLocation() && nil != refLat && nil != refLon {
+	if p.GridTileLocation() == "" && nil != refLat && nil != refLon {
 		p.location.gridTileLocation = tile_grid.LookupTile(*refLat, *refLon)
 	}
 
@@ -244,7 +232,7 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 		}
 		hasChanged = p.setFlightStatus(frame.FlightStatus(), frame.FlightStatusString(), frame.TimeStamp()) || hasChanged
 
-		if 5 == frame.DownLinkType() { // || 21 == frame.DownLinkType()
+		if frame.DownLinkType() == 5 { // || 21 == frame.DownLinkType()
 			hasChanged = p.setSquawkIdentity(frame.SquawkIdentity(), frame.TimeStamp()) || hasChanged
 		}
 
@@ -260,10 +248,7 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 		}
 
 	case 17, 18, 19: // ADS-B
-		//if debug {
-		//	frame.Describe(os.Stdout)
-		//}
-		// i am using the text version because it is easier to program with.
+		// I am using the text version because it is easier to program with.
 		// if performance is an issue, change over to byte comparing
 		messageType := frame.MessageTypeString()
 		switch messageType {
@@ -355,19 +340,19 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 				debugMessage(" has %s and is travelling at %0.2f knots\033[0m", headingStr, p.Velocity())
 			}
 
-		case mode_s.DF17FrameTestMessage: //, "Test Message":
+		case mode_s.DF17FrameTestMessage:
 			debugMessage("\033[2m Ignoring: DF%d %s\033[0m", frame.DownLinkType(), messageType)
-		case mode_s.DF17FrameTestMessageSquawk: //, "Test Message":
+		case mode_s.DF17FrameTestMessageSquawk:
 			{
 				if frame.SquawkIdentity() > 0 {
 					hasChanged = p.setSquawkIdentity(frame.SquawkIdentity(), frame.TimeStamp()) || hasChanged
 				}
 			}
-		case mode_s.DF17FrameSurfaceSystemStatus: //, "Surface System status":
+		case mode_s.DF17FrameSurfaceSystemStatus:
 			hasChanged = p.setGroundStatus(true, frame.TimeStamp()) || hasChanged
 			debugMessage("\033[2m Ignoring: DF%d %s\033[0m", frame.DownLinkType(), messageType)
 
-		case mode_s.DF17FrameEmergencyPriority: //, "Extended Squitter Aircraft status (Emergency)":
+		case mode_s.DF17FrameEmergencyPriority:
 			{
 				debugMessage("\033[2m %s\033[0m", messageType)
 				if frame.Alert() {
@@ -376,15 +361,15 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 				}
 				hasChanged = p.setSquawkIdentity(frame.SquawkIdentity(), frame.TimeStamp()) || hasChanged
 			}
-		case mode_s.DF17FrameTcasRA: //, "Extended Squitter Aircraft status (1090ES TCAS RA)":
+		case mode_s.DF17FrameTcasRA:
 			{
 				debugMessage("\033[2m Ignoring: DF%d %s\033[0m", frame.DownLinkType(), messageType)
 			}
-		case mode_s.DF17FrameTargetStateStatus: //, "Target State and status Message":
+		case mode_s.DF17FrameTargetStateStatus:
 			{
 				debugMessage("\033[2m Ignoring: DF%d %s\033[0m", frame.DownLinkType(), messageType)
 			}
-		case mode_s.DF17FrameAircraftOperational: //, "Aircraft Operational status Message":
+		case mode_s.DF17FrameAircraftOperational:
 			{
 				if frame.VerticalStatusValid() {
 					hasChanged = p.setGroundStatus(frame.MustOnGround(), frame.TimeStamp()) || hasChanged
@@ -409,7 +394,7 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 		}
 	}
 
-	if "" == p.location.gridTileLocation && nil != refLat && nil != refLon {
+	if p.location.gridTileLocation == "" && nil != refLat && nil != refLon {
 		// do not have a grid tile for this plane, let's assume it is in same tile as the receiver
 		p.location.gridTileLocation = tile_grid.LookupTile(*refLat, *refLon)
 		hasChanged = p.location.gridTileLocation != "" || hasChanged
