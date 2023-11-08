@@ -18,7 +18,7 @@ func TestFilter_Handle(t *testing.T) {
 	if nil != err {
 		t.Error(err)
 	}
-	fe := tracker.NewFrameEvent(&frame, nil)
+	fe := tracker.NewFrameEvent(frame, nil)
 
 	resp := filter.Handle(&fe)
 
@@ -35,7 +35,7 @@ func BenchmarkFilter_HandleDuplicates(b *testing.B) {
 	filter := NewFilter()
 
 	frame, _ := beast.NewFrame(beastModeSShort, false)
-	fe := tracker.NewFrameEvent(&frame, nil)
+	fe := tracker.NewFrameEvent(frame, nil)
 	filter.Handle(&fe)
 
 	for n := 0; n < b.N; n++ {
@@ -52,7 +52,7 @@ func BenchmarkFilter_HandleUnique(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		beastModeSTest := []byte{0x1a, 0x32, 0x22, 0x1b, 0x54, 0xf0, 0x81, 0x2b, 0x26, byte(n >> 24), byte(n >> 16), byte(n >> 8), byte(n), 0, 0, 0}
 		msg, _ := beast.NewFrame(beastModeSTest, false)
-		fe := tracker.NewFrameEvent(&msg, nil)
+		fe := tracker.NewFrameEvent(msg, nil)
 
 		if nil == filter.Handle(&fe) {
 			b.Fatal("Expected to insert new message")
@@ -60,6 +60,7 @@ func BenchmarkFilter_HandleUnique(b *testing.B) {
 		if nil != filter.Handle(&fe) {
 			b.Fatal("Failed duplicate insert")
 		}
+		beast.Release(msg)
 	}
 
 	if int(filter.list.Len()) != b.N {

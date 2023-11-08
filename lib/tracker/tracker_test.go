@@ -398,9 +398,10 @@ func TestFarApartLocationUpdatesFail(t *testing.T) {
 		}
 		return f
 	}
+	// more than 10s apart
 	frames := []*mode_s.Frame{
 		md(mode_s.DecodeString("8D4CC54C58D3012E5A42EC86E201", time.Unix(1654054750, 540447277))),
-		md(mode_s.DecodeString("8D4CC54C58D304E49BF688F07265", time.Unix(1654054754, 563149779))),
+		md(mode_s.DecodeString("8D4CC54C58D304E49BF688F07265", time.Unix(1654054764, 563149779))),
 		md(mode_s.DecodeString("8D4CC54C58D3012D1E44DD9DB4C3", time.Unix(1654054761, 392075155))),
 		md(mode_s.DecodeString("8D4CC54C58D304DFD3FE0680A0AE", time.Unix(1654054797, 461184199))),
 	}
@@ -408,7 +409,7 @@ func TestFarApartLocationUpdatesFail(t *testing.T) {
 	// make sure our frame timestamps are correct
 	expectedUnixNano := []int64{
 		1654054750540447277,
-		1654054754563149779,
+		1654054764563149779,
 		1654054761392075155,
 		1654054797461184199,
 	}
@@ -417,12 +418,12 @@ func TestFarApartLocationUpdatesFail(t *testing.T) {
 			t.Errorf("Incorrect unix timestamp for frame %d. Expected %d != %d", i, expectedUnixNano[i], frames[i].TimeStamp().UnixNano())
 		}
 	}
-
+	source := &FrameSource{VelocityCheck: true}
 	tkr := NewTracker()
 	p := tkr.GetPlane(0x4CC54C)
 
 	for i := 0; i < 4; i++ {
-		p.HandleModeSFrame(frames[i], nil)
+		p.HandleModeSFrame(frames[i], source)
 
 		if p.location.hasLatLon {
 			t.Error("Should not have decoded lat/lon")
@@ -460,7 +461,7 @@ func TestBadLocationUpdateRejected(t *testing.T) {
 	//  "Lat": 89.90261271848516,
 	//  "Lon": -86.77276611328125,
 
-	if 53.290813898636124 != p.location.latitude {
+	if p.location.latitude != 53.290813898636124 {
 		t.Error("Wrong Latitude")
 	}
 
@@ -533,7 +534,7 @@ func newTestProducer() *testProducer {
 	}
 	for k := range messages {
 		frame, _ := beast.NewFrame(messages[k], false)
-		tp.frames = append(tp.frames, frame)
+		tp.frames = append(tp.frames, *frame)
 	}
 	return &tp
 }

@@ -3,9 +3,9 @@ package dedupe
 import "plane.watch/lib/tracker/beast"
 
 func makeBeastMessages(iterMax int) []*beast.Frame {
-	//max := 0x00FFFFFF
-	max := iterMax * iterMax * iterMax
-	messages := make([]*beast.Frame, 0, max)
+	//maxVal := 0x00FFFFFF
+	maxVal := iterMax * iterMax * iterMax
+	messages := make([]*beast.Frame, 0, maxVal)
 
 	// setup our test data
 	template := make([]byte, len(beastModeSShort))
@@ -22,7 +22,7 @@ func makeBeastMessages(iterMax int) []*beast.Frame {
 				shrt[14] = byte(y)
 				shrt[15] = byte(z)
 				frame, _ := beast.NewFrame(shrt, false)
-				messages = append(messages, &frame)
+				messages = append(messages, frame)
 			}
 		}
 	}

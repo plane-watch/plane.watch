@@ -217,7 +217,7 @@ func BenchmarkNewFrameAndDecode(b *testing.B) {
 	for _, name := range keys {
 		arg := messages[name]
 		b.Run(name, func(bb *testing.B) {
-			var frame Frame
+			var frame *Frame
 			var err error
 			for n := 0; n < bb.N; n++ {
 				frame, err = NewFrame(arg, false)

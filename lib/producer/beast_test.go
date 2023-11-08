@@ -141,7 +141,7 @@ func TestScanBeast(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			scanner := ScanBeast()
+			scanner := ScanBeast
 			gotAdvance, gotToken, err := scanner(tt.args.data, tt.args.atEOF)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ScanBeast() error = %v, wantErr %v", err, tt.wantErr)
@@ -203,7 +203,7 @@ func Test_producer_beastScanner(t *testing.T) {
 }
 
 func TestScanBeastUnique(t *testing.T) {
-	scanner := ScanBeast()
+	scanner := ScanBeast
 
 	buf := append(append(beastModeSShort, beastModeSLong...), emptyBuf...)
 
@@ -252,7 +252,7 @@ func TestScanBeastBufferWorks(t *testing.T) {
 	short := bytes.Repeat(beastModeSShort, tokenBufSize)
 	long := bytes.Repeat(beastModeSLong, tokenBufSize)
 	scanner := bufio.NewScanner(bytes.NewReader(append(append(short, long...), emptyBuf...)))
-	scanner.Split(ScanBeast())
+	scanner.Split(ScanBeast)
 
 	idx := 0
 	tokens := make([][]byte, 2*tokenBufSize)
@@ -292,7 +292,7 @@ func BenchmarkScanBeast(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		_, _ = f.Seek(0, 0)
 		scanner := bufio.NewScanner(f)
-		scanner.Split(ScanBeast())
+		scanner.Split(ScanBeast)
 		for scanner.Scan() {
 		}
 	}
@@ -308,7 +308,7 @@ func BenchmarkBeastDecode(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		_, _ = f.Seek(0, 0)
 		scanner := bufio.NewScanner(f)
-		scanner.Split(ScanBeast())
+		scanner.Split(ScanBeast)
 		for scanner.Scan() {
 			msg := scanner.Bytes()
 			frame, err := beast.NewFrame(msg, false)
