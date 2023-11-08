@@ -104,7 +104,10 @@ func main() {
 func commonSetup(c *cli.Context) (*tracker.Tracker, error) {
 	monitoring.RunWebServer(c)
 
-	// let's parse our URL forms
+	producers, err := setup.HandleSourceFlags(c)
+	if nil != err {
+		return nil, err
+	}
 
 	trackerOpts := make([]tracker.Option, 0)
 	trackerOpts = append(trackerOpts, tracker.WithPrometheusCounters(prometheusGaugeCurrentPlanes, prometheusCounterFramesDecoded))
@@ -126,10 +129,6 @@ func commonSetup(c *cli.Context) (*tracker.Tracker, error) {
 		}
 	}
 
-	producers, err := setup.HandleSourceFlags(c)
-	if nil != err {
-		return nil, err
-	}
 	for _, p := range producers {
 		trk.AddProducer(p)
 	}
@@ -138,9 +137,9 @@ func commonSetup(c *cli.Context) (*tracker.Tracker, error) {
 }
 
 func runSimple(c *cli.Context) error {
-	defer func() {
-		recover()
-	}()
+	//defer func() {
+	//	recover()
+	//}()
 	logging.ConfigureForCli()
 
 	trk, err := commonSetup(c)

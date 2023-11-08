@@ -111,7 +111,7 @@ func TestGetPlane(t *testing.T) {
 		t.Errorf("latitude Calculation was incorrect: expected 10.2162144547802, got %0.13f", location.latitude)
 	}
 
-	_ = plane.addLatLong(location.latitude, location.longitude, time.Now())
+	_ = plane.addLatLong(location.latitude, location.longitude, time.Now(), true)
 }
 
 func Test_headingInfo_getCompassLabel(t *testing.T) {

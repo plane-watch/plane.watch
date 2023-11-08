@@ -65,6 +65,7 @@ func New(opts ...Option) *Producer {
 			Tag:              "",
 			RefLat:           nil,
 			RefLon:           nil,
+			VelocityCheck:    true,
 		},
 		out:     make(chan tracker.FrameEvent, 100),
 		cmdChan: make(chan int),
@@ -176,6 +177,7 @@ func WithOriginName(name string) Option {
 
 func WithFiles(filePaths []string) Option {
 	return func(p *Producer) {
+		p.FrameSource.VelocityCheck = p.beastDelay
 		p.run = func() {
 			p.readFiles(filePaths, func(reader io.Reader, fileName string) error {
 				scanner := bufio.NewScanner(reader)
@@ -213,6 +215,10 @@ func WithPrometheusCounters(avr, beast, sbs1 prometheus.Counter) Option {
 		p.stats.beast = beast
 		p.stats.sbs1 = sbs1
 	}
+}
+
+func (p *Producer) Source() *tracker.FrameSource {
+	return &p.FrameSource
 }
 
 func (p *Producer) readFromScanner(scan *bufio.Scanner) error {

@@ -9,7 +9,7 @@ type (
 		String() string
 	}
 
-	//PlaneLocationEvent is send whenever a planes information has been updated
+	// PlaneLocationEvent is sent whenever a planes information has been updated
 	PlaneLocationEvent struct {
 		new, removed bool
 		p            *Plane
@@ -25,6 +25,7 @@ type (
 		OriginIdentifier string
 		Name, Tag        string
 		RefLat, RefLon   *float64
+		VelocityCheck    bool
 	}
 )
 

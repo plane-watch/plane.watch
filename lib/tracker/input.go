@@ -43,6 +43,7 @@ type (
 	// A Producer can send *FrameEvent events
 	Producer interface {
 		EventMaker
+		Source() *FrameSource
 		fmt.Stringer
 		monitoring.HealthCheck
 	}
@@ -67,6 +68,7 @@ func WithDecodeWorkerCount(numDecodeWorkers int) Option {
 		t.decodeWorkerCount = numDecodeWorkers
 	}
 }
+
 func WithPruneTiming(pruneTick, pruneAfter time.Duration) Option {
 	return func(t *Tracker) {
 		t.pruneTick = pruneTick
@@ -90,7 +92,6 @@ func (t *Tracker) Finish() {
 	for _, p := range t.producers {
 		t.log.Debug().Str("func", "Finish()").Str("producer", p.String()).Msg("Stopping Producer")
 		p.Stop()
-		t.producerWaiter.Done()
 	}
 	t.log.Debug().Str("func", "Finish()").Msg("Closing Decoding Queue")
 	t.planeList.Stop()
@@ -108,8 +109,20 @@ func (t *Tracker) AddProducer(p Producer) {
 	t.producers = append(t.producers, p)
 	t.producerWaiter.Add(1)
 
+	doneChan := make(chan bool)
+	inFlight := t.decodeWorkerCount
+	go func() {
+		for range doneChan {
+			inFlight--
+			if inFlight == 0 {
+				break
+			}
+		}
+		close(doneChan)
+		t.producerWaiter.Done()
+	}()
 	for i := 0; i < t.decodeWorkerCount; i++ {
-		go t.decodeQueue(p.Listen())
+		go t.decodeQueue(p.Listen(), doneChan)
 	}
 	t.log.Info().
 		Int("num workers", t.decodeWorkerCount).
@@ -202,7 +215,7 @@ func (t *Tracker) Wait() {
 	t.log.Debug().Msg("events waiter done")
 }
 
-func (t *Tracker) decodeQueue(decodingQueue chan FrameEvent) {
+func (t *Tracker) decodeQueue(decodingQueue chan FrameEvent, done chan bool) {
 	t.decodingQueueWaiter.Add(1)
 	for frameEvent := range decodingQueue {
 		if nil != t.stats.decodedFrames {
@@ -237,10 +250,10 @@ func (t *Tracker) decodeQueue(decodingQueue chan FrameEvent) {
 
 		switch typeFrame := frame.(type) {
 		case *beast.Frame:
-			plane.HandleModeSFrame(typeFrame.AvrFrame(), frameEvent.Source().RefLat, frameEvent.Source().RefLon)
+			plane.HandleModeSFrame(typeFrame.AvrFrame(), frameEvent.Source())
 			plane.setSignalLevel(typeFrame.SignalRssi())
 		case *mode_s.Frame:
-			plane.HandleModeSFrame(typeFrame, frameEvent.Source().RefLat, frameEvent.Source().RefLon)
+			plane.HandleModeSFrame(typeFrame, frameEvent.Source())
 		case *sbs1.Frame:
 			plane.HandleSbs1Frame(typeFrame)
 		default:
@@ -249,4 +262,5 @@ func (t *Tracker) decodeQueue(decodingQueue chan FrameEvent) {
 	}
 	t.decodingQueueWaiter.Done()
 	t.log.Debug().Msg("decodeQueue() is done")
+	done <- true
 }

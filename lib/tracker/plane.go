@@ -721,7 +721,7 @@ func (p *Plane) Lon() float64 {
 	return p.location.longitude
 }
 
-func (p *Plane) decodeCprFilledRefLatLon(refLat, refLon *float64, ts time.Time) error {
+func (p *Plane) decodeCprFilledRefLatLon(refLat, refLon *float64, velocityCheck bool) error {
 	if nil == refLat || nil == refLon {
 		// let's see if we can use a past plane location for this decode
 		// all we need for our reference lat/lon is a location within 45 nautical miles
@@ -737,7 +737,7 @@ func (p *Plane) decodeCprFilledRefLatLon(refLat, refLon *float64, ts time.Time) 
 		}
 	}
 	if nil != refLat && nil != refLon {
-		if err := p.decodeCpr(*refLat, *refLon, ts); nil != err {
+		if err := p.decodeCpr(*refLat, *refLon, velocityCheck); nil != err {
 			return err
 		}
 	}
@@ -745,7 +745,7 @@ func (p *Plane) decodeCprFilledRefLatLon(refLat, refLon *float64, ts time.Time) 
 }
 
 // addLatLong Adds a Lat/Long pair to our location tracking and sets it as the current plane location
-func (p *Plane) addLatLong(lat, lon float64, ts time.Time) (warn error) {
+func (p *Plane) addLatLong(lat, lon float64, ts time.Time, velocityCheck bool) (warn error) {
 	if lat < -95.0 || lat > 95 || lon < -180 || lon > 180 {
 		return fmt.Errorf("cannot add invalid coordinates {%0.6f, %0.6f}", lat, lon)
 	}
@@ -756,11 +756,12 @@ func (p *Plane) addLatLong(lat, lon float64, ts time.Time) (warn error) {
 	var durationTravelled float64
 	numHistoryItems := len(p.locationHistory)
 	// determine speed?
-	if numHistoryItems > 0 && p.location.latitude != 0 && p.location.longitude != 0 {
+	doVelocityCheck := velocityCheck && numHistoryItems > 0 && p.location.latitude != 0 && p.location.longitude != 0
+	if doVelocityCheck {
 		referenceTime := p.locationHistory[numHistoryItems-1].cprDecodedTs
 		if !referenceTime.IsZero() && referenceTime.Before(ts) {
 			durationTravelled = float64(ts.Sub(referenceTime)) / float64(time.Second)
-			if 0.0 == durationTravelled {
+			if durationTravelled == 0.0 {
 				durationTravelled = 1
 			}
 			acceptableMaxDistance := (1 + durationTravelled) * 686 // mach2 in metres/second seems fast enough...
@@ -785,19 +786,19 @@ func (p *Plane) addLatLong(lat, lon float64, ts time.Time) (warn error) {
 					Floats64("This Lat/Lon", []float64{lat, lon}).
 					Msg("A Frame Too Far")
 
-				var lastTs int64
+				var lastTS int64
 				p.recentFrames.Range(func(f *mode_s.Frame) bool {
-					if 0 == lastTs {
-						lastTs = f.TimeStamp().UnixNano()
+					if 0 == lastTS {
+						lastTS = f.TimeStamp().UnixNano()
 					}
 					p.tracker.log.Error().
 						Str("ICAO", f.IcaoStr()).
 						Time("received", f.TimeStamp()).
 						Int64("unix nano", f.TimeStamp().UnixNano()).
 						Str("Frame", f.RawString()).
-						Int64("Time Diff ms", (lastTs-f.TimeStamp().UnixNano())/1e6).
+						Int64("Time Diff ms", (lastTS-f.TimeStamp().UnixNano())/1e6).
 						Msg("Frames Leading to Broken Track")
-					lastTs = f.TimeStamp().UnixNano()
+					lastTS = f.TimeStamp().UnixNano()
 					return true
 				})
 				return
@@ -848,7 +849,7 @@ func (p *Plane) setCprOddLocation(lat, lon float64, t time.Time) error {
 }
 
 // decodeCpr decodes the CPR Even and Odd frames and gets our Plane position
-func (p *Plane) decodeCpr(refLat, refLon float64, ts time.Time) error {
+func (p *Plane) decodeCpr(refLat, refLon float64, velocityCheck bool) error {
 	p.cprLocation.refLat = refLat
 	p.cprLocation.refLon = refLon
 	loc, err := p.cprLocation.decode(p.OnGround())
@@ -856,7 +857,7 @@ func (p *Plane) decodeCpr(refLat, refLon float64, ts time.Time) error {
 		return err
 	}
 
-	return p.addLatLong(loc.latitude, loc.longitude, loc.cprDecodedTs)
+	return p.addLatLong(loc.latitude, loc.longitude, loc.cprDecodedTs, velocityCheck)
 }
 
 // LocationHistory returns the track history of the Plane

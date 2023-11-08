@@ -176,7 +176,7 @@ func performTrackingTest(frames []string, t *testing.T) *Tracker {
 		if nil != err {
 			t.Errorf("%s", err)
 		}
-		trk.GetPlane(frame.Icao()).HandleModeSFrame(frame, nil, nil)
+		trk.GetPlane(frame.Icao()).HandleModeSFrame(frame, nil)
 	}
 	return trk
 }
@@ -226,7 +226,7 @@ func TestTrackingLocationHistory(t *testing.T) {
 				return
 			}
 			plane := trk.GetPlane(frame.Icao())
-			plane.HandleModeSFrame(frame, nil, nil)
+			plane.HandleModeSFrame(frame, nil)
 			numHistory := len(plane.locationHistory)
 			if tt.numLocations != numHistory {
 				t.Errorf("Expected plane to have %d history items, actually has %d", tt.numLocations, numHistory)
@@ -245,7 +245,7 @@ func TestTrackingLocationHistory(t *testing.T) {
 func TestPlane_HasLocation(t *testing.T) {
 	trk := NewTracker()
 	p := trk.GetPlane(0x010101)
-	err := p.addLatLong(0.01, 0.02, time.Now())
+	err := p.addLatLong(0.01, 0.02, time.Now(), true)
 	if nil != err {
 		t.Errorf("Got error when adding lat/lon: %s", err)
 	}
@@ -422,7 +422,7 @@ func TestFarApartLocationUpdatesFail(t *testing.T) {
 	p := tkr.GetPlane(0x4CC54C)
 
 	for i := 0; i < 4; i++ {
-		p.HandleModeSFrame(frames[i], nil, nil)
+		p.HandleModeSFrame(frames[i], nil)
 
 		if p.location.hasLatLon {
 			t.Error("Should not have decoded lat/lon")
@@ -450,7 +450,7 @@ func TestBadLocationUpdateRejected(t *testing.T) {
 	p := tkr.GetPlane(0x4CA813)
 
 	for i := 0; i < 4; i++ {
-		p.HandleModeSFrame(frames[i], nil, nil)
+		p.HandleModeSFrame(frames[i], nil)
 	}
 	if !p.location.hasLatLon {
 		t.Error("Should have decoded lat/lon")
@@ -478,6 +478,10 @@ type testProducer struct {
 	idx    int
 	e      chan FrameEvent
 	source *FrameSource
+}
+
+func (tp *testProducer) Source() *FrameSource {
+	return tp.source
 }
 
 func newTestProducer() *testProducer {

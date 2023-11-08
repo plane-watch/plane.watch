@@ -28,14 +28,13 @@ type (
 		middlewares []Middleware
 		sink        Sink
 
-		producerWaiter   sync.WaitGroup
-		middlewareWaiter sync.WaitGroup
-
-		decodeWorkerCount   int
+		producerWaiter      sync.WaitGroup
+		middlewareWaiter    sync.WaitGroup
+		eventsWaiter        sync.WaitGroup
 		decodingQueueWaiter sync.WaitGroup
 
-		finishDone   bool
-		eventsWaiter sync.WaitGroup
+		decodeWorkerCount int
+		finishDone        bool
 
 		startTime time.Time
 
@@ -151,7 +150,7 @@ func (t *Tracker) EachPlane(pi PlaneIterator) {
 	})
 }
 
-func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
+func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, source *FrameSource) {
 	if nil == frame {
 		return
 	}
@@ -161,6 +160,14 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 	}
 	var planeFormat string
 	var hasChanged bool
+	var refLat, refLon *float64
+	checkVelocity := true
+
+	if source != nil {
+		refLat = source.RefLat
+		refLon = source.RefLon
+		checkVelocity = source.VelocityCheck
+	}
 
 	p.setLastSeen(frame.TimeStamp())
 	p.incMsgCount()
@@ -283,7 +290,7 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 				} else {
 					_ = p.setCprOddLocation(float64(frame.Latitude()), float64(frame.Longitude()), frame.TimeStamp())
 				}
-				if err := p.decodeCprFilledRefLatLon(refLat, refLon, frame.TimeStamp()); nil != err {
+				if err := p.decodeCprFilledRefLatLon(refLat, refLon, checkVelocity); nil != err {
 					debugMessage("%s", err)
 				} else {
 					hasChanged = true
@@ -307,7 +314,7 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 
 			altitude, _ := frame.Altitude()
 			hasChanged = p.setAltitude(altitude, frame.AltitudeUnits(), frame.TimeStamp()) || hasChanged
-			if err := p.decodeCpr(0, 0, frame.TimeStamp()); nil != err {
+			if err := p.decodeCpr(0, 0, checkVelocity); nil != err {
 				debugMessage("%s", err)
 			} else {
 				hasChanged = true
@@ -414,7 +421,7 @@ func (p *Plane) HandleSbs1Frame(frame *sbs1.Frame) {
 	p.setLastSeen(frame.TimeStamp())
 	p.incMsgCount()
 	if frame.HasPosition {
-		if err := p.addLatLong(frame.Lat, frame.Lon, frame.Received); nil != err {
+		if err := p.addLatLong(frame.Lat, frame.Lon, frame.Received, true); nil != err {
 			p.tracker.log.Warn().Err(err).Send()
 		}
 
