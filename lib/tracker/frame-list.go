@@ -68,7 +68,7 @@ func (fl *lossyFrameList) Unshift() *mode_s.Frame {
 	}
 	t.prev = nil
 	t.next = nil
-	if 0 == fl.numItems {
+	if fl.numItems == 0 {
 		fl.tail = nil
 		fl.head = nil
 	}
@@ -91,7 +91,7 @@ func (fl *lossyFrameList) Pop() *mode_s.Frame {
 	fl.head = t.next
 	t.prev = nil
 	t.next = nil
-	if 0 == fl.numItems {
+	if fl.numItems == 0 {
 		fl.tail = nil
 		fl.head = nil
 	}
@@ -111,7 +111,7 @@ func (fl *lossyFrameList) Range(f func(f *mode_s.Frame) bool) {
 	fl.mu.Lock()
 	defer fl.mu.Unlock()
 	t := fl.head
-	for t.next != nil {
+	for t != nil && t.next != nil {
 		if !f(t.item) {
 			return
 		}

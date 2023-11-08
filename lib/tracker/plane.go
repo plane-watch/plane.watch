@@ -25,7 +25,7 @@ type (
 	// PlaneLocation stores where we think a plane is currently at. It is am amalgamation of all the tracking info
 	// we receive.
 	PlaneLocation struct {
-		rwlock               sync.RWMutex
+		mu                   sync.Mutex
 		latitude, longitude  float64
 		altitude             int32
 		hasVerticalRate      bool
@@ -814,13 +814,13 @@ func (p *Plane) addLatLong(lat, lon float64, ts time.Time) (warn error) {
 	p.location.cprDecodedTs = ts
 
 	needsLookup := true
-	if p.location.gridTileLocation != "" {
-		if tile_grid.InGridLocation(lat, lon, p.location.gridTileLocation) {
+	if !p.location.HasTileGrid() {
+		if tile_grid.InGridLocation(lat, lon, p.location.TileGrid()) {
 			needsLookup = false
 		}
 	}
 	if needsLookup {
-		p.location.gridTileLocation = tile_grid.LookupTile(lat, lon)
+		p.location.SetTileGrid(tile_grid.LookupTile(lat, lon))
 	}
 	p.locationHistory = append(p.locationHistory, p.location.Copy())
 	return
@@ -920,8 +920,8 @@ func (hi headingInfo) getCompassLabel(heading float64) string {
 
 // Copy let's us duplicate a plane location
 func (pl *PlaneLocation) Copy() *PlaneLocation {
-	pl.rwlock.RLock()
-	defer pl.rwlock.RUnlock()
+	pl.mu.Lock()
+	defer pl.mu.Unlock()
 	return &PlaneLocation{
 		latitude:          pl.latitude,
 		longitude:         pl.longitude,
@@ -948,14 +948,32 @@ func (pl *PlaneLocation) Copy() *PlaneLocation {
 
 // Lat returns the Locations current LAT
 func (pl *PlaneLocation) Lat() float64 {
-	pl.rwlock.RLock()
-	defer pl.rwlock.RUnlock()
+	pl.mu.Lock()
+	defer pl.mu.Unlock()
 	return pl.latitude
 }
 
 // Lon returns the Locations current LON
 func (pl *PlaneLocation) Lon() float64 {
-	pl.rwlock.RLock()
-	defer pl.rwlock.RUnlock()
+	pl.mu.Lock()
+	defer pl.mu.Unlock()
 	return pl.longitude
+}
+
+func (pl *PlaneLocation) HasTileGrid() bool {
+	pl.mu.Lock()
+	defer pl.mu.Unlock()
+	return pl.gridTileLocation != ""
+}
+
+func (pl *PlaneLocation) SetTileGrid(tile string) {
+	pl.mu.Lock()
+	defer pl.mu.Unlock()
+	pl.gridTileLocation = tile
+}
+
+func (pl *PlaneLocation) TileGrid() string {
+	pl.mu.Lock()
+	defer pl.mu.Unlock()
+	return pl.gridTileLocation
 }

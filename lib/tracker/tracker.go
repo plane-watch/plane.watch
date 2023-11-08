@@ -164,10 +164,14 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 
 	p.setLastSeen(frame.TimeStamp())
 	p.incMsgCount()
-	//p.addFrame(frame)
+	isDebug := p.tracker.log.Debug().Enabled()
+
+	if isDebug {
+		p.addFrame(frame)
+	}
 
 	debugMessage := func(sfmt string, a ...interface{}) {
-		if p.tracker.log.Debug().Enabled() {
+		if isDebug {
 			planeFormat = fmt.Sprintf("DF%02d - \033[0;97mPlane (\033[38;5;118m%s %-8s\033[0;97m)", frame.DownLinkType(), p.IcaoIdentifierStr(), p.FlightNumber())
 			p.tracker.log.Debug().Msgf(planeFormat+sfmt, a...)
 		}
@@ -190,7 +194,7 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 	// as the receiver. This will be "fixed" for aircraft sending lat/lon within a few frames if it is different.
 	// this means that all the aircraft that do not send locations, will at least have a chance of showing up.
 	if p.GridTileLocation() == "" && nil != refLat && nil != refLon {
-		p.location.gridTileLocation = tile_grid.LookupTile(*refLat, *refLon)
+		p.location.SetTileGrid(tile_grid.LookupTile(*refLat, *refLon))
 	}
 
 	// determine what to do with our given frame
@@ -394,10 +398,10 @@ func (p *Plane) HandleModeSFrame(frame *mode_s.Frame, refLat, refLon *float64) {
 		}
 	}
 
-	if p.location.gridTileLocation == "" && nil != refLat && nil != refLon {
+	if p.location.HasTileGrid() && nil != refLat && nil != refLon {
 		// do not have a grid tile for this plane, let's assume it is in same tile as the receiver
-		p.location.gridTileLocation = tile_grid.LookupTile(*refLat, *refLon)
-		hasChanged = p.location.gridTileLocation != "" || hasChanged
+		p.location.SetTileGrid(tile_grid.LookupTile(*refLat, *refLon))
+		hasChanged = p.location.TileGrid() != "" || hasChanged
 	}
 
 	if hasChanged {

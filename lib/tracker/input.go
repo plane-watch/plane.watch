@@ -232,6 +232,9 @@ func (t *Tracker) decodeQueue(decodingQueue chan FrameEvent) {
 		}
 		plane := t.GetPlane(frame.Icao())
 
+		// TODO: have each plane object have it's own input channel
+		// as it will be the only thing changing the plane, we can eliminate a lot of locking
+
 		switch typeFrame := frame.(type) {
 		case *beast.Frame:
 			plane.HandleModeSFrame(typeFrame.AvrFrame(), frameEvent.Source().RefLat, frameEvent.Source().RefLon)
