@@ -29,7 +29,7 @@ func (p *Producer) beastScanner(scan *bufio.Scanner) error {
 			}
 			lastTimeStamp = currentTs
 		}
-		p.addFrame(&frame, &p.FrameSource)
+		p.addFrame(frame, &p.FrameSource)
 
 		if nil != p.stats.beast {
 			p.stats.beast.Inc()

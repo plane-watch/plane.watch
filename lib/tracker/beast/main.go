@@ -5,16 +5,17 @@ import (
 	"fmt"
 	"math"
 	"plane.watch/lib/tracker/mode_s"
+	"sync"
 	"time"
 )
 
 type (
 	Frame struct {
 		raw           []byte
-		msgType       byte
 		mlatTimestamp []byte
-		signalLevel   byte
 		body          []byte
+		msgType       byte
+		signalLevel   byte
 		bodyString    string
 
 		isRadarCape  bool
@@ -22,6 +23,30 @@ type (
 		decodedModeS mode_s.Frame
 	}
 )
+
+var beastPool sync.Pool
+
+func init() {
+	beastPool = sync.Pool{
+		New: func() any {
+			return &Frame{
+				raw:           make([]byte, 0, 30),
+				msgType:       0,
+				mlatTimestamp: make([]byte, 0, 6),
+				signalLevel:   0,
+				body:          make([]byte, 0, 14),
+				bodyString:    "                            ", // 28 chars to fit 112bit squitters
+				isRadarCape:   false,
+				hasDecoded:    false,
+				decodedModeS:  mode_s.Frame{},
+			}
+		},
+	}
+}
+
+func Release(frame *Frame) {
+	beastPool.Put(frame)
+}
 
 //var msgLenLookup = map[byte]int{
 //	0x31: 2,
@@ -84,8 +109,8 @@ var magicTimestampMLAT = []byte{0xFF, 0x00, 0x4D, 0x4C, 0x41, 0x54}
 
 var ErrBadBeastFrame = errors.New("bad beast frame")
 
-func NewFrame(rawBytes []byte, isRadarCape bool) (Frame, error) {
-	var f Frame
+func NewFrame(rawBytes []byte, isRadarCape bool) (*Frame, error) {
+	f := beastPool.Get().(*Frame)
 	if len(rawBytes) <= 8 {
 		return f, ErrBadBeastFrame
 	}
@@ -143,7 +168,7 @@ func (f *Frame) BeastTicksNs() time.Duration {
 	var t uint64
 	inc := 40
 	for i := 0; i < 6; i++ {
-		t = t | uint64(f.mlatTimestamp[i])<<inc
+		t |= uint64(f.mlatTimestamp[i]) << inc
 		inc -= 8
 	}
 	return time.Duration(t * 500)
@@ -202,7 +227,7 @@ func (f *Frame) RawString() string {
 		return ""
 	}
 
-	if "" == f.bodyString {
+	if f.bodyString == "" {
 		f.bodyString = fmt.Sprintf("%X", f.body)
 	}
 

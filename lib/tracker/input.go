@@ -252,6 +252,7 @@ func (t *Tracker) decodeQueue(decodingQueue chan FrameEvent, done chan bool) {
 		case *beast.Frame:
 			plane.HandleModeSFrame(typeFrame.AvrFrame(), frameEvent.Source())
 			plane.setSignalLevel(typeFrame.SignalRssi())
+			beast.Release(typeFrame)
 		case *mode_s.Frame:
 			plane.HandleModeSFrame(typeFrame, frameEvent.Source())
 		case *sbs1.Frame:
