@@ -104,7 +104,7 @@ func TestForgetfulSyncMap_DontSweepNewPlane(t *testing.T) {
 		t.Error("Test plane not added.")
 	}
 
-	//this shouldn't sweep our new plane.
+	// this shouldn't sweep our new plane.
 	testMap.sweep()
 
 	if testMap.Len() != 1 {
@@ -212,7 +212,7 @@ func TestForgetfulSyncMap_Range(t *testing.T) {
 	item := testItem{value: "item 222"}
 	testMap.Store("test", item)
 
-	if 1 != testMap.Len() {
+	if testMap.Len() != 1 {
 		t.Error("Failed to store test item")
 	}
 
@@ -226,7 +226,7 @@ func TestForgetfulSyncMap_Range(t *testing.T) {
 	if !tOk {
 		t.Error("Failed to get our test item out unmolested")
 	}
-	if "item 222" != typedLoadedItem.value {
+	if typedLoadedItem.value != "item 222" {
 		t.Errorf("item came out changed?! - %+v", item)
 	}
 
@@ -237,14 +237,14 @@ func TestForgetfulSyncMap_Range(t *testing.T) {
 		if !tOk {
 			t.Error("Failed to get our test item out unmolested")
 		}
-		if "item 222" != typedLoadedItem.value {
+		if typedLoadedItem.value != "item 222" {
 			t.Errorf("item came out changed?! - %+v", item)
 		}
 
 		return true
 	})
 
-	if 1 != counter {
+	if counter != 1 {
 		t.Error("Failed to range correctly through the map")
 	}
 }
@@ -268,12 +268,12 @@ func TestForgetfulSyncMap_SweepWithCustomExpiryFunc(t *testing.T) {
 	item2 := testItem{value: "item 222", remove: true}
 	testMap.Store("item2", item2)
 
-	if 2 != testMap.Len() {
+	if testMap.Len() != 2 {
 		t.Error("Failed to store test items")
 	}
 
 	testMap.sweep()
-	if 1 != testMap.Len() {
+	if testMap.Len() != 1 {
 		t.Error("Failed to remove our test2 item on sweep")
 	}
 

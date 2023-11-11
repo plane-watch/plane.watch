@@ -159,12 +159,12 @@ func (f *ForgetfulSyncMap) AddKey(key interface{}) {
 		return
 	}
 	if kb, ok := key.([]byte); ok {
-		if 0 == len(kb) {
+		if len(kb) == 0 {
 			return
 		}
 	}
 	if ks, ok := key.(string); ok {
-		if "" == ks {
+		if ks == "" {
 			return
 		}
 	}
@@ -172,7 +172,7 @@ func (f *ForgetfulSyncMap) AddKey(key interface{}) {
 }
 func (f *ForgetfulSyncMap) AddKeyStr(key string) {
 	// avoid storing empty things
-	if "" == key {
+	if key == "" {
 		return
 	}
 	f.Store(key, nil)
@@ -188,9 +188,8 @@ func (f *ForgetfulSyncMap) Load(key any) (any, bool) {
 			return t.value, retBool
 		}
 		return nil, false
-	} else {
-		return retVal, retBool
 	}
+	return retVal, retBool
 }
 
 // Store remembers an item
