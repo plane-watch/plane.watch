@@ -12,16 +12,14 @@ const tokenBufLen = 50
 
 func (p *Producer) beastScanner(scan *bufio.Scanner) error {
 	lastTimeStamp := time.Duration(0)
+	// make our best lib allocate out of a sync.Pool
+	beast.UsePoolAllocator = true
 	for scan.Scan() {
 		msg := bytes.Clone(scan.Bytes())
 		frame, err := beast.NewFrame(msg, false)
 		if nil != err {
 			continue
 		}
-		//frame := beast.NewFrame(msg, false)
-		//if nil == frame {
-		//	continue
-		//}
 		if p.beastDelay {
 			currentTs := frame.BeastTicksNs()
 			if lastTimeStamp > 0 && lastTimeStamp < currentTs {
@@ -46,7 +44,7 @@ func ScanBeast(data []byte, atEOF bool) (int, []byte, error) {
 
 	// skip until we get our first 0x1A (message start)
 	i := bytes.IndexByte(data, 0x1A)
-	if -1 == i || len(data) < i+11 {
+	if i == -1 || len(data) < i+11 {
 		// we do not even have the smallest message, let's get some more data
 		return 0, nil, nil
 	}
@@ -78,7 +76,7 @@ func ScanBeast(data []byte, atEOF bool) (int, []byte, error) {
 		return i + 1, nil, nil
 	}
 	bufLen := len(data) - i
-	//println("type", data[i+1], "input len", bufLen, "msg len",msgLen)
+	// println("type", data[i+1], "input len", bufLen, "msg len",msgLen)
 	if bufLen >= tokenBufLen {
 		// we have enough in our buffer
 		// account for double escapes
