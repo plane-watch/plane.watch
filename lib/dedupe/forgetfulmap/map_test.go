@@ -283,3 +283,45 @@ func TestForgetfulSyncMap_SweepWithCustomExpiryFunc(t *testing.T) {
 		t.Error("Failed load our item1")
 	}
 }
+
+func BenchmarkForgetfulSyncMap(b *testing.B) {
+	m := NewForgetfulSyncMap(
+		UseMemSyncPool(false),
+		WithSweepInterval(time.Second*300),
+		WithOldAgeAfterSeconds(300),
+		WithForgettableAction(func(key, value any, added time.Time) bool {
+			return false
+		}),
+	)
+
+	var i, j int64
+	for n := 0; n < b.N; n++ {
+		for j = 0; j < 100; j++ {
+			m.AddKey((i * 100) + j)
+		}
+		for j = 0; j < 100; j++ {
+			m.Delete((i * 100) + j)
+		}
+	}
+}
+
+func BenchmarkForgetfulSyncMapPool(b *testing.B) {
+	m := NewForgetfulSyncMap(
+		UseMemSyncPool(true),
+		WithSweepInterval(time.Second*300),
+		WithOldAgeAfterSeconds(300),
+		WithForgettableAction(func(key, value any, added time.Time) bool {
+			return false
+		}),
+	)
+
+	var i, j int64
+	for n := 0; n < b.N; n++ {
+		for j = 0; j < 100; j++ {
+			m.AddKey((i * 100) + j)
+		}
+		for j = 0; j < 100; j++ {
+			m.Delete((i * 100) + j)
+		}
+	}
+}
