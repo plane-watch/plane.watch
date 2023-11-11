@@ -25,7 +25,7 @@ type (
 	// PlaneLocation stores where we think a plane is currently at. It is am amalgamation of all the tracking info
 	// we receive.
 	PlaneLocation struct {
-		rwlock               sync.RWMutex
+		mu                   sync.Mutex
 		latitude, longitude  float64
 		altitude             int32
 		hasVerticalRate      bool
@@ -721,7 +721,7 @@ func (p *Plane) Lon() float64 {
 	return p.location.longitude
 }
 
-func (p *Plane) decodeCprFilledRefLatLon(refLat, refLon *float64, ts time.Time) error {
+func (p *Plane) decodeCprFilledRefLatLon(refLat, refLon *float64, velocityCheck bool) error {
 	if nil == refLat || nil == refLon {
 		// let's see if we can use a past plane location for this decode
 		// all we need for our reference lat/lon is a location within 45 nautical miles
@@ -737,7 +737,7 @@ func (p *Plane) decodeCprFilledRefLatLon(refLat, refLon *float64, ts time.Time) 
 		}
 	}
 	if nil != refLat && nil != refLon {
-		if err := p.decodeCpr(*refLat, *refLon, ts); nil != err {
+		if err := p.decodeCpr(*refLat, *refLon, velocityCheck); nil != err {
 			return err
 		}
 	}
@@ -745,7 +745,7 @@ func (p *Plane) decodeCprFilledRefLatLon(refLat, refLon *float64, ts time.Time) 
 }
 
 // addLatLong Adds a Lat/Long pair to our location tracking and sets it as the current plane location
-func (p *Plane) addLatLong(lat, lon float64, ts time.Time) (warn error) {
+func (p *Plane) addLatLong(lat, lon float64, ts time.Time, velocityCheck bool) (warn error) {
 	if lat < -95.0 || lat > 95 || lon < -180 || lon > 180 {
 		return fmt.Errorf("cannot add invalid coordinates {%0.6f, %0.6f}", lat, lon)
 	}
@@ -756,11 +756,12 @@ func (p *Plane) addLatLong(lat, lon float64, ts time.Time) (warn error) {
 	var durationTravelled float64
 	numHistoryItems := len(p.locationHistory)
 	// determine speed?
-	if numHistoryItems > 0 && p.location.latitude != 0 && p.location.longitude != 0 {
+	doVelocityCheck := velocityCheck && numHistoryItems > 0 && p.location.latitude != 0 && p.location.longitude != 0
+	if doVelocityCheck {
 		referenceTime := p.locationHistory[numHistoryItems-1].cprDecodedTs
 		if !referenceTime.IsZero() && referenceTime.Before(ts) {
 			durationTravelled = float64(ts.Sub(referenceTime)) / float64(time.Second)
-			if 0.0 == durationTravelled {
+			if durationTravelled == 0.0 {
 				durationTravelled = 1
 			}
 			acceptableMaxDistance := (1 + durationTravelled) * 686 // mach2 in metres/second seems fast enough...
@@ -785,19 +786,19 @@ func (p *Plane) addLatLong(lat, lon float64, ts time.Time) (warn error) {
 					Floats64("This Lat/Lon", []float64{lat, lon}).
 					Msg("A Frame Too Far")
 
-				var lastTs int64
+				var lastTS int64
 				p.recentFrames.Range(func(f *mode_s.Frame) bool {
-					if 0 == lastTs {
-						lastTs = f.TimeStamp().UnixNano()
+					if 0 == lastTS {
+						lastTS = f.TimeStamp().UnixNano()
 					}
 					p.tracker.log.Error().
 						Str("ICAO", f.IcaoStr()).
 						Time("received", f.TimeStamp()).
 						Int64("unix nano", f.TimeStamp().UnixNano()).
 						Str("Frame", f.RawString()).
-						Int64("Time Diff ms", (lastTs-f.TimeStamp().UnixNano())/1e6).
+						Int64("Time Diff ms", (lastTS-f.TimeStamp().UnixNano())/1e6).
 						Msg("Frames Leading to Broken Track")
-					lastTs = f.TimeStamp().UnixNano()
+					lastTS = f.TimeStamp().UnixNano()
 					return true
 				})
 				return
@@ -814,13 +815,13 @@ func (p *Plane) addLatLong(lat, lon float64, ts time.Time) (warn error) {
 	p.location.cprDecodedTs = ts
 
 	needsLookup := true
-	if "" != p.location.gridTileLocation {
-		if tile_grid.InGridLocation(lat, lon, p.location.gridTileLocation) {
+	if !p.location.HasTileGrid() {
+		if tile_grid.InGridLocation(lat, lon, p.location.TileGrid()) {
 			needsLookup = false
 		}
 	}
 	if needsLookup {
-		p.location.gridTileLocation = tile_grid.LookupTile(lat, lon)
+		p.location.SetTileGrid(tile_grid.LookupTile(lat, lon))
 	}
 	p.locationHistory = append(p.locationHistory, p.location.Copy())
 	return
@@ -848,7 +849,7 @@ func (p *Plane) setCprOddLocation(lat, lon float64, t time.Time) error {
 }
 
 // decodeCpr decodes the CPR Even and Odd frames and gets our Plane position
-func (p *Plane) decodeCpr(refLat, refLon float64, ts time.Time) error {
+func (p *Plane) decodeCpr(refLat, refLon float64, velocityCheck bool) error {
 	p.cprLocation.refLat = refLat
 	p.cprLocation.refLon = refLon
 	loc, err := p.cprLocation.decode(p.OnGround())
@@ -856,7 +857,7 @@ func (p *Plane) decodeCpr(refLat, refLon float64, ts time.Time) error {
 		return err
 	}
 
-	return p.addLatLong(loc.latitude, loc.longitude, loc.cprDecodedTs)
+	return p.addLatLong(loc.latitude, loc.longitude, loc.cprDecodedTs, velocityCheck)
 }
 
 // LocationHistory returns the track history of the Plane
@@ -920,8 +921,8 @@ func (hi headingInfo) getCompassLabel(heading float64) string {
 
 // Copy let's us duplicate a plane location
 func (pl *PlaneLocation) Copy() *PlaneLocation {
-	pl.rwlock.RLock()
-	defer pl.rwlock.RUnlock()
+	pl.mu.Lock()
+	defer pl.mu.Unlock()
 	return &PlaneLocation{
 		latitude:          pl.latitude,
 		longitude:         pl.longitude,
@@ -948,14 +949,32 @@ func (pl *PlaneLocation) Copy() *PlaneLocation {
 
 // Lat returns the Locations current LAT
 func (pl *PlaneLocation) Lat() float64 {
-	pl.rwlock.RLock()
-	defer pl.rwlock.RUnlock()
+	pl.mu.Lock()
+	defer pl.mu.Unlock()
 	return pl.latitude
 }
 
 // Lon returns the Locations current LON
 func (pl *PlaneLocation) Lon() float64 {
-	pl.rwlock.RLock()
-	defer pl.rwlock.RUnlock()
+	pl.mu.Lock()
+	defer pl.mu.Unlock()
 	return pl.longitude
+}
+
+func (pl *PlaneLocation) HasTileGrid() bool {
+	pl.mu.Lock()
+	defer pl.mu.Unlock()
+	return pl.gridTileLocation != ""
+}
+
+func (pl *PlaneLocation) SetTileGrid(tile string) {
+	pl.mu.Lock()
+	defer pl.mu.Unlock()
+	pl.gridTileLocation = tile
+}
+
+func (pl *PlaneLocation) TileGrid() string {
+	pl.mu.Lock()
+	defer pl.mu.Unlock()
+	return pl.gridTileLocation
 }

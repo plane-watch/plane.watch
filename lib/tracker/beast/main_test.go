@@ -42,20 +42,20 @@ func TestNewBeastMsgModeSShort(t *testing.T) {
 		)
 	}
 
-	if 0x32 != f.msgType {
+	if f.msgType != 0x32 {
 		t.Error("Incorrect msg type")
 	}
 
 	// check time stamp
-	if 6 != len(f.mlatTimestamp) {
+	if len(f.mlatTimestamp) != 6 {
 		t.Errorf("Incorrect timestamp len. expected 6, got %d", len(f.mlatTimestamp))
 	}
 	// check signal level - should be 0xBF
-	if 38 != f.signalLevel {
+	if f.signalLevel != 38 {
 		t.Errorf("Did not get the signal level correctly. expected 93: got %d", f.signalLevel)
 	}
 	// make sure we decode into a mode_s.Frame
-	if 7 != len(f.body) {
+	if len(f.body) != 7 {
 		t.Errorf("Incorrect body len. expected 7, got %d", len(f.body))
 	}
 }
@@ -72,20 +72,20 @@ func TestNewBeastMsgModeSLong(t *testing.T) {
 		t.Error("Failed to copy the long beast message correctly")
 	}
 
-	if 0x33 != f.msgType {
+	if f.msgType != 0x33 {
 		t.Error("Incorrect msg type")
 	}
 
 	// check time stamp
-	if 6 != len(f.mlatTimestamp) {
+	if len(f.mlatTimestamp) != 6 {
 		t.Errorf("Incorrect timestamp len. expected 6, got %d", len(f.mlatTimestamp))
 	}
 	// check signal level - should be 0xBF
-	if 40 != f.signalLevel {
+	if f.signalLevel != 40 {
 		t.Errorf("Did not get the signal level correctly. expected 93: got %d", f.signalLevel)
 	}
 	// make sure we decode into a mode_s.Frame
-	if 14 != len(f.body) {
+	if len(f.body) != 14 {
 		t.Errorf("Incorrect body len. expected 7, got %d", len(f.body))
 	}
 }
@@ -217,7 +217,7 @@ func BenchmarkNewFrameAndDecode(b *testing.B) {
 	for _, name := range keys {
 		arg := messages[name]
 		b.Run(name, func(bb *testing.B) {
-			var frame Frame
+			var frame *Frame
 			var err error
 			for n := 0; n < bb.N; n++ {
 				frame, err = NewFrame(arg, false)
@@ -227,6 +227,27 @@ func BenchmarkNewFrameAndDecode(b *testing.B) {
 				if err = frame.Decode(); nil != err {
 					bb.Error(err)
 				}
+			}
+		})
+	}
+}
+
+func BenchmarkNewFrameAndDecodePool(b *testing.B) {
+	UsePoolAllocator = true
+	for _, name := range keys {
+		arg := messages[name]
+		b.Run(name, func(bb *testing.B) {
+			var frame *Frame
+			var err error
+			for n := 0; n < bb.N; n++ {
+				frame, err = NewFrame(arg, false)
+				if nil != err {
+					b.Error(err)
+				}
+				if err = frame.Decode(); nil != err {
+					bb.Error(err)
+				}
+				Release(frame)
 			}
 		})
 	}

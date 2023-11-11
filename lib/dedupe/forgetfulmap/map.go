@@ -20,6 +20,8 @@ type (
 		forgettable   ForgettableFunc
 
 		itemCounter prometheus.Gauge
+
+		useSyncPool bool
 	}
 
 	// a generic wrapper for things that can be lost
@@ -31,11 +33,27 @@ type (
 	Option func(*ForgetfulSyncMap)
 )
 
+var (
+	marbleBag *sync.Pool
+)
+
+func init() {
+	marbleBag = &sync.Pool{
+		New: func() any {
+			return &marble{
+				added: time.Time{},
+				value: nil,
+			}
+		},
+	}
+}
+
 func NewForgetfulSyncMap(opts ...Option) *ForgetfulSyncMap {
 	f := &ForgetfulSyncMap{
 		lookup:        &sync.Map{},
 		sweepInterval: 10 * time.Second,
 		oldAfter:      60 * time.Second,
+		useSyncPool:   true,
 	}
 	for _, opt := range opts {
 		opt(f)
@@ -49,6 +67,12 @@ func NewForgetfulSyncMap(opts ...Option) *ForgetfulSyncMap {
 	}
 
 	return f
+}
+
+func UseMemSyncPool(use bool) Option {
+	return func(syncMap *ForgetfulSyncMap) {
+		syncMap.useSyncPool = use
+	}
 }
 
 func WithPrometheusCounters(numItems prometheus.Gauge) Option {
@@ -159,12 +183,12 @@ func (f *ForgetfulSyncMap) AddKey(key interface{}) {
 		return
 	}
 	if kb, ok := key.([]byte); ok {
-		if 0 == len(kb) {
+		if len(kb) == 0 {
 			return
 		}
 	}
 	if ks, ok := key.(string); ok {
-		if "" == ks {
+		if ks == "" {
 			return
 		}
 	}
@@ -172,7 +196,7 @@ func (f *ForgetfulSyncMap) AddKey(key interface{}) {
 }
 func (f *ForgetfulSyncMap) AddKeyStr(key string) {
 	// avoid storing empty things
-	if "" == key {
+	if key == "" {
 		return
 	}
 	f.Store(key, nil)
@@ -188,22 +212,30 @@ func (f *ForgetfulSyncMap) Load(key any) (any, bool) {
 			return t.value, retBool
 		}
 		return nil, false
-	} else {
-		return retVal, retBool
 	}
+	return retVal, retBool
 }
 
 // Store remembers an item
 func (f *ForgetfulSyncMap) Store(key, value interface{}) {
-	f.lookup.Store(key, &marble{
-		added: time.Now(),
-		value: value,
-	})
+	var m *marble
+	if f.useSyncPool {
+		m = marbleBag.Get().(*marble)
+	} else {
+		m = &marble{}
+	}
+	m.added = time.Now()
+	m.value = value
+	f.lookup.Store(key, m)
 }
 
 // Delete Removes an item from the list
 func (f *ForgetfulSyncMap) Delete(key interface{}) {
-	f.lookup.Delete(key)
+	m, ok := f.lookup.Load(key)
+	if ok {
+		marbleBag.Put(m)
+		f.lookup.Delete(key)
+	}
 }
 
 // Len returns a count of the number of items in the list
@@ -219,11 +251,11 @@ func (f *ForgetfulSyncMap) Len() (entries int32) {
 // Range Iterates over the underlying sync.Map and calls the user function once per item
 func (f *ForgetfulSyncMap) Range(rangeFunc func(key, value interface{}) bool) {
 	f.lookup.Range(func(key, value interface{}) bool {
-		if m, ok := value.(*marble); ok {
+		m, ok := value.(*marble)
+		if ok {
 			return rangeFunc(key, m.value)
-		} else {
-			return rangeFunc(key, value)
 		}
+		return rangeFunc(key, value)
 	})
 }
 

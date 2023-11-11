@@ -13,7 +13,7 @@ func TestBTreeSweep1(t *testing.T) {
 
 	frame, _ := beast.NewFrame(beastModeSShort, false)
 
-	if nil == filter.Handle(&frame) {
+	if nil == filter.Handle(frame) {
 		t.Errorf("Expected to add a frame")
 	}
 
@@ -33,13 +33,13 @@ func TestFilterBTree_Handle(t *testing.T) {
 
 	frame, _ := beast.NewFrame(beastModeSShort, false)
 
-	resp := filter.Handle(&frame)
+	resp := filter.Handle(frame)
 
 	if resp == nil {
 		t.Errorf("Expected the same frame back")
 	}
 
-	if nil != filter.Handle(&frame) {
+	if nil != filter.Handle(frame) {
 		t.Errorf("Got a duplicated frame back")
 	}
 }
@@ -109,10 +109,10 @@ func BenchmarkFilterBTree_HandleDuplicates(b *testing.B) {
 	filter := NewFilterBTree(WithSweeperInterval(0), WithDedupeMaxAge(time.Minute))
 
 	frame, _ := beast.NewFrame(beastModeSShort, false)
-	filter.Handle(&frame)
+	filter.Handle(frame)
 
 	for n := 0; n < b.N; n++ {
-		if nil != filter.Handle(&frame) {
+		if nil != filter.Handle(frame) {
 			b.Error("Should not have gotten a non empty response - duplicate handled incorrectly!?")
 		}
 	}
@@ -126,12 +126,13 @@ func BenchmarkFilterBTree_HandleUnique(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		beastModeSTest := []byte{0x1a, 0x32, 0x22, 0x1b, 0x54, 0xf0, 0x81, 0x2b, 0x26, byte(n >> 24), byte(n >> 16), byte(n >> 8), byte(n), 0, 0, byte(degree)}
 		msg, _ := beast.NewFrame(beastModeSTest, false)
-		if nil == filter.Handle(&msg) {
+		if nil == filter.Handle(msg) {
 			b.Fatalf("Expected to insert new message %0X", beastModeSTest)
 		}
-		if nil != filter.Handle(&msg) {
+		if nil != filter.Handle(msg) {
 			b.Fatalf("Failed duplicate insert of %0X", beastModeSTest)
 		}
+		beast.Release(msg)
 	}
 	if filter.btree.Len() != b.N {
 		b.Errorf("Did not get the same number of items as tested. expected %d, got %d", b.N, filter.btree.Len())

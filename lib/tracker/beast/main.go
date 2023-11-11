@@ -5,31 +5,69 @@ import (
 	"fmt"
 	"math"
 	"plane.watch/lib/tracker/mode_s"
+	"sync"
 	"time"
 )
 
 type (
+	// Frame represents our Beast frame and is used to decode into AVR
 	Frame struct {
 		raw           []byte
-		msgType       byte
 		mlatTimestamp []byte
-		signalLevel   byte
 		body          []byte
+		msgType       byte
+		signalLevel   byte
 		bodyString    string
 
 		isRadarCape  bool
 		hasDecoded   bool
+		isPool       bool
 		decodedModeS mode_s.Frame
 	}
 )
 
-//var msgLenLookup = map[byte]int{
+var (
+	// UsePoolAllocator when set to true will allocate Frame objects out of a sync.Pool. you will need to free them
+	// by calling beast.Release()
+	UsePoolAllocator = false
+	beastPool        sync.Pool
+
+	magicTimestampMLAT = []byte{0xFF, 0x00, 0x4D, 0x4C, 0x41, 0x54}
+	ErrBadBeastFrame   = errors.New("bad beast frame")
+)
+
+func init() {
+	beastPool = sync.Pool{
+		New: func() any {
+			return &Frame{
+				raw:           make([]byte, 0, 30),
+				msgType:       0,
+				mlatTimestamp: make([]byte, 0, 6),
+				signalLevel:   0,
+				body:          make([]byte, 0, 14),
+				bodyString:    "                            ", // 28 chars to fit 112bit squitters
+				isRadarCape:   false,
+				hasDecoded:    false,
+				decodedModeS:  mode_s.Frame{},
+			}
+		},
+	}
+}
+
+func Release(frame *Frame) {
+	if UsePoolAllocator {
+		beastPool.Put(frame)
+	}
+}
+
+// var msgLenLookup = map[byte]int{
 //	0x31: 2,
 //	0x32: 7,
 //	0x33: 14,
 //	0x34: 2,
-//}
+// }
 
+// Icao returns the airframes ICAO code as an int
 func (f *Frame) Icao() uint32 {
 	if nil == f {
 		return 0
@@ -40,6 +78,7 @@ func (f *Frame) Icao() uint32 {
 	return f.decodedModeS.Icao()
 }
 
+// IcaoStr returns the airframes ICAO code as a readable string
 func (f *Frame) IcaoStr() string {
 	if nil == f {
 		return ""
@@ -50,6 +89,7 @@ func (f *Frame) IcaoStr() string {
 	return f.decodedModeS.IcaoStr()
 }
 
+// Decode is used to turn our beast msg into our mode_s.Frame representation
 func (f *Frame) Decode() error {
 	if nil == f {
 		return errors.New("nil frame")
@@ -73,6 +113,7 @@ func (f *Frame) TimeStamp() time.Time {
 	return time.Now()
 }
 
+// Raw gives us back our raw beast message
 func (f *Frame) Raw() []byte {
 	if nil == f {
 		return []byte{}
@@ -80,12 +121,14 @@ func (f *Frame) Raw() []byte {
 	return f.raw
 }
 
-var magicTimestampMLAT = []byte{0xFF, 0x00, 0x4D, 0x4C, 0x41, 0x54}
-
-var ErrBadBeastFrame = errors.New("bad beast frame")
-
-func NewFrame(rawBytes []byte, isRadarCape bool) (Frame, error) {
-	var f Frame
+func NewFrame(rawBytes []byte, isRadarCape bool) (*Frame, error) {
+	if UsePoolAllocator {
+		return newFrameInto(beastPool.Get().(*Frame), rawBytes, isRadarCape)
+	} else {
+		return newFrameInto(&Frame{}, rawBytes, isRadarCape)
+	}
+}
+func newFrameInto(f *Frame, rawBytes []byte, isRadarCape bool) (*Frame, error) {
 	if len(rawBytes) <= 8 {
 		return f, ErrBadBeastFrame
 	}
@@ -143,7 +186,7 @@ func (f *Frame) BeastTicksNs() time.Duration {
 	var t uint64
 	inc := 40
 	for i := 0; i < 6; i++ {
-		t = t | uint64(f.mlatTimestamp[i])<<inc
+		t |= uint64(f.mlatTimestamp[i]) << inc
 		inc -= 8
 	}
 	return time.Duration(t * 500)
@@ -202,7 +245,7 @@ func (f *Frame) RawString() string {
 		return ""
 	}
 
-	if "" == f.bodyString {
+	if f.bodyString == "" {
 		f.bodyString = fmt.Sprintf("%X", f.body)
 	}
 

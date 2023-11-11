@@ -136,7 +136,8 @@ func runHttpServer(c *cli.Context) error {
 					_, _ = fmt.Fprintln(w, "Not an AVR Frame", html.EscapeString(err.Error()))
 					return
 				}
-				pt.GetPlane(frame.Icao()).HandleModeSFrame(frame, refLat, refLon)
+				source := tracker.FrameSource{RefLat: refLat, RefLon: refLon}
+				pt.GetPlane(frame.Icao()).HandleModeSFrame(frame, &source)
 				icaoList[frame.Icao()] = frame.Icao()
 				frame.Describe(w)
 			}

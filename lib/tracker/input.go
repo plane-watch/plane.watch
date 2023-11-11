@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rs/zerolog/log"
 	"plane.watch/lib/monitoring"
 	"plane.watch/lib/tracker/beast"
 	"plane.watch/lib/tracker/mode_s"
@@ -45,6 +43,7 @@ type (
 	// A Producer can send *FrameEvent events
 	Producer interface {
 		EventMaker
+		Source() *FrameSource
 		fmt.Stringer
 		monitoring.HealthCheck
 	}
@@ -69,6 +68,7 @@ func WithDecodeWorkerCount(numDecodeWorkers int) Option {
 		t.decodeWorkerCount = numDecodeWorkers
 	}
 }
+
 func WithPruneTiming(pruneTick, pruneAfter time.Duration) Option {
 	return func(t *Tracker) {
 		t.pruneTick = pruneTick
@@ -88,24 +88,14 @@ func (t *Tracker) Finish() {
 		return
 	}
 	t.finishDone = true
-	log.Debug().Msg("Starting Finish()")
+	t.log.Debug().Str("func", "Finish()").Msg("Starting...")
 	for _, p := range t.producers {
-		log.Debug().Str("producer", p.String()).Msg("Stopping Producer")
+		t.log.Debug().Str("func", "Finish()").Str("producer", p.String()).Msg("Stopping Producer")
 		p.Stop()
 	}
-	log.Debug().Msg("Closing Decoding Queue")
-	close(t.decodingQueue)
+	t.log.Debug().Str("func", "Finish()").Msg("Closing Decoding Queue")
 	t.planeList.Stop()
-}
-
-func (t *Tracker) EventListener(eventSource EventMaker, waiter *sync.WaitGroup) {
-	// todo: remove this level of indirection!
-	for e := range eventSource.Listen() {
-		foobar := *(&e)
-		t.decodingQueue <- &foobar
-	}
-	waiter.Done()
-	t.log.Debug().Msg("Done with Event Source")
+	t.log.Debug().Str("func", "Finish()").Msg("done...")
 }
 
 // AddProducer wires up a Producer to start feeding data into the tracker
@@ -119,8 +109,25 @@ func (t *Tracker) AddProducer(p Producer) {
 	t.producers = append(t.producers, p)
 	t.producerWaiter.Add(1)
 
-	go t.EventListener(p, &t.producerWaiter)
-	t.log.Debug().Msg("Just added a producer")
+	doneChan := make(chan bool)
+	inFlight := t.decodeWorkerCount
+	go func() {
+		for range doneChan {
+			inFlight--
+			if inFlight == 0 {
+				break
+			}
+		}
+		close(doneChan)
+		t.producerWaiter.Done()
+	}()
+	for i := 0; i < t.decodeWorkerCount; i++ {
+		go t.decodeQueue(p.Listen(), doneChan)
+	}
+	t.log.Info().
+		Int("num workers", t.decodeWorkerCount).
+		Str("source", p.String()).
+		Msg("Just added a producer")
 }
 
 // AddMiddleware wires up a Middleware which each message will go through before being added to the tracker
@@ -148,11 +155,17 @@ func (t *Tracker) SetSink(s Sink) {
 // Stop attempts to stop all the things, mid-flight. Use this if you have something else waiting for things to finish
 // use this if you are listening to remote sources
 func (t *Tracker) Stop() {
+	t.log.Debug().Str("func", "Stop()").Msg("Starting...")
 	t.Finish()
+	t.log.Debug().Str("func", "Stop()").Msg("Finish() completed")
 	t.producerWaiter.Wait()
+	t.log.Debug().Str("func", "Stop()").Msg("producers finished")
 	t.decodingQueueWaiter.Wait()
+	t.log.Debug().Str("func", "Stop()").Msg("decoding queue done")
 	t.eventsWaiter.Wait()
+	t.log.Debug().Str("func", "Stop()").Msg("events done")
 	t.middlewareWaiter.Wait()
+	t.log.Debug().Str("func", "Stop()").Msg("middleware done")
 }
 
 // StopOnCancel listens for SigInt etc. and gracefully stops
@@ -164,22 +177,22 @@ func (t *Tracker) StopOnCancel() {
 	for {
 		select {
 		case sig := <-ch:
-			log.Info().Str("Signal", sig.String()).Msg("Received Interrupt, stopping")
+			t.log.Info().Str("Signal", sig.String()).Msg("Received Interrupt, stopping")
 			if !isStopping {
 				isStopping = true
 				go func() {
 					t.Stop()
 					exitChan <- true
-					log.Info().Msg("Done Stopping")
+					t.log.Info().Msg("Done Stopping")
 				}()
 				go func() {
 					time.Sleep(time.Second * 5)
 					exitChan <- true
-					log.Info().Msg("Timeout after 5 seconds, force stopping")
+					t.log.Info().Msg("Timeout after 5 seconds, force stopping")
 					os.Exit(1)
 				}()
 			} else {
-				log.Info().Str("Signal", sig.String()).Msg("Second Interrupt, forcing exit")
+				t.log.Info().Str("Signal", sig.String()).Msg("Second Interrupt, forcing exit")
 				os.Exit(1)
 			}
 		case <-exitChan:
@@ -192,37 +205,36 @@ func (t *Tracker) StopOnCancel() {
 // use this method if you are processing a file
 func (t *Tracker) Wait() {
 	t.producerWaiter.Wait()
-	log.Debug().Msg("Producers finished")
+	t.log.Debug().Msg("Producers finished")
 	time.Sleep(time.Millisecond * 50)
 	t.Finish()
-	log.Debug().Msg("Finish() done")
+	t.log.Debug().Msg("Finish() done")
 	t.decodingQueueWaiter.Wait()
-	log.Debug().Msg("Decoding waiter done")
+	t.log.Debug().Msg("Decoding waiter done")
 	t.eventsWaiter.Wait()
-	log.Debug().Msg("events waiter done")
+	t.log.Debug().Msg("events waiter done")
 }
 
-func (t *Tracker) decodeQueue() {
-	for f := range t.decodingQueue {
-		if nil == f {
-			continue
-		}
+func (t *Tracker) decodeQueue(decodingQueue chan FrameEvent, done chan bool) {
+	t.decodingQueueWaiter.Add(1)
+	for frameEvent := range decodingQueue {
 		if nil != t.stats.decodedFrames {
 			t.stats.decodedFrames.Inc()
 		}
 
-		frame := f.Frame()
+		// frame is of type interface Frame
+		frame := frameEvent.Frame()
 		err := frame.Decode()
 		if nil != err {
 			if !errors.Is(mode_s.ErrNoOp, err) {
 				// the decode operation failed to produce valid output, and we tell someone about it
-				t.log.Error().Err(err).Str("Tag", f.Source().Tag).Send()
+				t.log.Error().Err(err).Str("Tag", frameEvent.Source().Tag).Send()
 			}
 			continue
 		}
 
 		for _, m := range t.middlewares {
-			frame = m.Handle(f)
+			frame = m.Handle(&frameEvent)
 			if nil == frame {
 				break
 			}
@@ -233,17 +245,23 @@ func (t *Tracker) decodeQueue() {
 		}
 		plane := t.GetPlane(frame.Icao())
 
+		// TODO: have each plane object have it's own input channel
+		// as it will be the only thing changing the plane, we can eliminate a lot of locking
+
 		switch typeFrame := frame.(type) {
 		case *beast.Frame:
-			plane.HandleModeSFrame(typeFrame.AvrFrame(), f.Source().RefLat, f.Source().RefLon)
+			plane.HandleModeSFrame(typeFrame.AvrFrame(), frameEvent.Source())
 			plane.setSignalLevel(typeFrame.SignalRssi())
+			beast.Release(typeFrame)
 		case *mode_s.Frame:
-			plane.HandleModeSFrame(typeFrame, f.Source().RefLat, f.Source().RefLon)
+			plane.HandleModeSFrame(typeFrame, frameEvent.Source())
 		case *sbs1.Frame:
 			plane.HandleSbs1Frame(typeFrame)
 		default:
-			t.log.Error().Str("Tag", f.Source().Tag).Msg("unknown frame type, cannot track")
+			t.log.Error().Str("Tag", frameEvent.Source().Tag).Msg("unknown frame type, cannot track")
 		}
 	}
 	t.decodingQueueWaiter.Done()
+	t.log.Debug().Msg("decodeQueue() is done")
+	done <- true
 }

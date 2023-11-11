@@ -102,6 +102,16 @@ func StopProfiling(c *cli.Context) error {
 		pprof.StopCPUProfile()
 		println("To analyze the profile, use this cmd")
 		println("go tool pprof -http=:7777", fileName)
+
+		f, err := os.Create("mem-" + fileName)
+		if nil != err {
+			panic(err)
+		}
+		err = pprof.WriteHeapProfile(f)
+		if nil != err {
+			panic(err)
+		}
+		println("go tool pprof -http=:7777", "mem-"+fileName)
 	}
 	return nil
 }
