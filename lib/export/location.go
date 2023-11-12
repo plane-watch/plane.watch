@@ -72,5 +72,4 @@ func (pl *PlaneLocation) ToJsonBytes() ([]byte, error) {
 	} else {
 		return jsonBuf, nil
 	}
-
 }

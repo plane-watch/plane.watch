@@ -28,8 +28,6 @@ type (
 	// PlaneLocation is our exported data format. it encodes to JSON
 	PlaneLocation struct {
 		// This info is populated by the tracker
-		New             bool
-		Removed         bool
 		Icao            string
 		Lat             float64
 		Lon             float64
@@ -37,11 +35,9 @@ type (
 		Velocity        float64
 		Altitude        int
 		VerticalRate    int
-		AltitudeUnits   string
-		FlightStatus    string
+		New             bool
+		Removed         bool
 		OnGround        bool
-		Airframe        string
-		AirframeType    string
 		HasAltitude     bool
 		HasLocation     bool
 		HasHeading      bool
@@ -49,6 +45,10 @@ type (
 		HasFlightStatus bool
 		HasVerticalRate bool
 		HasVelocity     bool
+		AltitudeUnits   string
+		FlightStatus    string
+		Airframe        string
+		AirframeType    string
 		SourceTag       string
 		Squawk          string
 		Special         string
@@ -101,11 +101,11 @@ var (
 
 // Plane here gives us something to look at
 func (pl *PlaneLocation) Plane() string {
-	if nil != pl.CallSign && "" != *pl.CallSign {
+	if nil != pl.CallSign && *pl.CallSign != "" {
 		return *pl.CallSign
 	}
 
-	if nil != pl.Registration && "" != *pl.Registration {
+	if nil != pl.Registration && *pl.Registration != "" {
 		return *pl.Registration
 	}
 
@@ -203,23 +203,23 @@ func MergePlaneLocations(prev, next PlaneLocation) (PlaneLocation, error) {
 		merged.OnGround = next.OnGround
 		merged.Updates.OnGround = next.Updates.OnGround
 	}
-	if "" == merged.Airframe {
+	if merged.Airframe == "" {
 		merged.Airframe = next.Airframe
 	}
-	if "" == merged.AirframeType {
+	if merged.AirframeType == "" {
 		merged.AirframeType = next.AirframeType
 	}
 
-	if "" != unPtr(next.Registration) {
+	if unPtr(next.Registration) != "" {
 		merged.Registration = ptr(unPtr(next.Registration))
 	}
-	if "" != unPtr(next.CallSign) {
+	if unPtr(next.CallSign) != "" {
 		merged.CallSign = ptr(unPtr(next.CallSign))
 	}
 	merged.SourceTag = "merged"
 
 	if next.Updates.Squawk.After(prev.Updates.Squawk) {
-		if `0` == next.Squawk {
+		if next.Squawk == `0` {
 			// setting 0 as the squawk is valid, just when we have badly timed data it can jump around
 			// only update to 0 *if* it's been a few seconds to account for delayed feeds
 			if next.Updates.Squawk.After(prev.Updates.Squawk.Add(5 * time.Second)) {
@@ -237,14 +237,14 @@ func MergePlaneLocations(prev, next PlaneLocation) (PlaneLocation, error) {
 		merged.Updates.Special = next.Updates.Special
 	}
 
-	if "" != next.TileLocation {
+	if next.TileLocation != "" {
 		merged.TileLocation = next.TileLocation
 	}
 
-	if 0 != unPtr(next.AircraftWidth) {
+	if unPtr(next.AircraftWidth) != 0 {
 		merged.AircraftWidth = ptr(unPtr(next.AircraftWidth))
 	}
-	if 0 != unPtr(next.AircraftLength) {
+	if unPtr(next.AircraftLength) != 0 {
 		merged.AircraftLength = ptr(unPtr(next.AircraftLength))
 	}
 
