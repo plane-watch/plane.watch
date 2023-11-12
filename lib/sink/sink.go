@@ -2,6 +2,7 @@ package sink
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -27,8 +28,6 @@ type (
 		sendList      map[string]*tracker.PlaneLocationEvent
 		sendListMutex sync.Mutex
 		sendTicker    *time.Ticker
-
-		sendCount uint64
 	}
 )
 
@@ -122,9 +121,11 @@ func (s *Sink) OnEvent(e tracker.Event) {
 			// warning, this code is a duplicate of the sendLocationList handling
 			var jsonBuf []byte
 			jsonBuf, err = s.config.byteMaker(le, s.config.sourceTag)
-			s.sendCount++
-			if jsonBuf != nil && err != nil {
-				_ = s.dest.PublishJson(QueueLocationUpdates, jsonBuf)
+			if jsonBuf != nil && err == nil {
+				err = s.dest.PublishJson(QueueLocationUpdates, jsonBuf)
+				if err != nil {
+					fmt.Println(err)
+				}
 				if nil != s.config.stats.planeLoc {
 					s.config.stats.planeLoc.Inc()
 				}

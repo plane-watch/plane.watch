@@ -66,13 +66,13 @@ func NewDataStreams(chs *clickhouse.Server) *DataStream {
 }
 
 func (ds *DataStream) AddLow(frame *export.PlaneLocationJSON) {
-	if "repeat" != frame.SourceTag {
+	if frame.SourceTag != "repeat" {
 		ds.low <- frame
 	}
 }
 
 func (ds *DataStream) AddHigh(frame *export.PlaneLocationJSON) {
-	if "repeat" != frame.SourceTag {
+	if frame.SourceTag != "repeat" {
 		ds.high <- frame
 	}
 }
@@ -80,9 +80,9 @@ func (ds *DataStream) AddHigh(frame *export.PlaneLocationJSON) {
 // handleQueue single threadedly accumulates and sends data to clickhouse for the given queue/table
 func (ds *DataStream) handleQueue(q chan *export.PlaneLocationJSON, table string) {
 	ticker := time.NewTicker(time.Second)
-	max := 50_000
-	updates := make([]any, max)
-	updateId := 0
+	maxNumItems := 50_000
+	updates := make([]any, maxNumItems)
+	updateID := 0
 	unPtr := func(s *string) string {
 		if nil == s {
 			return ""
@@ -90,11 +90,11 @@ func (ds *DataStream) handleQueue(q chan *export.PlaneLocationJSON, table string
 		return *s
 	}
 	send := func() {
-		ds.log.Debug().Int("num", updateId).Msg("Sending Batch To Clickhouse")
-		if err := ds.chs.Inserts(table, updates, updateId); nil != err {
+		ds.log.Debug().Int("num", updateID).Msg("Sending Batch To Clickhouse")
+		if err := ds.chs.Inserts(table, updates, updateID); nil != err {
 			ds.log.Err(err).Msg("Did not save location update to clickhouse")
 		}
-		updateId = 0
+		updateID = 0
 	}
 	for {
 		select {
@@ -102,7 +102,7 @@ func (ds *DataStream) handleQueue(q chan *export.PlaneLocationJSON, table string
 			send()
 		case loc := <-q:
 			squawk, _ := strconv.ParseUint(loc.Squawk, 10, 32)
-			updates[updateId] = &chRow{
+			updates[updateID] = &chRow{
 				Icao:            loc.Icao,
 				LatLon:          orb.Point{loc.Lat, loc.Lon},
 				Heading:         loc.Heading,
@@ -134,8 +134,8 @@ func (ds *DataStream) handleQueue(q chan *export.PlaneLocationJSON, table string
 				TypeCode:        unPtr(loc.TypeCode),
 			}
 
-			updateId++
-			if updateId >= max-1 {
+			updateID++
+			if updateID >= maxNumItems-1 {
 				send()
 			}
 		}

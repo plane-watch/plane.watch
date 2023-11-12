@@ -145,7 +145,7 @@ func ptr[t any](what t) *t {
 	return &what
 }
 
-func MergePlaneLocations(prev, next PlaneLocationJSON) (PlaneLocationJSON, error) {
+func MergePlaneLocations(prev, next *PlaneLocationJSON) (*PlaneLocationJSON, error) {
 	if !IsLocationPossible(prev, next) {
 		return prev, ErrImpossible
 	}
@@ -251,7 +251,7 @@ func MergePlaneLocations(prev, next PlaneLocationJSON) (PlaneLocationJSON, error
 	return merged, nil
 }
 
-func IsLocationPossible(prev, next PlaneLocationJSON) bool {
+func IsLocationPossible(prev, next *PlaneLocationJSON) bool {
 	// simple check, if bearing of prev -> next is more than +-90 degrees of reported value, it is invalid
 	if !(prev.HasLocation && next.HasLocation && prev.HasHeading && next.HasHeading) {
 		// cannot check, fail open

@@ -19,8 +19,8 @@ func TestIsLocationPossible(t *testing.T) {
 		t.Error("I don't understand time")
 	}
 
-	pos1 := PlaneLocationJSON{Lat: -31.942017, Lon: 115.964594, Heading: 14.116942, HasLocation: true, HasHeading: true, LastMsg: msg1t}
-	pos2 := PlaneLocationJSON{Lat: -31.940887, Lon: 115.964897, Heading: 14.116942, HasLocation: true, HasHeading: true, LastMsg: msg2t}
+	pos1 := &PlaneLocationJSON{Lat: -31.942017, Lon: 115.964594, Heading: 14.116942, HasLocation: true, HasHeading: true, LastMsg: msg1t}
+	pos2 := &PlaneLocationJSON{Lat: -31.940887, Lon: 115.964897, Heading: 14.116942, HasLocation: true, HasHeading: true, LastMsg: msg2t}
 
 	if !IsLocationPossible(pos1, pos2) {
 		t.Error("Pos1 -> Pos2 is possible")
@@ -108,7 +108,7 @@ func TestMergeCallSign(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := MergePlaneLocations(tt.args.prev, tt.args.next)
+			got, err := MergePlaneLocations(&tt.args.prev, &tt.args.next)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("MergePlaneLocations() error = %v, wantErr %v", err, tt.wantErr)
 				return

@@ -6,6 +6,8 @@ import (
 	"github.com/rs/zerolog/log"
 	"math"
 	"plane.watch/lib/export"
+	"sync"
+	"time"
 )
 
 type (
@@ -23,7 +25,63 @@ const SigHeadingChange = 1.0        // at least 1.0 degrees change.
 const SigVerticalRateChange = 180.0 // at least 180 fpm change (3ft in 1min)
 const SigAltitudeChange = 10.0      // at least 10 ft in altitude change.
 
-func (w *worker) isSignificant(last, candidate export.PlaneLocationJSON) bool {
+var poolUpdatesJSON sync.Pool
+
+func init() {
+	poolUpdatesJSON = sync.Pool{
+		New: func() any {
+			return &export.PlaneLocationJSON{
+				Icao:            "",
+				Lat:             0,
+				Lon:             0,
+				Heading:         0,
+				Velocity:        0,
+				Altitude:        0,
+				VerticalRate:    0,
+				New:             false,
+				Removed:         false,
+				OnGround:        false,
+				HasAltitude:     false,
+				HasLocation:     false,
+				HasHeading:      false,
+				HasOnGround:     false,
+				HasFlightStatus: false,
+				HasVerticalRate: false,
+				HasVelocity:     false,
+				AltitudeUnits:   "",
+				FlightStatus:    "",
+				Airframe:        "",
+				AirframeType:    "",
+				SourceTag:       "",
+				Squawk:          "",
+				Special:         "",
+				TileLocation:    "",
+				SourceTags:      make(map[string]uint32, 3),
+				TrackedSince:    time.Time{},
+				LastMsg:         time.Time{},
+				Updates:         export.Updates{},
+				SignalRssi:      nil,
+				AircraftWidth:   nil,
+				AircraftLength:  nil,
+				IcaoCode:        nil,
+				Registration:    nil,
+				TypeCode:        nil,
+				TypeCodeLong:    nil,
+				Serial:          nil,
+				RegisteredOwner: nil,
+				COFAOwner:       nil,
+				EngineType:      nil,
+				FlagCode:        nil,
+				CallSign:        nil,
+				Operator:        nil,
+				RouteCode:       nil,
+				Segments:        nil,
+			}
+		},
+	}
+}
+
+func (w *worker) isSignificant(last, candidate *export.PlaneLocationJSON) bool {
 	// check the candidate vs last, if any of the following have changed
 	// - Heading, VerticalRate, Velocity, Altitude, FlightNumber, FlightStatus, OnGround, Special, Squawk
 
@@ -186,8 +244,8 @@ func (w *worker) handleMsg(msg []byte) error {
 	var json = jsoniter.ConfigFastest
 	// unmarshal the JSON and ensure it's valid.
 	// report the error if not and skip this message.
-	update := export.PlaneLocationJSON{}
-	if err = json.Unmarshal(msg, &update); nil != err {
+	update := poolUpdatesJSON.Get().(*export.PlaneLocationJSON)
+	if err = json.Unmarshal(msg, update); nil != err {
 		log.Error().Err(err).Msg("Unable to unmarshal JSON")
 		updatesError.Inc()
 		return err
@@ -220,12 +278,12 @@ func (w *worker) handleMsg(msg []byte) error {
 	if update.Removed {
 		// TODO: we need to do our own reaping, since we can have multiple upstreams and one upstream losing track of
 		// TODO: a plane does not mean it should be lost entirely
-		//w.handleRemovedUpdate(update, msg)
+		// w.handleRemovedUpdate(update, msg)
 		return nil // don't need to do anything else with this.
 	}
 
 	// is this update significant versus the previous one
-	lastRecord := item.(export.PlaneLocationJSON)
+	lastRecord := item.(*export.PlaneLocationJSON)
 	merged, err := export.MergePlaneLocations(lastRecord, update)
 	if nil != err {
 		return nil
@@ -242,6 +300,8 @@ func (w *worker) handleMsg(msg []byte) error {
 	} else {
 		w.handleInsignificantUpdate(merged, mergedMsg)
 	}
+
+	poolUpdatesJSON.Put(update)
 
 	return nil
 }
@@ -264,7 +324,7 @@ func (w *worker) handleRemovedUpdate(update export.PlaneLocationJSON, msg []byte
 	}
 }
 
-func (w *worker) handleSignificantUpdate(update export.PlaneLocationJSON, msg []byte) {
+func (w *worker) handleSignificantUpdate(update *export.PlaneLocationJSON, msg []byte) {
 	// store the new update in-place of the old one
 	// w.router.syncSamples.Store(update.Icao, update)
 	updatesSignificant.Inc()
@@ -277,11 +337,11 @@ func (w *worker) handleSignificantUpdate(update export.PlaneLocationJSON, msg []
 		w.publishLocationUpdate(update.TileLocation+qSuffixHigh, msg)
 	}
 	if nil != w.ds {
-		w.ds.AddLow(&update)
+		w.ds.AddLow(update)
 	}
 }
 
-func (w *worker) handleNewUpdate(update export.PlaneLocationJSON, msg []byte) {
+func (w *worker) handleNewUpdate(update *export.PlaneLocationJSON, msg []byte) {
 	// store the new update
 	cacheEntries.Inc()
 
@@ -300,7 +360,7 @@ func (w *worker) handleNewUpdate(update export.PlaneLocationJSON, msg []byte) {
 	}
 }
 
-func (w *worker) handleInsignificantUpdate(update export.PlaneLocationJSON, msg []byte) {
+func (w *worker) handleInsignificantUpdate(update *export.PlaneLocationJSON, msg []byte) {
 	updatesInsignificant.Inc()
 
 	w.publishLocationUpdate(w.destRoutingKeyHigh, msg) // all high speed messages
@@ -311,7 +371,7 @@ func (w *worker) handleInsignificantUpdate(update export.PlaneLocationJSON, msg 
 	}
 
 	if nil != w.ds {
-		w.ds.AddHigh(&update)
+		w.ds.AddHigh(update)
 	}
 }
 
