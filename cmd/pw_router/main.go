@@ -215,8 +215,8 @@ func run(c *cli.Context) error {
 	monitoring.AddHealthCheck(router.nats)
 
 	var ds *DataStream
-	if chUrl := c.String("clickhouse"); "" != chUrl {
-		chs, err := clickhouse.New(chUrl)
+	if chURL := c.String("clickhouse"); chURL != "" {
+		chs, err := clickhouse.New(chURL)
 		if nil != err {
 			return err
 		}

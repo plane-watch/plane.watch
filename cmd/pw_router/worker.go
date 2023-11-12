@@ -193,7 +193,7 @@ func (w *worker) handleMsg(msg []byte) error {
 		return err
 	}
 
-	if "" == update.Icao {
+	if update.Icao == "" {
 		log.Debug().Str("payload", string(msg)).Msg("empty ICAO")
 		updatesError.Inc()
 		return nil
@@ -247,7 +247,7 @@ func (w *worker) handleMsg(msg []byte) error {
 }
 
 func (w *worker) handleRemovedUpdate(update export.PlaneLocation, msg []byte) {
-	//check if this is a removed record and purge it from the cache and emit an event
+	// check if this is a removed record and purge it from the cache and emit an event
 	// this ensures downstream pipeline components always know about a removed record.
 	// we get the removed flag from pw_ingest - this shortcuts our cache expiry for efficiency.
 	w.router.syncSamples.Delete(update.Icao)
@@ -266,7 +266,7 @@ func (w *worker) handleRemovedUpdate(update export.PlaneLocation, msg []byte) {
 
 func (w *worker) handleSignificantUpdate(update export.PlaneLocation, msg []byte) {
 	// store the new update in-place of the old one
-	//w.router.syncSamples.Store(update.Icao, update)
+	// w.router.syncSamples.Store(update.Icao, update)
 	updatesSignificant.Inc()
 
 	// emit the new lastSignificant
