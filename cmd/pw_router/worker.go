@@ -232,7 +232,7 @@ func (w *worker) handleMsg(msg []byte) error {
 	}
 	w.router.syncSamples.Store(merged.Icao, merged)
 
-	mergedMsg, err := merged.ToJsonBytes()
+	mergedMsg, err := merged.ToJSONBytes()
 	if nil != err {
 		return err
 	}

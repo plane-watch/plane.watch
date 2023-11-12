@@ -59,7 +59,7 @@ func NewPlaneLocation(plane *tracker.Plane, isNew, isRemoved bool, source string
 	}
 }
 
-func (pl *PlaneLocation) ToJsonBytes() ([]byte, error) {
+func (pl *PlaneLocation) ToJSONBytes() ([]byte, error) {
 	json := jsoniter.ConfigFastest
 
 	pl.sourceTagsMutex.Lock()

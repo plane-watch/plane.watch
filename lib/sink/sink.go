@@ -72,7 +72,7 @@ func (s *Sink) trackerMsgJson(le *tracker.PlaneLocationEvent) ([]byte, error) {
 	}
 
 	eventStruct := export.NewPlaneLocation(plane, le.New(), le.Removed(), s.config.sourceTag)
-	return eventStruct.ToJsonBytes()
+	return eventStruct.ToJSONBytes()
 }
 
 func (s *Sink) doSend() {
