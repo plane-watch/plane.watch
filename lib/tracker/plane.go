@@ -469,6 +469,11 @@ func (p *Plane) FlightStatus() string {
 	defer p.rwLock.RUnlock()
 	return p.flight.status
 }
+func (p *Plane) FlightStatusId() byte {
+	p.rwLock.RLock()
+	defer p.rwLock.RUnlock()
+	return p.flight.statusId
+}
 
 // HasFlightStatus indicates if we have a flight status
 func (p *Plane) HasFlightStatus() bool {

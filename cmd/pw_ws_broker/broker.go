@@ -25,7 +25,7 @@ type (
 		close()
 		monitoring.HealthCheck
 	}
-	processMessage func(highLow string, loc *export.PlaneLocation)
+	processMessage func(highLow string, loc *export.PlaneLocationJSON)
 )
 
 func NewPlaneWatchWebSocketBroker(input source, natsRpc *nats_io.Server, httpAddr, cert, certKey string, serveTestWeb bool, sendTickDuration time.Duration) (*PwWsBroker, error) {
@@ -52,7 +52,7 @@ func (b *PwWsBroker) Setup() error {
 		return err
 	}
 
-	b.input.setProcessMessage(func(highLow string, loc *export.PlaneLocation) {
+	b.input.setProcessMessage(func(highLow string, loc *export.PlaneLocationJSON) {
 		prometheusIncomingMessages.WithLabelValues(highLow).Inc()
 		tile := loc.TileLocation + highLow
 		b.clients.SendLocationUpdate(highLow, tile, loc)

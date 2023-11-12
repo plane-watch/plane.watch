@@ -45,7 +45,7 @@ type (
 		Heading, Velocity float64
 		Altitude          *int32
 	}
-	AircraftList []*export.PlaneLocation
+	AircraftList []*export.PlaneLocationJSON
 	SearchResult struct {
 		Query    string
 		Aircraft AircraftList
@@ -59,11 +59,11 @@ type (
 		Lat, Lon float64
 	}
 	WsResponse struct {
-		Type      string                  `json:"type"`
-		Message   string                  `json:"message,omitempty"`
-		Tiles     []string                `json:"tiles,omitempty"`
-		Location  *export.PlaneLocation   `json:"location,omitempty"`
-		Locations []*export.PlaneLocation `json:"locations,omitempty"`
+		Type      string                      `json:"type"`
+		Message   string                      `json:"message,omitempty"`
+		Tiles     []string                    `json:"tiles,omitempty"`
+		Location  *export.PlaneLocationJSON   `json:"location,omitempty"`
+		Locations []*export.PlaneLocationJSON `json:"locations,omitempty"`
 
 		Icao     string            `json:"icao,omitempty"`
 		CallSign string            `json:"callSign,omitempty"`

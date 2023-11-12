@@ -15,6 +15,7 @@ import (
 
 const (
 	Sink             = "sink"
+	SinkEncoding     = "sink-encoding"
 	SinkCollectDelay = "sink-collect-delay"
 )
 
@@ -36,6 +37,12 @@ func IncludeSinkFlags(app *cli.App) {
 			Usage:   "The place to send decoded JSON in URL Form. nats://user:pass@host:port/vhost?ttl=60",
 			EnvVars: []string{"SINK"},
 		},
+		&cli.StringFlag{
+			Name:    SinkEncoding,
+			Usage:   "The data serialisation method. 'json' or 'protobuf'",
+			Value:   "json",
+			EnvVars: []string{"SINK_ENCODING"},
+		},
 		&cli.DurationFlag{
 			Name:    SinkCollectDelay,
 			Value:   300 * time.Millisecond,
@@ -46,43 +53,49 @@ func IncludeSinkFlags(app *cli.App) {
 }
 
 func HandleSinkFlag(c *cli.Context, connName string) (tracker.Sink, error) {
-	defaultDelay := c.Duration(SinkCollectDelay)
+	sinkURL := c.String(Sink)
 	defaultTag := c.String(Tag)
+	sinkEncoding := strings.ToLower(c.String(SinkEncoding))
+	defaultDelay := c.Duration(SinkCollectDelay)
 
-	sinkUrl := c.String(Sink)
-	log.Debug().Str("sink-url", sinkUrl).Msg("With Sink")
-	s, err := handleSink(connName, sinkUrl, defaultTag, defaultDelay)
+	if sinkEncoding != sink.EncodingJSON && sinkEncoding != sink.EncodingProtobuf {
+		return nil, fmt.Errorf("sink Encoding must be one of [%s, %s]", sink.EncodingJSON, sink.EncodingProtobuf)
+	}
+
+	log.Debug().Str("sink-url", sinkURL).Msg("With Sink")
+	s, err := handleSink(connName, sinkURL, defaultTag, sinkEncoding, defaultDelay)
 	if nil != err {
-		log.Error().Err(err).Str("url", sinkUrl).Str("what", "sink").Msg("Failed setup sink")
+		log.Error().Err(err).Str("url", sinkURL).Str("what", "sink").Msg("Failed setup sink")
 		return nil, err
 	}
 
 	return s, nil
 }
 
-func handleSink(connName, urlSink, defaultTag string, sendDelay time.Duration) (tracker.Sink, error) {
-	parsedUrl, err := url.Parse(urlSink)
+func handleSink(connName, urlSink, defaultTag, sinkEncoding string, sendDelay time.Duration) (tracker.Sink, error) {
+	parsedURL, err := url.Parse(urlSink)
 	if nil != err {
 		return nil, err
 	}
 
-	urlPass, _ := parsedUrl.User.Password()
+	urlPass, _ := parsedURL.User.Password()
 
 	commonOpts := []sink.Option{
 		sink.WithConnectionName(connName),
-		sink.WithHost(parsedUrl.Hostname(), parsedUrl.Port()),
-		sink.WithUserPass(parsedUrl.User.Username(), urlPass),
-		sink.WithSourceTag(getTag(parsedUrl, defaultTag)),
+		sink.WithHost(parsedURL.Hostname(), parsedURL.Port()),
+		sink.WithUserPass(parsedURL.User.Username(), urlPass),
+		sink.WithSourceTag(getTag(parsedURL, defaultTag)),
 		sink.WithPrometheusCounters(prometheusOutputFrame, prometheusOutputPlaneLocation),
 		sink.WithSendDelay(sendDelay),
+		sink.WithEncoding(sinkEncoding),
 	}
 
-	switch strings.ToLower(parsedUrl.Scheme) {
+	switch strings.ToLower(parsedURL.Scheme) {
 	case "nats", "nats.io":
 		return sink.NewNatsSink(commonOpts...)
 
 	default:
-		return nil, fmt.Errorf("unknown scheme: %s, expected nats://", parsedUrl.Scheme)
+		return nil, fmt.Errorf("unknown scheme: %s, expected nats://", parsedURL.Scheme)
 	}
 
 }

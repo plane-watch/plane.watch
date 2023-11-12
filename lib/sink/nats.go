@@ -40,7 +40,7 @@ func NewNatsSink(opts ...Option) (tracker.Sink, error) {
 
 func (n *NatsSink) connect() error {
 	var err error
-	serverUrl := url.URL{
+	serverURL := url.URL{
 		Scheme:  "nats", // tls for secure
 		User:    url.UserPassword(n.user, n.pass),
 		Host:    net.JoinHostPort(n.host, n.port),
@@ -50,7 +50,7 @@ func (n *NatsSink) connect() error {
 	re := regexp.MustCompile(`/\s/`)
 	st := re.ReplaceAllString(n.sourceTag, "_")
 	n.server, err = nats_io.NewServer(
-		nats_io.WithServer(serverUrl.String(), n.connectionName+"+source="+st),
+		nats_io.WithServer(serverURL.String(), n.connectionName+"+source="+st),
 		nats_io.WithConnections(false, true),
 	)
 	return err

@@ -49,7 +49,7 @@ type (
 	}
 
 	IngestTapHandler func(frameType, tag string, data []byte)
-	wsHandler        func(location *export.PlaneLocation)
+	wsHandler        func(location *export.PlaneLocationJSON)
 
 	Option func(*PlaneWatchTapper)
 )
@@ -175,7 +175,7 @@ func (pw *PlaneWatchTapper) RemoveIncomingTap(tap tapHeaders) {
 	pw.logger.Debug().Str("response", string(response)).Msg("request response")
 }
 
-func (pw *PlaneWatchTapper) natsTap(icao, feederKey string, subject string, callback func(*export.PlaneLocation)) error {
+func (pw *PlaneWatchTapper) natsTap(icao, feederKey string, subject string, callback func(*export.PlaneLocationJSON)) error {
 	listenCh, err := pw.natsSvr.Subscribe(subject)
 	if nil != err {
 		return err
@@ -188,7 +188,7 @@ func (pw *PlaneWatchTapper) natsTap(icao, feederKey string, subject string, call
 		for {
 			select {
 			case msg := <-ch:
-				var planeLocation export.PlaneLocation
+				var planeLocation export.PlaneLocationJSON
 				err = json.Unmarshal(msg.Data, &planeLocation)
 				if nil != err {
 					pw.logger.Error().Err(err)
@@ -210,27 +210,27 @@ func (pw *PlaneWatchTapper) natsTap(icao, feederKey string, subject string, call
 	return nil
 }
 
-func (pw *PlaneWatchTapper) AfterIngestTap(icao, feederKey string, callback func(*export.PlaneLocation)) error {
+func (pw *PlaneWatchTapper) AfterIngestTap(icao, feederKey string, callback func(*export.PlaneLocationJSON)) error {
 	return pw.natsTap(icao, feederKey, pw.queueLocations, callback)
 }
 
-func (pw *PlaneWatchTapper) AfterEnrichmentTap(icao, feederKey string, callback func(*export.PlaneLocation)) error {
+func (pw *PlaneWatchTapper) AfterEnrichmentTap(icao, feederKey string, callback func(*export.PlaneLocationJSON)) error {
 	return pw.natsTap(icao, feederKey, pw.queueLocationsEnriched, callback)
 }
 
-func (pw *PlaneWatchTapper) AfterRouterLowTap(icao, feederKey string, callback func(*export.PlaneLocation)) error {
+func (pw *PlaneWatchTapper) AfterRouterLowTap(icao, feederKey string, callback func(*export.PlaneLocationJSON)) error {
 	return pw.natsTap(icao, feederKey, pw.queueLocationsEnrichedLow, callback)
 }
 
-func (pw *PlaneWatchTapper) AfterRouterHighTap(icao, feederKey string, callback func(*export.PlaneLocation)) error {
+func (pw *PlaneWatchTapper) AfterRouterHighTap(icao, feederKey string, callback func(*export.PlaneLocationJSON)) error {
 	return pw.natsTap(icao, feederKey, pw.queueLocationsEnrichedHigh, callback)
 }
 
-func (pw *PlaneWatchTapper) WebSocketTapLow(icao, feederKey string, callback func(*export.PlaneLocation)) error {
+func (pw *PlaneWatchTapper) WebSocketTapLow(icao, feederKey string, callback func(*export.PlaneLocationJSON)) error {
 	pw.addWsFilterFunc(icao, feederKey, "low", callback)
 	return pw.wsLow.SubscribeAllLow()
 }
-func (pw *PlaneWatchTapper) WebSocketTapHigh(icao, feederKey string, callback func(*export.PlaneLocation)) error {
+func (pw *PlaneWatchTapper) WebSocketTapHigh(icao, feederKey string, callback func(*export.PlaneLocationJSON)) error {
 	pw.addWsFilterFunc(icao, feederKey, "high", callback)
 	return pw.wsHigh.SubscribeAllHigh()
 }
@@ -271,7 +271,7 @@ func (pw *PlaneWatchTapper) wsHandler(handlers *[]*wsFilterFunc) func(r *ws_prot
 }
 
 // maybeSend takes into account the filter and calls the user provided handler if it matches
-func (pw *PlaneWatchTapper) maybeSend(ff *wsFilterFunc, loc *export.PlaneLocation) {
+func (pw *PlaneWatchTapper) maybeSend(ff *wsFilterFunc, loc *export.PlaneLocationJSON) {
 	if nil == loc {
 		return
 	}

@@ -13,7 +13,7 @@ type (
 		wsClient *ws_client.Client
 		wsLog    zerolog.Logger
 
-		handleUpdate func(planeLocation *export.PlaneLocation)
+		handleUpdate func(planeLocation *export.PlaneLocationJSON)
 
 		exiting bool
 	}

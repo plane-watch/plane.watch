@@ -265,7 +265,7 @@ func (m *model) updateAircraftTable() {
 	defer data.mu.Unlock()
 
 	rows := make([]table.Row, 0, len(data.planes))
-	var p *export.PlaneLocation
+	var p *export.PlaneLocationJSON
 	for _, icaoStr := range data.icaos {
 		p = data.planes[icaoStr]
 		rows = append(rows, table.Row{

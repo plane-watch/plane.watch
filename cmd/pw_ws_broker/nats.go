@@ -56,7 +56,7 @@ func (n *PwWsBrokerNats) consume(exitChan chan bool, subject, what string) {
 	var wg sync.WaitGroup
 	worker := func() {
 		for msg := range ch {
-			planeData := export.PlaneLocation{}
+			planeData := export.PlaneLocationJSON{}
 			var json = jsoniter.ConfigFastest
 			errJson := json.Unmarshal(msg.Data, &planeData)
 			if nil != errJson {

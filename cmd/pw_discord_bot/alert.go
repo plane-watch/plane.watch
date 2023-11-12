@@ -16,7 +16,7 @@ const (
 
 type (
 	pwAlertBot struct {
-		locationUpdates  chan *export.PlaneLocation
+		locationUpdates  chan *export.PlaneLocationJSON
 		numUpdateWorkers int
 
 		// keeps track of when we alerted a user
@@ -31,7 +31,7 @@ type (
 	proximityAlert struct {
 		time        time.Time
 		alert       *location
-		update      *export.PlaneLocation
+		update      *export.PlaneLocationJSON
 		distanceMtr int
 	}
 )
@@ -60,7 +60,7 @@ func (a *pwAlertBot) stop() error {
 	return nil
 }
 
-func (a *pwAlertBot) handleUpdate(update *export.PlaneLocation) {
+func (a *pwAlertBot) handleUpdate(update *export.PlaneLocationJSON) {
 	if nil == update {
 		return
 	}

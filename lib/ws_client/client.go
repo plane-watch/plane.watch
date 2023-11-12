@@ -20,7 +20,7 @@ type (
 		conn          *websocket.Conn
 		secure        bool
 		host          string // expected format "plane.watch:8080"
-		locationChan  chan *export.PlaneLocation
+		locationChan  chan *export.PlaneLocationJSON
 		gridTilesChan chan []string
 		ackSubChan    chan []string
 		ackUnsubChan  chan []string
@@ -33,7 +33,7 @@ func NewClient(host string) *Client {
 	return &Client{
 		host:         host,
 		secure:       true,
-		locationChan: make(chan *export.PlaneLocation, 100),
+		locationChan: make(chan *export.PlaneLocationJSON, 100),
 		// response channels
 		gridTilesChan: make(chan []string),
 		ackSubChan:    make(chan []string),
@@ -92,7 +92,7 @@ func (c *Client) listen() {
 	}
 }
 
-func (c *Client) LocationUpdates() chan *export.PlaneLocation {
+func (c *Client) LocationUpdates() chan *export.PlaneLocationJSON {
 	return c.locationChan
 }
 

@@ -27,6 +27,8 @@ type (
 		sendList      map[string]*tracker.PlaneLocationEvent
 		sendListMutex sync.Mutex
 		sendTicker    *time.Ticker
+
+		sendCount uint64
 	}
 )
 
@@ -39,8 +41,10 @@ func NewSink(conf *Config, dest Destination) tracker.Sink {
 		sendList: make(map[string]*tracker.PlaneLocationEvent),
 	}
 
-	s.sendTicker = time.NewTicker(s.config.sendDelay)
-	go s.doSend()
+	if s.config.sendDelay > 0 {
+		s.sendTicker = time.NewTicker(s.config.sendDelay)
+		go s.doSend()
+	}
 
 	return &s
 }
@@ -65,14 +69,25 @@ func (s *Sink) Stop() {
 	s.sendTicker.Stop()
 }
 
-func (s *Sink) trackerMsgJson(le *tracker.PlaneLocationEvent) ([]byte, error) {
+func trackerMsgJSON(le *tracker.PlaneLocationEvent, sourceTag string) ([]byte, error) {
 	plane := le.Plane()
 	if nil == plane {
 		return nil, errors.New("no plane")
 	}
 
-	eventStruct := export.NewPlaneLocation(plane, le.New(), le.Removed(), s.config.sourceTag)
+	eventStruct := export.NewPlaneLocation(plane, le.New(), le.Removed(), sourceTag)
 	return eventStruct.ToJSONBytes()
+}
+
+func trackerMsgProtobuf(le *tracker.PlaneLocationEvent, sourceTag string) ([]byte, error) {
+	plane := le.Plane()
+	if nil == plane {
+		return nil, errors.New("no plane")
+	}
+
+	eventStruct := export.NewPlaneLocationPB(plane, sourceTag)
+	defer export.Release(eventStruct)
+	return eventStruct.ToProtobufBytes()
 }
 
 func (s *Sink) doSend() {
@@ -89,7 +104,7 @@ func (s *Sink) sendLocationList() {
 	for _, le := range list {
 		// warning, this code is a duplicate of the OnEvent handling
 		var jsonBuf []byte
-		jsonBuf, err = s.trackerMsgJson(le)
+		jsonBuf, err = s.config.byteMaker(le, s.config.sourceTag)
 		if nil != jsonBuf && nil == err {
 			_ = s.dest.PublishJson(QueueLocationUpdates, jsonBuf)
 			if nil != s.config.stats.planeLoc {
@@ -103,11 +118,12 @@ func (s *Sink) sendLocationList() {
 func (s *Sink) OnEvent(e tracker.Event) {
 	var err error
 	if le, ok := e.(*tracker.PlaneLocationEvent); ok {
-		if 0 == s.config.sendDelay {
+		if s.config.sendDelay == 0 {
 			// warning, this code is a duplicate of the sendLocationList handling
 			var jsonBuf []byte
-			jsonBuf, err = s.trackerMsgJson(le)
-			if nil != jsonBuf && nil == err {
+			jsonBuf, err = s.config.byteMaker(le, s.config.sourceTag)
+			s.sendCount++
+			if jsonBuf != nil && err != nil {
 				_ = s.dest.PublishJson(QueueLocationUpdates, jsonBuf)
 				if nil != s.config.stats.planeLoc {
 					s.config.stats.planeLoc.Inc()

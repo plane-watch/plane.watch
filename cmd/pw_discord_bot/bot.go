@@ -27,7 +27,7 @@ type (
 func NewPlaneWatchBot(token string) (*PwBot, error) {
 	b := PwBot{
 		pwAlertBot: pwAlertBot{
-			locationUpdates:  make(chan *export.PlaneLocation, 100),
+			locationUpdates:  make(chan *export.PlaneLocationJSON, 100),
 			numUpdateWorkers: 10,
 			log:              log.With().Str("Service", "Alert Handler").Logger(),
 		},
@@ -41,7 +41,7 @@ func NewPlaneWatchBot(token string) (*PwBot, error) {
 		log: log.With().Str("Service", "PW Main Bot").Logger(),
 	}
 
-	b.pwWsClient.handleUpdate = func(update *export.PlaneLocation) {
+	b.pwWsClient.handleUpdate = func(update *export.PlaneLocationJSON) {
 		b.pwAlertBot.locationUpdates <- update
 	}
 	b.pwAlertBot.sendAlert = func(pa *proximityAlert) {

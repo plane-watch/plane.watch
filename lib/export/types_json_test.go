@@ -19,8 +19,8 @@ func TestIsLocationPossible(t *testing.T) {
 		t.Error("I don't understand time")
 	}
 
-	pos1 := PlaneLocation{Lat: -31.942017, Lon: 115.964594, Heading: 14.116942, HasLocation: true, HasHeading: true, LastMsg: msg1t}
-	pos2 := PlaneLocation{Lat: -31.940887, Lon: 115.964897, Heading: 14.116942, HasLocation: true, HasHeading: true, LastMsg: msg2t}
+	pos1 := PlaneLocationJSON{Lat: -31.942017, Lon: 115.964594, Heading: 14.116942, HasLocation: true, HasHeading: true, LastMsg: msg1t}
+	pos2 := PlaneLocationJSON{Lat: -31.940887, Lon: 115.964897, Heading: 14.116942, HasLocation: true, HasHeading: true, LastMsg: msg2t}
 
 	if !IsLocationPossible(pos1, pos2) {
 		t.Error("Pos1 -> Pos2 is possible")
@@ -33,76 +33,76 @@ func TestIsLocationPossible(t *testing.T) {
 
 func TestMergeCallSign(t *testing.T) {
 	type args struct {
-		prev PlaneLocation
-		next PlaneLocation
+		prev PlaneLocationJSON
+		next PlaneLocationJSON
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    PlaneLocation
+		want    PlaneLocationJSON
 		wantErr bool
 	}{
 		{
 			name: "both-filled",
 			args: args{
-				prev: PlaneLocation{CallSign: ptr("ONE")},
-				next: PlaneLocation{CallSign: ptr("TWO")},
+				prev: PlaneLocationJSON{CallSign: ptr("ONE")},
+				next: PlaneLocationJSON{CallSign: ptr("TWO")},
 			},
-			want:    PlaneLocation{CallSign: ptr("TWO")},
+			want:    PlaneLocationJSON{CallSign: ptr("TWO")},
 			wantErr: false,
 		},
 		{
 			name: "One-Blank",
 			args: args{
-				prev: PlaneLocation{CallSign: ptr("")},
-				next: PlaneLocation{CallSign: ptr("TWO")},
+				prev: PlaneLocationJSON{CallSign: ptr("")},
+				next: PlaneLocationJSON{CallSign: ptr("TWO")},
 			},
-			want:    PlaneLocation{CallSign: ptr("TWO")},
+			want:    PlaneLocationJSON{CallSign: ptr("TWO")},
 			wantErr: false,
 		},
 		{
 			name: "Two-Blank",
 			args: args{
-				prev: PlaneLocation{CallSign: ptr("ONE")},
-				next: PlaneLocation{CallSign: ptr("")},
+				prev: PlaneLocationJSON{CallSign: ptr("ONE")},
+				next: PlaneLocationJSON{CallSign: ptr("")},
 			},
-			want:    PlaneLocation{CallSign: ptr("ONE")},
+			want:    PlaneLocationJSON{CallSign: ptr("ONE")},
 			wantErr: false,
 		},
 		{
 			name: "One-nil",
 			args: args{
-				prev: PlaneLocation{CallSign: nil},
-				next: PlaneLocation{CallSign: ptr("")},
+				prev: PlaneLocationJSON{CallSign: nil},
+				next: PlaneLocationJSON{CallSign: ptr("")},
 			},
-			want:    PlaneLocation{CallSign: ptr("")},
+			want:    PlaneLocationJSON{CallSign: ptr("")},
 			wantErr: false,
 		},
 		{
 			name: "Two-nil",
 			args: args{
-				prev: PlaneLocation{CallSign: ptr("ONE")},
-				next: PlaneLocation{CallSign: nil},
+				prev: PlaneLocationJSON{CallSign: ptr("ONE")},
+				next: PlaneLocationJSON{CallSign: nil},
 			},
-			want:    PlaneLocation{CallSign: ptr("ONE")},
+			want:    PlaneLocationJSON{CallSign: ptr("ONE")},
 			wantErr: false,
 		},
 		{
 			name: "both-nil",
 			args: args{
-				prev: PlaneLocation{CallSign: nil},
-				next: PlaneLocation{CallSign: nil},
+				prev: PlaneLocationJSON{CallSign: nil},
+				next: PlaneLocationJSON{CallSign: nil},
 			},
-			want:    PlaneLocation{CallSign: nil},
+			want:    PlaneLocationJSON{CallSign: nil},
 			wantErr: false,
 		},
 		{
 			name: "both-blank",
 			args: args{
-				prev: PlaneLocation{CallSign: ptr("")},
-				next: PlaneLocation{CallSign: ptr("")},
+				prev: PlaneLocationJSON{CallSign: ptr("")},
+				next: PlaneLocationJSON{CallSign: ptr("")},
 			},
-			want:    PlaneLocation{CallSign: ptr("")},
+			want:    PlaneLocationJSON{CallSign: ptr("")},
 			wantErr: false,
 		},
 	}

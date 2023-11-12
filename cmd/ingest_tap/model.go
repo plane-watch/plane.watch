@@ -23,7 +23,7 @@ type (
 	sourceInfo struct {
 		mu         sync.Mutex
 		frameCount uint64
-		planes     map[string]*export.PlaneLocation
+		planes     map[string]*export.PlaneLocationJSON
 		frames     map[string]uint64
 		icaos      []string
 	}
@@ -232,11 +232,11 @@ func (m *model) handleIncomingData(frameType, tag string, data []byte) {
 }
 
 func (si *sourceInfo) init() {
-	si.planes = make(map[string]*export.PlaneLocation)
+	si.planes = make(map[string]*export.PlaneLocationJSON)
 	si.frames = make(map[string]uint64)
 }
 
-func (si *sourceInfo) update(loc *export.PlaneLocation) {
+func (si *sourceInfo) update(loc *export.PlaneLocationJSON) {
 	si.mu.Lock()
 	defer si.mu.Unlock()
 	if _, ok := si.frames[loc.Icao]; !ok {
@@ -260,7 +260,7 @@ func (si *sourceInfo) numFramesFor(icao string) string {
 	return strconv.FormatUint(si.frames[icao], 10)
 }
 
-func (si *sourceInfo) getLoc(icao string) *export.PlaneLocation {
+func (si *sourceInfo) getLoc(icao string) *export.PlaneLocationJSON {
 	si.mu.Lock()
 	defer si.mu.Unlock()
 	p := si.planes[icao]

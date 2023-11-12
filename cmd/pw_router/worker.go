@@ -23,7 +23,7 @@ const SigHeadingChange = 1.0        // at least 1.0 degrees change.
 const SigVerticalRateChange = 180.0 // at least 180 fpm change (3ft in 1min)
 const SigAltitudeChange = 10.0      // at least 10 ft in altitude change.
 
-func (w *worker) isSignificant(last, candidate export.PlaneLocation) bool {
+func (w *worker) isSignificant(last, candidate export.PlaneLocationJSON) bool {
 	// check the candidate vs last, if any of the following have changed
 	// - Heading, VerticalRate, Velocity, Altitude, FlightNumber, FlightStatus, OnGround, Special, Squawk
 
@@ -186,7 +186,7 @@ func (w *worker) handleMsg(msg []byte) error {
 	var json = jsoniter.ConfigFastest
 	// unmarshal the JSON and ensure it's valid.
 	// report the error if not and skip this message.
-	update := export.PlaneLocation{}
+	update := export.PlaneLocationJSON{}
 	if err = json.Unmarshal(msg, &update); nil != err {
 		log.Error().Err(err).Msg("Unable to unmarshal JSON")
 		updatesError.Inc()
@@ -225,7 +225,7 @@ func (w *worker) handleMsg(msg []byte) error {
 	}
 
 	// is this update significant versus the previous one
-	lastRecord := item.(export.PlaneLocation)
+	lastRecord := item.(export.PlaneLocationJSON)
 	merged, err := export.MergePlaneLocations(lastRecord, update)
 	if nil != err {
 		return nil
@@ -246,7 +246,7 @@ func (w *worker) handleMsg(msg []byte) error {
 	return nil
 }
 
-func (w *worker) handleRemovedUpdate(update export.PlaneLocation, msg []byte) {
+func (w *worker) handleRemovedUpdate(update export.PlaneLocationJSON, msg []byte) {
 	// check if this is a removed record and purge it from the cache and emit an event
 	// this ensures downstream pipeline components always know about a removed record.
 	// we get the removed flag from pw_ingest - this shortcuts our cache expiry for efficiency.
@@ -264,7 +264,7 @@ func (w *worker) handleRemovedUpdate(update export.PlaneLocation, msg []byte) {
 	}
 }
 
-func (w *worker) handleSignificantUpdate(update export.PlaneLocation, msg []byte) {
+func (w *worker) handleSignificantUpdate(update export.PlaneLocationJSON, msg []byte) {
 	// store the new update in-place of the old one
 	// w.router.syncSamples.Store(update.Icao, update)
 	updatesSignificant.Inc()
@@ -281,7 +281,7 @@ func (w *worker) handleSignificantUpdate(update export.PlaneLocation, msg []byte
 	}
 }
 
-func (w *worker) handleNewUpdate(update export.PlaneLocation, msg []byte) {
+func (w *worker) handleNewUpdate(update export.PlaneLocationJSON, msg []byte) {
 	// store the new update
 	cacheEntries.Inc()
 
@@ -300,7 +300,7 @@ func (w *worker) handleNewUpdate(update export.PlaneLocation, msg []byte) {
 	}
 }
 
-func (w *worker) handleInsignificantUpdate(update export.PlaneLocation, msg []byte) {
+func (w *worker) handleInsignificantUpdate(update export.PlaneLocationJSON, msg []byte) {
 	updatesInsignificant.Inc()
 
 	w.publishLocationUpdate(w.destRoutingKeyHigh, msg) // all high speed messages

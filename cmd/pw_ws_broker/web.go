@@ -241,7 +241,7 @@ func (cl *ClientList) performSearch(query string) ws_protocol.SearchResult {
 
 	results := ws_protocol.SearchResult{
 		Query:    query,
-		Aircraft: []*export.PlaneLocation{},
+		Aircraft: []*export.PlaneLocationJSON{},
 		Airport:  []ws_protocol.AirportLocation{},
 		Route:    []string{},
 	}
@@ -249,7 +249,7 @@ func (cl *ClientList) performSearch(query string) ws_protocol.SearchResult {
 	if len(query) >= 2 {
 		// find any aircraft
 		cl.globalList.Range(func(key, value interface{}) bool {
-			loc := value.(*export.PlaneLocation)
+			loc := value.(*export.PlaneLocationJSON)
 
 			if strings.Contains(strings.ToLower(loc.Icao), query) ||
 				(nil != loc.CallSign && strings.Contains(strings.ToLower(*loc.CallSign), query)) ||
@@ -510,7 +510,7 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 		grid[k+"_high"] = true
 	}
 
-	locationMessages := make([]*export.PlaneLocation, 0, 1000)
+	locationMessages := make([]*export.PlaneLocationJSON, 0, 1000)
 	icaoIdLookup := make(map[string]int, 1000)
 
 	currentSendTickDuration := c.sendTickDuration
@@ -561,7 +561,7 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 					matching := 0
 					// find all things currently in requested grid
 					c.parent.globalList.Range(func(key, value interface{}) bool {
-						loc := value.(*export.PlaneLocation)
+						loc := value.(*export.PlaneLocationJSON)
 						if cmdMsg.what == loc.TileLocation {
 							if id, ok := icaoIdLookup[loc.Icao]; ok {
 								locationMessages[id] = loc
@@ -634,7 +634,7 @@ func (c *WsClient) planeProtocolHandler(ctx context.Context, conn *websocket.Con
 					Locations: locationMessages,
 				})
 				// reset the slice and lookup map
-				locationMessages = make([]*export.PlaneLocation, 0, 1000)
+				locationMessages = make([]*export.PlaneLocationJSON, 0, 1000)
 				icaoIdLookup = make(map[string]int, 1000)
 			}
 		}
@@ -711,7 +711,7 @@ func newClientList(bw *PwWsBrokerWeb) *ClientList {
 		}),
 		forgetfulmap.WithForgettableAction(func(key, value any, added time.Time) bool {
 			result := true
-			if loc, ok := value.(*export.PlaneLocation); ok {
+			if loc, ok := value.(*export.PlaneLocationJSON); ok {
 				oldest := time.Now().Add(-10 * time.Minute)
 				if loc.OnGround {
 					// if a plane is on the ground, remove it 2 minutes after we last saw it
@@ -724,7 +724,7 @@ func newClientList(bw *PwWsBrokerWeb) *ClientList {
 				// remove  the plane from the list if it is older than our oldest allowable
 				result = loc.LastMsg.Before(oldest)
 			}
-			// remove anything that is not a *export.PlaneLocation
+			// remove anything that is not a *export.PlaneLocationJSON
 			return result
 		}),
 	)
@@ -750,7 +750,7 @@ func (cl *ClientList) removeClient(c *WsClient) {
 	//log.Debug().Msg("Remove Client Done")
 }
 
-func (cl *ClientList) globalListUpdate(loc *export.PlaneLocation) {
+func (cl *ClientList) globalListUpdate(loc *export.PlaneLocationJSON) {
 	if nil == loc {
 		return
 	}
@@ -759,7 +759,7 @@ func (cl *ClientList) globalListUpdate(loc *export.PlaneLocation) {
 
 // SendLocationUpdate sends an update to each listening client
 // todo: make this threaded?
-func (cl *ClientList) SendLocationUpdate(highLow, tile string, loc *export.PlaneLocation) {
+func (cl *ClientList) SendLocationUpdate(highLow, tile string, loc *export.PlaneLocationJSON) {
 	// Add our update to our global list
 	cl.globalListUpdate(loc)
 

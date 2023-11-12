@@ -25,8 +25,8 @@ type (
 		Squawk       time.Time
 	}
 
-	// PlaneLocation is our exported data format. it encodes to JSON
-	PlaneLocation struct {
+	// PlaneLocationJSON is our exported data format. it encodes to JSON
+	PlaneLocationJSON struct {
 		// This info is populated by the tracker
 		Icao            string
 		Lat             float64
@@ -100,7 +100,7 @@ var (
 )
 
 // Plane here gives us something to look at
-func (pl *PlaneLocation) Plane() string {
+func (pl *PlaneLocationJSON) Plane() string {
 	if nil != pl.CallSign && *pl.CallSign != "" {
 		return *pl.CallSign
 	}
@@ -112,7 +112,7 @@ func (pl *PlaneLocation) Plane() string {
 	return "ICAO: " + pl.Icao
 }
 
-func (pl *PlaneLocation) CloneSourceTags() map[string]uint32 {
+func (pl *PlaneLocationJSON) CloneSourceTags() map[string]uint32 {
 	pl.sourceTagsMutex.Lock()
 	defer pl.sourceTagsMutex.Unlock()
 
@@ -145,7 +145,7 @@ func ptr[t any](what t) *t {
 	return &what
 }
 
-func MergePlaneLocations(prev, next PlaneLocation) (PlaneLocation, error) {
+func MergePlaneLocations(prev, next PlaneLocationJSON) (PlaneLocationJSON, error) {
 	if !IsLocationPossible(prev, next) {
 		return prev, ErrImpossible
 	}
@@ -251,7 +251,7 @@ func MergePlaneLocations(prev, next PlaneLocation) (PlaneLocation, error) {
 	return merged, nil
 }
 
-func IsLocationPossible(prev, next PlaneLocation) bool {
+func IsLocationPossible(prev, next PlaneLocationJSON) bool {
 	// simple check, if bearing of prev -> next is more than +-90 degrees of reported value, it is invalid
 	if !(prev.HasLocation && next.HasLocation && prev.HasHeading && next.HasHeading) {
 		// cannot check, fail open
@@ -364,7 +364,7 @@ func IsLocationPossible(prev, next PlaneLocation) bool {
 	return false
 }
 
-func (pl *PlaneLocation) CallSignStr() string {
+func (pl *PlaneLocationJSON) CallSignStr() string {
 	if nil == pl {
 		return ""
 	}
@@ -374,7 +374,7 @@ func (pl *PlaneLocation) CallSignStr() string {
 	return *pl.CallSign
 }
 
-func (pl *PlaneLocation) SquawkStr() string {
+func (pl *PlaneLocationJSON) SquawkStr() string {
 	if nil == pl {
 		return ""
 	}
@@ -384,7 +384,7 @@ func (pl *PlaneLocation) SquawkStr() string {
 	return pl.Squawk
 }
 
-func (pl *PlaneLocation) LatStr() string {
+func (pl *PlaneLocationJSON) LatStr() string {
 	if nil == pl {
 		return ""
 	}
@@ -394,7 +394,7 @@ func (pl *PlaneLocation) LatStr() string {
 	return strconv.FormatFloat(pl.Lat, 'f', 4, 64)
 }
 
-func (pl *PlaneLocation) LonStr() string {
+func (pl *PlaneLocationJSON) LonStr() string {
 	if nil == pl {
 		return ""
 	}
@@ -404,7 +404,7 @@ func (pl *PlaneLocation) LonStr() string {
 	return strconv.FormatFloat(pl.Lon, 'f', 4, 64)
 }
 
-func (pl *PlaneLocation) AltitudeStr() string {
+func (pl *PlaneLocationJSON) AltitudeStr() string {
 	if nil == pl {
 		return ""
 	}
@@ -414,7 +414,7 @@ func (pl *PlaneLocation) AltitudeStr() string {
 	return strconv.Itoa(pl.Altitude) + " " + pl.AltitudeUnits
 }
 
-func (pl *PlaneLocation) VerticalRateStr() string {
+func (pl *PlaneLocationJSON) VerticalRateStr() string {
 	if nil == pl {
 		return ""
 	}
@@ -424,7 +424,7 @@ func (pl *PlaneLocation) VerticalRateStr() string {
 	return strconv.Itoa(pl.VerticalRate)
 }
 
-func (pl *PlaneLocation) HeadingStr() string {
+func (pl *PlaneLocationJSON) HeadingStr() string {
 	if nil == pl {
 		return ""
 	}

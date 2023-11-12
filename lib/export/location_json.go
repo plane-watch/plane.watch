@@ -9,9 +9,9 @@ import (
 	"plane.watch/lib/tracker"
 )
 
-func NewPlaneLocation(plane *tracker.Plane, isNew, isRemoved bool, source string) PlaneLocation {
+func NewPlaneLocation(plane *tracker.Plane, isNew, isRemoved bool, source string) PlaneLocationJSON {
 	callSign := strings.TrimSpace(plane.FlightNumber())
-	return PlaneLocation{
+	return PlaneLocationJSON{
 		New:             isNew,
 		Removed:         isRemoved,
 		Icao:            plane.IcaoIdentifierStr(),
@@ -59,7 +59,7 @@ func NewPlaneLocation(plane *tracker.Plane, isNew, isRemoved bool, source string
 	}
 }
 
-func (pl *PlaneLocation) ToJSONBytes() ([]byte, error) {
+func (pl *PlaneLocationJSON) ToJSONBytes() ([]byte, error) {
 	json := jsoniter.ConfigFastest
 
 	pl.sourceTagsMutex.Lock()
@@ -69,7 +69,6 @@ func (pl *PlaneLocation) ToJSONBytes() ([]byte, error) {
 	if nil != err {
 		log.Error().Err(err).Msg("could not create json bytes for sending")
 		return nil, err
-	} else {
-		return jsonBuf, nil
 	}
+	return jsonBuf, nil
 }
