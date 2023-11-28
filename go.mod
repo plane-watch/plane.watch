@@ -13,7 +13,7 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/spf13/viper v1.17.0
 	github.com/urfave/cli/v2 v2.25.7
-	golang.org/x/oauth2 v0.13.0
+	golang.org/x/oauth2 v0.15.0
 	nhooyr.io/websocket v1.8.7
 )
 
