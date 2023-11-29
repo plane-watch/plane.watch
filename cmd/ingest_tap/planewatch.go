@@ -9,6 +9,7 @@ import (
 	"plane.watch/lib/middleware"
 	"plane.watch/lib/nats_io"
 	"plane.watch/lib/randstr"
+	"plane.watch/lib/setup"
 	"plane.watch/lib/sink"
 	"plane.watch/lib/ws_protocol"
 	"sync"
@@ -22,6 +23,9 @@ const (
 
 type (
 	tapHeaders map[string]string
+
+	wireDecoderFunc func([]byte) *export.PlaneAndLocationInfoMsg
+	wsDecoderFunc   func(handlers *[]*wsFilterFunc) func(r *ws_protocol.WsResponse)
 
 	PlaneWatchTapper struct {
 		natsSvr       *nats_io.Server
@@ -37,19 +41,25 @@ type (
 		queueLocationsEnrichedLow  string
 		queueLocationsEnrichedHigh string
 
+		pwIngestDecoder     wireDecoderFunc
+		pwEnrichmentDecoder wireDecoderFunc
+		pwRouterDecoder     wireDecoderFunc
+		wsProto             string
+
 		wsHandlersLow  []*wsFilterFunc
 		wsHandlersHigh []*wsFilterFunc
 		mu             sync.Mutex
 	}
 
 	wsFilterFunc struct {
-		icao, feederTag string
-		speed           string
-		filter          wsHandler
+		icao      uint32
+		feederTag string
+		speed     string
+		filter    wsHandler
 	}
 
 	IngestTapHandler func(frameType, tag string, data []byte)
-	wsHandler        func(location *export.PlaneLocationJSON)
+	wsHandler        func(location *export.PlaneAndLocationInfoMsg)
 
 	Option func(*PlaneWatchTapper)
 )
@@ -67,6 +77,11 @@ func NewPlaneWatchTapper(opts ...Option) *PlaneWatchTapper {
 		wsHandlersLow:  make([]*wsFilterFunc, 0),
 		wsHandlersHigh: make([]*wsFilterFunc, 0),
 	}
+	// setup to use JSON wire proto by default
+	pw.pwIngestDecoder = pw.decoderJSON
+	pw.pwEnrichmentDecoder = pw.decoderJSON
+	pw.pwRouterDecoder = pw.decoderJSON
+	pw.wsProto = setup.WireProtocolJSON
 
 	for _, opt := range opts {
 		opt(pw)
@@ -78,6 +93,56 @@ func NewPlaneWatchTapper(opts ...Option) *PlaneWatchTapper {
 func WithLogger(logger zerolog.Logger) Option {
 	return func(tapper *PlaneWatchTapper) {
 		tapper.logger = logger
+	}
+}
+
+func WithProtocol(protocolType string) Option {
+	return func(tapper *PlaneWatchTapper) {
+		switch protocolType {
+		case setup.WireProtocolJSON:
+			tapper.pwIngestDecoder = tapper.decoderJSON
+			tapper.pwEnrichmentDecoder = tapper.decoderJSON
+			tapper.pwRouterDecoder = tapper.decoderJSON
+			tapper.wsProto = setup.WireProtocolJSON
+		case setup.WireProtocolProtobuf:
+			tapper.pwIngestDecoder = tapper.decoderProtobuf
+			tapper.pwEnrichmentDecoder = tapper.decoderProtobuf
+			tapper.pwRouterDecoder = tapper.decoderProtobuf
+			tapper.wsProto = setup.WireProtocolProtobuf
+		default:
+			panic(fmt.Sprintf("Unknown wire protocol type, expected on of ['%s', '%s']", setup.WireProtocolJSON, setup.WireProtocolProtobuf))
+		}
+	}
+}
+
+func WithProtocolFor(what, protocolType string) Option {
+	return func(tapper *PlaneWatchTapper) {
+		if protocolType == "" {
+			// NoOp out when we get nothing set
+			return
+		}
+		var wireDecoder wireDecoderFunc
+
+		switch protocolType {
+		case setup.WireProtocolJSON:
+			wireDecoder = tapper.decoderJSON
+
+		case setup.WireProtocolProtobuf:
+			wireDecoder = tapper.decoderProtobuf
+		default:
+			panic(fmt.Sprintf("Unknown wire protocol type, expected on of ['%s', '%s']", setup.WireProtocolJSON, setup.WireProtocolProtobuf))
+		}
+
+		switch what {
+		case wireProtocolForIngest:
+			tapper.pwIngestDecoder = wireDecoder
+		case wireProtocolForEnrichment:
+			tapper.pwEnrichmentDecoder = wireDecoder
+		case wireProtocolForRouter:
+			tapper.pwRouterDecoder = wireDecoder
+		case wireProtocolForWsBroker:
+			tapper.wsProto = protocolType
+		}
 	}
 }
 
@@ -93,16 +158,22 @@ func (pw *PlaneWatchTapper) Connect(natsServer, wsServer string) error {
 
 	pw.wsLow = ws_protocol.NewClient(
 		ws_protocol.WithSourceURL(wsServer),
-		ws_protocol.WithResponseHandler(pw.wsHandler(&pw.wsHandlersLow)),
+		ws_protocol.WithWireProtocol(pw.wsProto),
+		ws_protocol.WithJSONResponseHandler(pw.wsHandlerJSON(&pw.wsHandlersLow)),
+		ws_protocol.WithProtobufResponseHandler(pw.wsHandlerProtobuf(&pw.wsHandlersLow)),
 		ws_protocol.WithLogger(pw.logger.With().Str("ws", "low").Logger()),
+		ws_protocol.WithInsecureConnection(true),
 	)
 	if err = pw.wsLow.Connect(); err != nil {
 		return err
 	}
 	pw.wsHigh = ws_protocol.NewClient(
 		ws_protocol.WithSourceURL(wsServer),
-		ws_protocol.WithResponseHandler(pw.wsHandler(&pw.wsHandlersHigh)),
+		ws_protocol.WithWireProtocol(pw.wsProto),
+		ws_protocol.WithJSONResponseHandler(pw.wsHandlerJSON(&pw.wsHandlersHigh)),
+		ws_protocol.WithProtobufResponseHandler(pw.wsHandlerProtobuf(&pw.wsHandlersHigh)),
 		ws_protocol.WithLogger(pw.logger.With().Str("ws", "high").Logger()),
+		ws_protocol.WithInsecureConnection(true),
 	)
 	return pw.wsHigh.Connect()
 }
@@ -128,7 +199,7 @@ func (pw *PlaneWatchTapper) Disconnect() {
 	}
 }
 
-func (pw *PlaneWatchTapper) IncomingDataTap(icao, feederKey string, writer IngestTapHandler) error {
+func (pw *PlaneWatchTapper) IncomingDataTap(icao uint32, feederKey string, writer IngestTapHandler) error {
 	tapSubject := "ingest-natsTap-" + randstr.RandString(20)
 	ch, err := pw.natsSvr.Subscribe(tapSubject)
 	if err != nil {
@@ -147,10 +218,15 @@ func (pw *PlaneWatchTapper) IncomingDataTap(icao, feederKey string, writer Inges
 		}
 	}(ch, pw.exitChannels[tapSubject])
 
+	icaoStr := ""
+	if icao > 0 {
+		icaoStr = fmt.Sprintf("%X", icao)
+	}
+
 	headers := tapHeaders{
 		"action":  tapActionAdd,
 		"api-key": feederKey, // the ingest feeder we wish to target
-		"icao":    icao,      // the aircraft we wish to look at
+		"icao":    icaoStr,   // the aircraft we wish to look at
 		"subject": tapSubject,
 	}
 
@@ -175,12 +251,19 @@ func (pw *PlaneWatchTapper) RemoveIncomingTap(tap tapHeaders) {
 	pw.logger.Debug().Str("response", string(response)).Msg("request response")
 }
 
-func (pw *PlaneWatchTapper) natsTap(icao, feederKey string, subject string, callback func(*export.PlaneLocationJSON)) error {
+func (pw *PlaneWatchTapper) natsTap(
+	icao uint32,
+	feederKey string,
+	subject string,
+	decoder wireDecoderFunc,
+	callback func(*export.PlaneAndLocationInfoMsg),
+) error {
 	listenCh, err := pw.natsSvr.Subscribe(subject)
 	if nil != err {
 		return err
 	}
 	tapSubject := subject + "-" + randstr.RandString(20)
+	pw.logger.Debug().Str("subject", subject).Str("tap-subject", tapSubject).Msg("Starting Tap")
 
 	pw.exitChannels[tapSubject] = make(chan bool)
 
@@ -188,19 +271,15 @@ func (pw *PlaneWatchTapper) natsTap(icao, feederKey string, subject string, call
 		for {
 			select {
 			case msg := <-ch:
-				var planeLocation export.PlaneLocationJSON
-				err = json.Unmarshal(msg.Data, &planeLocation)
-				if nil != err {
-					pw.logger.Error().Err(err)
+
+				pli := decoder(msg.Data)
+				if icao != 0 && icao != pli.Icao {
 					continue
 				}
-				if icao != "" && icao != planeLocation.Icao {
+				if feederKey != "" && feederKey != pli.SourceTag {
 					continue
 				}
-				if feederKey != "" && feederKey != planeLocation.SourceTag {
-					continue
-				}
-				callback(&planeLocation)
+				callback(pli)
 			case <-exitChan:
 				return
 			}
@@ -210,32 +289,32 @@ func (pw *PlaneWatchTapper) natsTap(icao, feederKey string, subject string, call
 	return nil
 }
 
-func (pw *PlaneWatchTapper) AfterIngestTap(icao, feederKey string, callback func(*export.PlaneLocationJSON)) error {
-	return pw.natsTap(icao, feederKey, pw.queueLocations, callback)
+func (pw *PlaneWatchTapper) AfterIngestTap(icao uint32, feederKey string, callback func(*export.PlaneAndLocationInfoMsg)) error {
+	return pw.natsTap(icao, feederKey, pw.queueLocations, pw.pwIngestDecoder, callback)
 }
 
-func (pw *PlaneWatchTapper) AfterEnrichmentTap(icao, feederKey string, callback func(*export.PlaneLocationJSON)) error {
-	return pw.natsTap(icao, feederKey, pw.queueLocationsEnriched, callback)
+func (pw *PlaneWatchTapper) AfterEnrichmentTap(icao uint32, feederKey string, callback func(*export.PlaneAndLocationInfoMsg)) error {
+	return pw.natsTap(icao, feederKey, pw.queueLocationsEnriched, pw.pwEnrichmentDecoder, callback)
 }
 
-func (pw *PlaneWatchTapper) AfterRouterLowTap(icao, feederKey string, callback func(*export.PlaneLocationJSON)) error {
-	return pw.natsTap(icao, feederKey, pw.queueLocationsEnrichedLow, callback)
+func (pw *PlaneWatchTapper) AfterRouterLowTap(icao uint32, feederKey string, callback func(*export.PlaneAndLocationInfoMsg)) error {
+	return pw.natsTap(icao, feederKey, pw.queueLocationsEnrichedLow, pw.pwRouterDecoder, callback)
 }
 
-func (pw *PlaneWatchTapper) AfterRouterHighTap(icao, feederKey string, callback func(*export.PlaneLocationJSON)) error {
-	return pw.natsTap(icao, feederKey, pw.queueLocationsEnrichedHigh, callback)
+func (pw *PlaneWatchTapper) AfterRouterHighTap(icao uint32, feederKey string, callback func(*export.PlaneAndLocationInfoMsg)) error {
+	return pw.natsTap(icao, feederKey, pw.queueLocationsEnrichedHigh, pw.pwRouterDecoder, callback)
 }
 
-func (pw *PlaneWatchTapper) WebSocketTapLow(icao, feederKey string, callback func(*export.PlaneLocationJSON)) error {
+func (pw *PlaneWatchTapper) WebSocketTapLow(icao uint32, feederKey string, callback func(*export.PlaneAndLocationInfoMsg)) error {
 	pw.addWsFilterFunc(icao, feederKey, "low", callback)
 	return pw.wsLow.SubscribeAllLow()
 }
-func (pw *PlaneWatchTapper) WebSocketTapHigh(icao, feederKey string, callback func(*export.PlaneLocationJSON)) error {
+func (pw *PlaneWatchTapper) WebSocketTapHigh(icao uint32, feederKey string, callback func(*export.PlaneAndLocationInfoMsg)) error {
 	pw.addWsFilterFunc(icao, feederKey, "high", callback)
 	return pw.wsHigh.SubscribeAllHigh()
 }
 
-func (pw *PlaneWatchTapper) addWsFilterFunc(icao, feederKey, speed string, filter wsHandler) {
+func (pw *PlaneWatchTapper) addWsFilterFunc(icao uint32, feederKey, speed string, filter wsHandler) {
 	pw.mu.Lock()
 	defer pw.mu.Unlock()
 	if speed == "low" {
@@ -254,16 +333,69 @@ func (pw *PlaneWatchTapper) addWsFilterFunc(icao, feederKey, speed string, filte
 	}
 }
 
-// wsHandler runs through all the handlers we have and calls maybeSend for each plane location
-func (pw *PlaneWatchTapper) wsHandler(handlers *[]*wsFilterFunc) func(r *ws_protocol.WsResponse) {
+func (pw *PlaneWatchTapper) decoderJSON(buf []byte) *export.PlaneAndLocationInfoMsg {
+	planeLocation := export.NewEmptyPlaneLocationJSON()
+	err := json.Unmarshal(buf, &planeLocation)
+	if nil != err {
+		pw.logger.Error().Err(err).Msg("Failed to decode PlaneLocationJSON")
+		return nil
+	}
+	pli := export.NewPlaneAndLocationInfoMsg()
+	if err = planeLocation.ToProtobuf(pli); err != nil {
+		pw.logger.Error().Err(err).Msg("Failed to convert to protobuf struct")
+		return nil
+	}
+	return pli
+}
+
+func (pw *PlaneWatchTapper) decoderProtobuf(buf []byte) *export.PlaneAndLocationInfoMsg {
+	// todo: use our own sync.pool for export.PlaneAndLocationInfoMsg items
+	pli, err := export.FromProtobufBytes(buf)
+
+	if err != nil {
+		pw.logger.Error().Err(err).Msg("Failed to decode protobuf")
+		return nil
+	}
+	return pli
+}
+
+// wsHandlerJSON runs through all the handlers we have and calls maybeSend for each plane location.
+// this method is for JSON WS API Endpoints (not Protobuf)
+func (pw *PlaneWatchTapper) wsHandlerJSON(handlers *[]*wsFilterFunc) func(r *ws_protocol.WsResponse) {
 	return func(r *ws_protocol.WsResponse) {
+		var err error
 		pw.mu.Lock()
 		defer pw.mu.Unlock()
 		for _, ff := range *handlers {
-			pw.maybeSend(ff, r.Location)
+			pli := export.NewPlaneAndLocationInfoMsg()
+			if err = r.Location.ToProtobuf(pli); err == nil {
+				pw.maybeSend(ff, pli)
+			}
 			if r.Locations != nil {
 				for _, loc := range r.Locations {
-					pw.maybeSend(ff, loc)
+					if err = loc.ToProtobuf(pli); err == nil {
+						pw.maybeSend(ff, pli)
+					}
+				}
+			}
+		}
+	}
+}
+
+// wsHandlerProtobuf runs through all the handlers we have and calls maybeSend for each plane location.
+// this method is for Protobuf WS API Endpoints (not JSON)
+func (pw *PlaneWatchTapper) wsHandlerProtobuf(handlers *[]*wsFilterFunc) func(r *ws_protocol.WebSocketResponse) {
+	return func(r *ws_protocol.WebSocketResponse) {
+		pw.mu.Lock()
+		defer pw.mu.Unlock()
+		for _, ff := range *handlers {
+			if r.Location != nil {
+				pw.maybeSend(ff, r.Location.AsPlaneAndLocationInfoMsg())
+
+			}
+			if r.Locations != nil && r.Locations.Location != nil {
+				for _, loc := range r.Locations.Location {
+					pw.maybeSend(ff, loc.AsPlaneAndLocationInfoMsg())
 				}
 			}
 		}
@@ -271,11 +403,11 @@ func (pw *PlaneWatchTapper) wsHandler(handlers *[]*wsFilterFunc) func(r *ws_prot
 }
 
 // maybeSend takes into account the filter and calls the user provided handler if it matches
-func (pw *PlaneWatchTapper) maybeSend(ff *wsFilterFunc, loc *export.PlaneLocationJSON) {
+func (pw *PlaneWatchTapper) maybeSend(ff *wsFilterFunc, loc *export.PlaneAndLocationInfoMsg) {
 	if nil == loc {
 		return
 	}
-	if ff.icao != "" && ff.icao != loc.Icao {
+	if ff.icao != 0 && ff.icao != loc.Icao {
 		return
 	}
 	if ff.feederTag != "" {

@@ -23,7 +23,7 @@ type (
 
 		vhost      string
 		user, pass string
-		queue      map[string]string
+		queueName  string
 
 		waiter sync.WaitGroup
 
@@ -36,7 +36,8 @@ type (
 
 		sendDelay time.Duration
 
-		byteMaker func(le *tracker.PlaneLocationEvent, sourceTag string) ([]byte, error)
+		byteMaker    func(le *tracker.PlaneLocationEvent, sourceTag string) ([]byte, error)
+		wireProtocol string
 	}
 
 	Option func(*Config)
@@ -45,8 +46,8 @@ type (
 func (c *Config) setupConfig(opts []Option) {
 	c.sendDelay = 300 * time.Millisecond
 	c.byteMaker = trackerMsgJSON
+	c.queueName = QueueLocationUpdates
 
-	c.queue = map[string]string{}
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -106,11 +107,18 @@ func WithSendDelay(delay time.Duration) Option {
 
 func WithEncoding(sinkEncoding string) Option {
 	return func(conf *Config) {
+		conf.wireProtocol = sinkEncoding
 		switch sinkEncoding {
 		case EncodingJSON:
 			conf.byteMaker = trackerMsgJSON
 		case EncodingProtobuf:
 			conf.byteMaker = trackerMsgProtobuf
 		}
+	}
+}
+
+func WithQueueName(queue string) Option {
+	return func(conf *Config) {
+		conf.queueName = queue
 	}
 }

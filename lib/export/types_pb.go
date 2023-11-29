@@ -2,29 +2,103 @@ package export
 
 import (
 	"fmt"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"strconv"
 	"sync"
+	"time"
 )
 
 type (
-	// PlaneLocationPBMsg is our exported data format. it encodes to JSON
-	PlaneLocationPBMsg struct {
-		PlaneLocationPB
+	// PlaneAndLocationInfoMsg is our exported data format. it is our wrapper around the Protobuf msg so we can perform locking
+	PlaneAndLocationInfoMsg struct {
+		*PlaneAndLocationInfo
 		icaoStr         string
 		sourceTagsMutex *sync.Mutex
 	}
 )
 
+func NewPlaneAndLocationInfoMsg() *PlaneAndLocationInfoMsg {
+	return &PlaneAndLocationInfoMsg{
+		PlaneAndLocationInfo: &PlaneAndLocationInfo{
+			Icao:            0,
+			Lat:             0,
+			Lon:             0,
+			Heading:         0,
+			Velocity:        0,
+			Altitude:        0,
+			VerticalRate:    0,
+			AltitudeUnits:   0,
+			FlightStatus:    0,
+			OnGround:        false,
+			AirframeType:    0,
+			HasAltitude:     false,
+			HasLocation:     false,
+			HasHeading:      false,
+			HasOnGround:     false,
+			HasFlightStatus: false,
+			HasVerticalRate: false,
+			HasVelocity:     false,
+			SourceTag:       "",
+			Squawk:          0,
+			Special:         "",
+			TileLocation:    "",
+			SourceTags:      make(map[string]uint32),
+			TrackedSince:    timestamppb.New(time.Now()),
+			LastMsg:         timestamppb.New(time.Now()),
+			Updates: &FieldUpdates{
+				Location:     timestamppb.New(time.Now()),
+				Altitude:     timestamppb.New(time.Now()),
+				Velocity:     timestamppb.New(time.Now()),
+				Heading:      timestamppb.New(time.Now()),
+				OnGround:     timestamppb.New(time.Now()),
+				VerticalRate: timestamppb.New(time.Now()),
+				FlightStatus: timestamppb.New(time.Now()),
+				Special:      timestamppb.New(time.Now()),
+				Squawk:       timestamppb.New(time.Now()),
+			},
+			SignalRssi:      0,
+			AircraftWidth:   0,
+			AircraftLength:  0,
+			Registration:    "",
+			TypeCode:        "",
+			TypeCodeLong:    "",
+			Serial:          "",
+			RegisteredOwner: "",
+			COFAOwner:       "",
+			EngineType:      "",
+			FlagCode:        "",
+			CallSign:        "",
+			Operator:        "",
+			RouteCode:       "",
+			Segments:        make([]*RouteSegment, 2),
+		},
+		icaoStr:         "",
+		sourceTagsMutex: &sync.Mutex{},
+	}
+}
+
 // Plane here gives us something to look at
-func (pl *PlaneLocationPBMsg) Plane() string {
-	if "" != pl.CallSign {
+func (pl *PlaneAndLocationInfoMsg) Plane() string {
+	if pl.CallSign != "" {
 		return pl.CallSign
 	}
 
-	if "" != pl.Registration {
+	if pl.Registration != "" {
 		return pl.Registration
 	}
 
-	return fmt.Sprintf("ICAO: %d", pl.Icao)
+	if pl.icaoStr == "" {
+		pl.icaoStr = fmt.Sprintf("ICAO: %d", pl.Icao)
+	}
+
+	return pl.icaoStr
+}
+
+func (at AirframeType) Code() string {
+	if code, ok := airframeTypeReverseLookup[at]; ok {
+		return code
+	}
+	return ""
 }
 
 func (at AirframeType) Describe() string {
@@ -100,8 +174,8 @@ func (at AirframeType) Describe() string {
 	}
 }
 
-func (au AltitudeUnits) Describe() string {
-	switch au {
+func (x AltitudeUnits) Describe() string {
+	switch x {
 	case AltitudeUnits_FEET:
 		return "feet"
 	case AltitudeUnits_METRES:
@@ -134,16 +208,91 @@ func (fs FlightStatus) Describe() string {
 	}
 }
 
-func (pl *PlaneLocationPBMsg) CloneSourceTags() map[string]uint32 {
+func (pl *PlaneAndLocationInfoMsg) CloneSourceTags() map[string]uint32 {
 	pl.sourceTagsMutex.Lock()
 	defer pl.sourceTagsMutex.Unlock()
 
 	return Clone(pl.SourceTags)
 }
 
-func (pl *PlaneLocationPBMsg) IcaoStr() string {
-	if "" == pl.icaoStr {
+func (pl *PlaneAndLocationInfoMsg) IcaoStr() string {
+	if pl.icaoStr == "" {
 		pl.icaoStr = fmt.Sprintf("%X", pl.Icao)
 	}
 	return pl.icaoStr
+}
+
+func (pl *PlaneAndLocationInfoMsg) SquawkStr() string {
+	if nil == pl {
+		return ""
+	}
+	if pl.Squawk == 0 {
+		return ""
+	}
+	return strconv.FormatUint(uint64(pl.Squawk), 10)
+}
+
+func (pl *PlaneAndLocationInfoMsg) CallSignStr() string {
+	if nil == pl {
+		return ""
+	}
+	return pl.CallSign
+}
+
+func (pl *PlaneAndLocationInfoMsg) LatStr() string {
+	if nil == pl {
+		return ""
+	}
+	if !pl.HasLocation {
+		return ""
+	}
+	return strconv.FormatFloat(pl.Lat, 'f', 4, 64)
+}
+
+func (pl *PlaneAndLocationInfoMsg) LonStr() string {
+	if nil == pl {
+		return ""
+	}
+	if !pl.HasLocation {
+		return ""
+	}
+	return strconv.FormatFloat(pl.Lon, 'f', 4, 64)
+}
+
+func (pl *PlaneAndLocationInfoMsg) AltitudeStr() string {
+	if nil == pl {
+		return ""
+	}
+	if !pl.HasAltitude {
+		return ""
+	}
+	return fmt.Sprintf("%d %s", pl.Altitude, pl.AltitudeUnits)
+}
+
+func (pl *PlaneAndLocationInfoMsg) VerticalRateStr() string {
+	if nil == pl {
+		return ""
+	}
+	if !pl.HasVerticalRate {
+		return ""
+	}
+	return strconv.FormatInt(int64(pl.VerticalRate), 10)
+}
+
+func (pl *PlaneAndLocationInfoMsg) HeadingStr() string {
+	if nil == pl {
+		return ""
+	}
+	if !pl.HasHeading {
+		return ""
+	}
+	return strconv.FormatFloat(pl.Heading, 'f', 1, 64)
+}
+
+func (pli *PlaneAndLocationInfo) AsPlaneAndLocationInfoMsg() *PlaneAndLocationInfoMsg {
+	return &PlaneAndLocationInfoMsg{
+		PlaneAndLocationInfo: pli,
+		icaoStr:              "",
+		sourceTagsMutex:      &sync.Mutex{},
+	}
 }

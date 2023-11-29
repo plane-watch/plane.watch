@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"google.golang.org/protobuf/proto"
 	"net/http"
 	"nhooyr.io/websocket"
+	"plane.watch/lib/setup"
 	"time"
 )
 
@@ -20,13 +22,19 @@ type (
 		sourceURL string
 		conn      *websocket.Conn
 
-		responseHandlers []ResponseHandler
+		wireProtocol string
+
+		jsonResponseHandlers     []JSONResponseHandler
+		protobufResponseHandlers []ProtobufResponseHandler
 
 		logger zerolog.Logger
+
+		insecure bool
 	}
 
-	Option          func(client *WsClient)
-	ResponseHandler func(response *WsResponse)
+	Option                  func(client *WsClient)
+	JSONResponseHandler     func(response *WsResponse)
+	ProtobufResponseHandler func(response *WebSocketResponse)
 )
 
 var (
@@ -39,9 +47,21 @@ func WithSourceURL(sourceURL string) Option {
 	}
 }
 
-func WithResponseHandler(f ResponseHandler) Option {
+func WithJSONResponseHandler(f JSONResponseHandler) Option {
 	return func(client *WsClient) {
-		client.responseHandlers = append(client.responseHandlers, f)
+		client.jsonResponseHandlers = append(client.jsonResponseHandlers, f)
+	}
+}
+
+func WithProtobufResponseHandler(f ProtobufResponseHandler) Option {
+	return func(client *WsClient) {
+		client.protobufResponseHandlers = append(client.protobufResponseHandlers, f)
+	}
+}
+
+func WithWireProtocol(wireProtocol string) Option {
+	return func(client *WsClient) {
+		client.wireProtocol = wireProtocol
 	}
 }
 
@@ -51,10 +71,17 @@ func WithLogger(logger zerolog.Logger) Option {
 	}
 }
 
+func WithInsecureConnection(insecue bool) Option {
+	return func(client *WsClient) {
+		client.insecure = insecue
+	}
+}
+
 func NewClient(opts ...Option) *WsClient {
 	c := &WsClient{
-		sourceURL:        ProdSourceURL,
-		responseHandlers: make([]ResponseHandler, 0),
+		sourceURL:            ProdSourceURL,
+		jsonResponseHandlers: make([]JSONResponseHandler, 0),
+		insecure:             false,
 	}
 
 	for _, opt := range opts {
@@ -67,7 +94,7 @@ func NewClient(opts ...Option) *WsClient {
 func (c *WsClient) Connect() error {
 	var err error
 	customTransport := http.DefaultTransport.(*http.Transport).Clone()
-	customTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	customTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: c.insecure}
 	httpClient := &http.Client{Transport: customTransport}
 	cfg := &websocket.DialOptions{
 		HTTPClient:   httpClient,
@@ -109,16 +136,29 @@ func (c *WsClient) reader() {
 			c.logger.Error().Err(err).Send()
 			continue
 		}
+		switch c.wireProtocol {
+		case setup.WireProtocolJSON:
+			r := &WsResponse{}
+			err = json.Unmarshal(msg, r)
+			if nil != err {
+				c.logger.Error().Err(err).Send()
+				continue
+			}
 
-		r := &WsResponse{}
-		err = json.Unmarshal(msg, r)
-		if nil != err {
-			c.logger.Error().Err(err).Send()
-			continue
-		}
+			for _, f := range c.jsonResponseHandlers {
+				f(r)
+			}
+		case setup.WireProtocolProtobuf:
+			r := &WebSocketResponse{}
+			err = proto.Unmarshal(msg, r)
+			if nil != err {
+				c.logger.Error().Err(err).Send()
+				continue
+			}
 
-		for _, f := range c.responseHandlers {
-			f(r)
+			for _, f := range c.protobufResponseHandlers {
+				f(r)
+			}
 		}
 	}
 }

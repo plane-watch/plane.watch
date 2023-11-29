@@ -72,7 +72,7 @@ func (sa *EnrichmentApiHandler) enrichHandler(msg *nats.Msg) {
 	var buf []byte
 
 	switch msg.Subject {
-	case export.NatsApiEnrichAircraftV1:
+	case export.NatsAPIEnrichAircraftV1:
 		icao := strings.ToUpper(what)
 		aircraft := export.AircraftResponse{}
 		respondErr = db.Get(&aircraft.Aircraft, "SELECT icao_code,country,registration,type_code,type_code_long,serial,registered_owner,cofa_owner,engine_type,flag_code FROM aircraft WHERE icao_code = $1", icao)
@@ -88,7 +88,7 @@ func (sa *EnrichmentApiHandler) enrichHandler(msg *nats.Msg) {
 			sa.log.Error().Err(respondErr).Str("ICAO", icao).Msg("Failed to enrich aircraft")
 			respondErr = msg.Respond(sa.emptyAircraft)
 		}
-	case export.NatsApiEnrichRouteV1:
+	case export.NatsAPIEnrichRouteV1:
 		response := export.RouteResponse{}
 		route := DbRoute{}
 		callSign := strings.ToUpper(what)

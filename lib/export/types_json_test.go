@@ -1,7 +1,12 @@
 package export
 
 import (
+	"fmt"
 	"github.com/rs/zerolog"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"strconv"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -19,110 +24,127 @@ func TestIsLocationPossible(t *testing.T) {
 		t.Error("I don't understand time")
 	}
 
-	pos1 := &PlaneLocationJSON{Lat: -31.942017, Lon: 115.964594, Heading: 14.116942, HasLocation: true, HasHeading: true, LastMsg: msg1t}
-	pos2 := &PlaneLocationJSON{Lat: -31.940887, Lon: 115.964897, Heading: 14.116942, HasLocation: true, HasHeading: true, LastMsg: msg2t}
+	pos1 := &PlaneAndLocationInfo{Lat: -31.942017, Lon: 115.964594, Heading: 14.116942, HasLocation: true, HasHeading: true, LastMsg: timestamppb.New(msg1t), Updates: &FieldUpdates{}}
+	pos2 := &PlaneAndLocationInfo{Lat: -31.940887, Lon: 115.964897, Heading: 14.116942, HasLocation: true, HasHeading: true, LastMsg: timestamppb.New(msg2t), Updates: &FieldUpdates{}}
 
-	if !IsLocationPossible(pos1, pos2) {
+	pos1Msg := &PlaneAndLocationInfoMsg{PlaneAndLocationInfo: pos1, sourceTagsMutex: &sync.Mutex{}}
+	pos2Msg := &PlaneAndLocationInfoMsg{PlaneAndLocationInfo: pos2, sourceTagsMutex: &sync.Mutex{}}
+
+	if !IsLocationPossible(pos1Msg, pos2Msg) {
 		t.Error("Pos1 -> Pos2 is possible")
 	}
 
-	if IsLocationPossible(pos2, pos1) {
+	if IsLocationPossible(pos2Msg, pos1Msg) {
 		t.Error("Pos2 -> Pos1 is not possible")
 	}
 }
 
 func TestMergeCallSign(t *testing.T) {
 	type args struct {
-		prev PlaneLocationJSON
-		next PlaneLocationJSON
+		prev *PlaneAndLocationInfo
+		next *PlaneAndLocationInfo
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    PlaneLocationJSON
+		want    *PlaneAndLocationInfo
 		wantErr bool
 	}{
 		{
 			name: "both-filled",
 			args: args{
-				prev: PlaneLocationJSON{CallSign: ptr("ONE")},
-				next: PlaneLocationJSON{CallSign: ptr("TWO")},
+				prev: &PlaneAndLocationInfo{CallSign: "ONE", Updates: &FieldUpdates{}},
+				next: &PlaneAndLocationInfo{CallSign: "TWO", Updates: &FieldUpdates{}},
 			},
-			want:    PlaneLocationJSON{CallSign: ptr("TWO")},
+			want:    &PlaneAndLocationInfo{CallSign: "TWO"},
 			wantErr: false,
 		},
 		{
 			name: "One-Blank",
 			args: args{
-				prev: PlaneLocationJSON{CallSign: ptr("")},
-				next: PlaneLocationJSON{CallSign: ptr("TWO")},
+				prev: &PlaneAndLocationInfo{CallSign: "", Updates: &FieldUpdates{}},
+				next: &PlaneAndLocationInfo{CallSign: "TWO", Updates: &FieldUpdates{}},
 			},
-			want:    PlaneLocationJSON{CallSign: ptr("TWO")},
+			want:    &PlaneAndLocationInfo{CallSign: "TWO"},
 			wantErr: false,
 		},
 		{
 			name: "Two-Blank",
 			args: args{
-				prev: PlaneLocationJSON{CallSign: ptr("ONE")},
-				next: PlaneLocationJSON{CallSign: ptr("")},
+				prev: &PlaneAndLocationInfo{CallSign: "ONE", Updates: &FieldUpdates{}},
+				next: &PlaneAndLocationInfo{CallSign: "", Updates: &FieldUpdates{}},
 			},
-			want:    PlaneLocationJSON{CallSign: ptr("ONE")},
+			want:    &PlaneAndLocationInfo{CallSign: "ONE"},
 			wantErr: false,
 		},
 		{
 			name: "One-nil",
 			args: args{
-				prev: PlaneLocationJSON{CallSign: nil},
-				next: PlaneLocationJSON{CallSign: ptr("")},
+				prev: &PlaneAndLocationInfo{CallSign: "", Updates: &FieldUpdates{}},
+				next: &PlaneAndLocationInfo{CallSign: "", Updates: &FieldUpdates{}},
 			},
-			want:    PlaneLocationJSON{CallSign: ptr("")},
+			want:    &PlaneAndLocationInfo{CallSign: ""},
 			wantErr: false,
 		},
 		{
 			name: "Two-nil",
 			args: args{
-				prev: PlaneLocationJSON{CallSign: ptr("ONE")},
-				next: PlaneLocationJSON{CallSign: nil},
+				prev: &PlaneAndLocationInfo{CallSign: "ONE", Updates: &FieldUpdates{}},
+				next: &PlaneAndLocationInfo{CallSign: "", Updates: &FieldUpdates{}},
 			},
-			want:    PlaneLocationJSON{CallSign: ptr("ONE")},
+			want:    &PlaneAndLocationInfo{CallSign: "ONE"},
 			wantErr: false,
 		},
 		{
 			name: "both-nil",
 			args: args{
-				prev: PlaneLocationJSON{CallSign: nil},
-				next: PlaneLocationJSON{CallSign: nil},
+				prev: &PlaneAndLocationInfo{CallSign: "", Updates: &FieldUpdates{}},
+				next: &PlaneAndLocationInfo{CallSign: "", Updates: &FieldUpdates{}},
 			},
-			want:    PlaneLocationJSON{CallSign: nil},
+			want:    &PlaneAndLocationInfo{CallSign: ""},
 			wantErr: false,
 		},
 		{
 			name: "both-blank",
 			args: args{
-				prev: PlaneLocationJSON{CallSign: ptr("")},
-				next: PlaneLocationJSON{CallSign: ptr("")},
+				prev: &PlaneAndLocationInfo{CallSign: "", Updates: &FieldUpdates{}},
+				next: &PlaneAndLocationInfo{CallSign: "", Updates: &FieldUpdates{}},
 			},
-			want:    PlaneLocationJSON{CallSign: ptr("")},
+			want:    &PlaneAndLocationInfo{CallSign: ""},
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := MergePlaneLocations(&tt.args.prev, &tt.args.next)
+			got, err := MergePlaneLocations(
+				&PlaneAndLocationInfoMsg{PlaneAndLocationInfo: tt.args.prev},
+				&PlaneAndLocationInfoMsg{PlaneAndLocationInfo: tt.args.next},
+			)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("MergePlaneLocations() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
-			if nil != tt.want.CallSign {
-				if unPtr(got.CallSign) != unPtr(tt.want.CallSign) {
-					t.Errorf("MergePlaneLocations() got = %s, want %s", unPtr(got.CallSign), unPtr(tt.want.CallSign))
+			if tt.want.CallSign != "" {
+				if got.CallSign != tt.want.CallSign {
+					t.Errorf("MergePlaneLocations() got = %s, want %s", got.CallSign, tt.want.CallSign)
 				}
 			} else {
-				if got.CallSign != nil {
-					t.Errorf("Expected a nil callsign, got %s", unPtr(got.CallSign))
+				if got.CallSign != "" {
+					t.Errorf("Expected a nil callsign, got %s", got.CallSign)
 				}
 			}
 		})
+	}
+}
+
+func BenchmarkSprintf(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = fmt.Sprintf("%X", 9046412)
+	}
+}
+func BenchmarkFormatInt(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		strings.ToUpper(strconv.FormatInt(9046412, 16))
 	}
 }

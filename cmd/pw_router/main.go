@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"plane.watch/lib/clickhouse"
+	"plane.watch/lib/setup"
 	"sync"
 	"syscall"
 
@@ -113,6 +115,12 @@ func main() {
 			EnvVars: []string{"CLICKHOUSE"},
 		},
 		&cli.StringFlag{
+			Name:    setup.WireProtocol,
+			Usage:   fmt.Sprintf("`%s` or `%s` is used to determine nats bus wire format", setup.WireProtocolJSON, setup.WireProtocolProtobuf),
+			Value:   setup.WireProtocolJSON, // the default, for now
+			EnvVars: []string{"WIRE_PROTOCOL"},
+		},
+		&cli.StringFlag{
 			Name:    "source-route-key",
 			Usage:   "Name of the routing key to read location updates from.",
 			Value:   "location-updates-enriched",
@@ -200,7 +208,7 @@ func run(c *cli.Context) error {
 
 	router.incomingMessages = make(chan []byte, 1000)
 
-	router.nats = newNatsIoRouter(c.String("nats"))
+	router.nats = newNatsIoRouter(c.String("nats"), c.String(setup.WireProtocol))
 	if nil == router.nats {
 		cli.ShowAppHelpAndExit(c, 1)
 	}
@@ -231,11 +239,19 @@ func run(c *cli.Context) error {
 	chSignal := make(chan os.Signal, 1)
 	signal.Notify(chSignal, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		sig := <-chSignal // wait for our cancel signal
-		log.Info().Str("signal", sig.String()).Msg("Shutting Down")
-		router.nats.close()
-		// and then close all the things
-		cancel()
+		cancelCount := 0
+		// wait for our cancel signal
+		for sig := range chSignal {
+			cancelCount++
+			log.Info().Str("signal", sig.String()).Int("cancel count", cancelCount).Msg("Shutting Down")
+			if cancelCount > 2 {
+				log.Error().Str("signal", sig.String()).Int("cancel count", cancelCount).Msg("Forcefully shutting down")
+				os.Exit(1)
+			}
+			router.nats.close()
+			// and then close all the things
+			go cancel()
+		}
 	}()
 	monitoring.AddHealthCheck(router)
 
@@ -252,6 +268,16 @@ func run(c *cli.Context) error {
 			destRoutingKeyHigh: destRouteKeyMerged,
 			spreadUpdates:      spreadUpdates,
 			ds:                 ds,
+		}
+		switch c.String(setup.WireProtocol) {
+		case setup.WireProtocolJSON:
+			wkr.wireDecoder = workerInputJSON
+			wkr.wireEncoder = workerOutputJSON
+		case setup.WireProtocolProtobuf:
+			wkr.wireDecoder = workerInputProtobuf
+			wkr.wireEncoder = workerOutputProtobuf
+		default:
+			panic("Unknown decode type")
 		}
 		wg.Add(1)
 		go func() {

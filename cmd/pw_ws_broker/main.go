@@ -2,8 +2,10 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"plane.watch/lib/nats_io"
+	"plane.watch/lib/setup"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -99,6 +101,12 @@ func main() {
 			EnvVars: []string{"ROUTE_KEY_LOW"},
 		},
 		&cli.StringFlag{
+			Name:    setup.WireProtocol,
+			Usage:   fmt.Sprintf("%s or %s is used to determine the encoding we recive and send", setup.WireProtocolJSON, setup.WireProtocolProtobuf),
+			Value:   setup.WireProtocolJSON,
+			EnvVars: []string{"WIRE_PROTOCOL"},
+		},
+		&cli.StringFlag{
 			Name:    "route-key-high",
 			Usage:   "The routing key that has all of the flight update events",
 			Value:   "location-updates-enriched-merged",
@@ -162,10 +170,10 @@ func runCli(c *cli.Context) error {
 func run(c *cli.Context) error {
 	cert := c.String("tls-cert")
 	certKey := c.String("tls-cert-key")
-	if ("" != cert || "" != certKey) && ("" == cert || "" == certKey) {
+	if (cert != "" || certKey != "") && (cert == "" || certKey == "") {
 		return errors.New("please provide both certificate and key")
 	}
-	if ":80" == c.String("http-addr") && "" != cert {
+	if c.String("http-addr") == ":80" && cert != "" {
 		return c.Set("http-addr", ":443")
 	}
 
@@ -175,18 +183,18 @@ func run(c *cli.Context) error {
 	lowRoute := c.String("route-key-low")
 	highRoute := c.String("route-key-high")
 
-	hasNats := "" != nats
+	hasNats := nats != ""
 
 	isValid := true
 	if !hasNats {
 		log.Info().Msg("Please provide nats connection details. (--nats)")
 		isValid = false
 	}
-	if "" == lowRoute {
+	if lowRoute == "" {
 		log.Info().Msg("Please provide the routing key for significant updates. (--route-key-low)")
 		isValid = false
 	}
-	if "" == highRoute {
+	if highRoute == "" {
 		log.Info().Msg("Please provide the routing key for all updates. (--route-key-high)")
 		isValid = false
 	}
@@ -194,35 +202,52 @@ func run(c *cli.Context) error {
 		return errors.New("invalid configuration. You need nats, route-key-low and, route-key-high configured")
 	}
 
-	clickHouseUrl := c.String("clickhouse")
-	if "" == clickHouseUrl {
+	clickHouseURL := c.String("clickhouse")
+	if clickHouseURL == "" {
 		return errors.New("clickhouse URL must be specified")
 	}
 
 	var err error
-	GlobalClickHouseData, err = NewClickHouseData(clickHouseUrl)
+	GlobalClickHouseData, err = NewClickHouseData(clickHouseURL)
 	if nil != err {
 		return err
 	}
 
-	var natsServerRpc *nats_io.Server
+	var natsServerRPC *nats_io.Server
 
 	var input source
-	input, err = NewPwWsBrokerNats(nats, lowRoute, highRoute)
-	natsServerRpc, _ = nats_io.NewServer(nats_io.WithServer(nats, "pw_ws_broker+rpc"))
+	input, err = NewPwWsBrokerNats(nats, lowRoute, highRoute, c.String(setup.WireProtocol))
+	natsServerRPC, _ = nats_io.NewServer(nats_io.WithServer(nats, "pw_ws_broker+rpc"))
 	if nil != err {
 		return err
 	}
 
-	broker, err := NewPlaneWatchWebSocketBroker(
-		input,
-		natsServerRpc,
-		c.String("http-addr"),
-		c.String("tls-cert"),
-		c.String("tls-cert-key"),
-		c.Bool("serve-test-web"),
-		c.Duration("send-tick"),
-	)
+	var broker *PwWsBroker
+
+	switch c.String(setup.WireProtocol) {
+	case setup.WireProtocolJSON:
+		broker, err = NewPlaneWatchWebSocketJSONBroker(
+			input,
+			natsServerRPC,
+			c.String("http-addr"),
+			c.String("tls-cert"),
+			c.String("tls-cert-key"),
+			c.Bool("serve-test-web"),
+			c.Duration("send-tick"),
+		)
+	case setup.WireProtocolProtobuf:
+		broker, err = NewPlaneWatchWebSocketProtobufBroker(
+			input,
+			natsServerRPC,
+			c.String("http-addr"),
+			c.String("tls-cert"),
+			c.String("tls-cert-key"),
+			c.Bool("serve-test-web"),
+			c.Duration("send-tick"),
+		)
+	default:
+		return errors.New("unknown protocol")
+	}
 	if nil != err {
 		return err
 	}

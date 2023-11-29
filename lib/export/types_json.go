@@ -145,15 +145,13 @@ func ptr[t any](what t) *t {
 	return &what
 }
 
-func MergePlaneLocations(prev, next *PlaneLocationJSON) (*PlaneLocationJSON, error) {
+func MergePlaneLocations(prev, next *PlaneAndLocationInfoMsg) (*PlaneAndLocationInfoMsg, error) {
 	if !IsLocationPossible(prev, next) {
 		return prev, ErrImpossible
 	}
 	merged := prev
-	merged.New = false
-	merged.Removed = false
 	merged.LastMsg = next.LastMsg
-	merged.SignalRssi = nil // makes no sense to merge this value as it is for the individual receiver
+	merged.SignalRssi = 0 // makes no sense to merge this value as it is for the individual receiver
 	if nil == merged.sourceTagsMutex {
 		merged.sourceTagsMutex = &sync.Mutex{}
 	}
@@ -164,65 +162,62 @@ func MergePlaneLocations(prev, next *PlaneLocationJSON) (*PlaneLocationJSON, err
 	merged.SourceTags[next.SourceTag]++
 	merged.sourceTagsMutex.Unlock()
 
-	if next.TrackedSince.Before(prev.TrackedSince) {
+	if next.TrackedSince.AsTime().Before(prev.TrackedSince.AsTime()) {
 		merged.TrackedSince = next.TrackedSince
 	}
 
-	if next.HasLocation && next.Updates.Location.After(prev.Updates.Location) {
+	if next.HasLocation && next.Updates.Location.AsTime().After(prev.Updates.Location.AsTime()) {
 		merged.Lat = next.Lat
 		merged.Lon = next.Lon
 		merged.Updates.Location = next.Updates.Location
 		merged.HasLocation = true
 	}
-	if next.HasHeading && next.Updates.Heading.After(prev.Updates.Heading) {
+	if next.HasHeading && next.Updates.Heading.AsTime().After(prev.Updates.Heading.AsTime()) {
 		merged.Heading = next.Heading
 		merged.Updates.Heading = prev.Updates.Heading
 		merged.HasHeading = true
 	}
-	if next.HasVelocity && next.Updates.Velocity.After(prev.Updates.Velocity) {
+	if next.HasVelocity && next.Updates.Velocity.AsTime().After(prev.Updates.Velocity.AsTime()) {
 		merged.Velocity = next.Velocity
 		merged.Updates.Velocity = next.Updates.Velocity
 		merged.HasVelocity = true
 	}
-	if next.HasAltitude && next.Updates.Altitude.After(prev.Updates.Altitude) {
+	if next.HasAltitude && next.Updates.Altitude.AsTime().After(prev.Updates.Altitude.AsTime()) {
 		merged.Altitude = next.Altitude
 		merged.AltitudeUnits = next.AltitudeUnits
 		merged.Updates.Altitude = next.Updates.Altitude
 		merged.HasAltitude = true
 	}
-	if next.HasVerticalRate && next.Updates.VerticalRate.After(prev.Updates.VerticalRate) {
+	if next.HasVerticalRate && next.Updates.VerticalRate.AsTime().After(prev.Updates.VerticalRate.AsTime()) {
 		merged.VerticalRate = next.VerticalRate
 		merged.Updates.VerticalRate = next.Updates.VerticalRate
 		merged.HasVerticalRate = true
 	}
-	if next.HasFlightStatus && next.Updates.FlightStatus.After(prev.Updates.FlightStatus) {
+	if next.HasFlightStatus && next.Updates.FlightStatus.AsTime().After(prev.Updates.FlightStatus.AsTime()) {
 		merged.FlightStatus = next.FlightStatus
 		merged.Updates.FlightStatus = next.Updates.FlightStatus
 	}
-	if next.HasOnGround && next.Updates.OnGround.After(prev.Updates.OnGround) {
+	if next.HasOnGround && next.Updates.OnGround.AsTime().After(prev.Updates.OnGround.AsTime()) {
 		merged.OnGround = next.OnGround
 		merged.Updates.OnGround = next.Updates.OnGround
 	}
-	if merged.Airframe == "" {
-		merged.Airframe = next.Airframe
-	}
-	if merged.AirframeType == "" {
+	if merged.AirframeType == AirframeType_UNKNOWN {
 		merged.AirframeType = next.AirframeType
 	}
 
-	if unPtr(next.Registration) != "" {
-		merged.Registration = ptr(unPtr(next.Registration))
+	if next.Registration != "" {
+		merged.Registration = next.Registration
 	}
-	if unPtr(next.CallSign) != "" {
-		merged.CallSign = ptr(unPtr(next.CallSign))
+	if next.CallSign != "" {
+		merged.CallSign = next.CallSign
 	}
 	merged.SourceTag = "merged"
 
-	if next.Updates.Squawk.After(prev.Updates.Squawk) {
-		if next.Squawk == `0` {
+	if next.Updates.Squawk.AsTime().After(prev.Updates.Squawk.AsTime()) {
+		if next.Squawk == 0 {
 			// setting 0 as the squawk is valid, just when we have badly timed data it can jump around
 			// only update to 0 *if* it's been a few seconds to account for delayed feeds
-			if next.Updates.Squawk.After(prev.Updates.Squawk.Add(5 * time.Second)) {
+			if next.Updates.Squawk.AsTime().After(prev.Updates.Squawk.AsTime().Add(5 * time.Second)) {
 				merged.Squawk = next.Squawk
 				merged.Updates.Squawk = next.Updates.Squawk
 			}
@@ -232,7 +227,7 @@ func MergePlaneLocations(prev, next *PlaneLocationJSON) (*PlaneLocationJSON, err
 		}
 	}
 
-	if next.Updates.Special.After(prev.Updates.Special) {
+	if next.Updates.Special.AsTime().After(prev.Updates.Special.AsTime()) {
 		merged.Special = next.Special
 		merged.Updates.Special = next.Updates.Special
 	}
@@ -241,22 +236,22 @@ func MergePlaneLocations(prev, next *PlaneLocationJSON) (*PlaneLocationJSON, err
 		merged.TileLocation = next.TileLocation
 	}
 
-	if unPtr(next.AircraftWidth) != 0 {
-		merged.AircraftWidth = ptr(unPtr(next.AircraftWidth))
+	if next.AircraftWidth != 0 {
+		merged.AircraftWidth = next.AircraftWidth
 	}
-	if unPtr(next.AircraftLength) != 0 {
-		merged.AircraftLength = ptr(unPtr(next.AircraftLength))
+	if next.AircraftLength != 0 {
+		merged.AircraftLength = next.AircraftLength
 	}
 
 	return merged, nil
 }
 
-func IsLocationPossible(prev, next *PlaneLocationJSON) bool {
+func IsLocationPossible(prev, next *PlaneAndLocationInfoMsg) bool {
 	// simple check, if bearing of prev -> next is more than +-90 degrees of reported value, it is invalid
 	if !(prev.HasLocation && next.HasLocation && prev.HasHeading && next.HasHeading) {
 		// cannot check, fail open
 		if log.Trace().Enabled() {
-			log.Info().Str("CallSign", unPtr(next.CallSign)).
+			log.Info().Str("CallSign", next.CallSign).
 				Bool("prevHasLocation", prev.HasLocation).
 				Bool("nextHasLocation", next.HasLocation).
 				Bool("prevHasHeading", prev.HasHeading).
@@ -272,7 +267,7 @@ func IsLocationPossible(prev, next *PlaneLocationJSON) bool {
 	if prev.Lat == next.Lat && prev.Lon == next.Lon {
 		// fail open
 		if log.Trace().Enabled() {
-			log.Info().Str("CallSign", unPtr(next.CallSign)).
+			log.Info().Str("CallSign", next.CallSign).
 				Str("SourceNext", next.SourceTag).
 				Str("SourcePrev", prev.SourceTag).
 				Msg("Previous = Next Lat Lon.")
@@ -281,11 +276,11 @@ func IsLocationPossible(prev, next *PlaneLocationJSON) bool {
 		return true
 	}
 	// check the timestamp against the last one we saw.
-	if prev.LastMsg.After(next.LastMsg) {
+	if prev.LastMsg.AsTime().After(next.LastMsg.AsTime()) {
 		if log.Trace().Enabled() {
-			log.Info().Str("CallSign", unPtr(next.CallSign)).
-				Time("prev", prev.LastMsg).
-				Time("next", next.LastMsg).
+			log.Info().Str("CallSign", next.CallSign).
+				Time("prev", prev.LastMsg.AsTime()).
+				Time("next", next.LastMsg.AsTime()).
 				Str("SourceNext", next.SourceTag).
 				Str("SourcePrev", prev.SourceTag).
 				Msg("Rejecting due to timestamp.")
@@ -296,11 +291,11 @@ func IsLocationPossible(prev, next *PlaneLocationJSON) bool {
 
 	// if we have a receiver with partial coverage of a plane, it may send through "old" location data with updated
 	// other bits.
-	if prev.Updates.Location.After(next.Updates.Location) {
+	if prev.Updates.Location.AsTime().After(next.Updates.Location.AsTime()) {
 		if log.Trace().Enabled() {
-			log.Info().Str("CallSign", unPtr(next.CallSign)).
-				Time("prev", prev.Updates.Location).
-				Time("next", next.Updates.Location).
+			log.Info().Str("CallSign", next.CallSign).
+				Time("prev", prev.Updates.Location.AsTime()).
+				Time("next", next.Updates.Location.AsTime()).
 				Msg("Rejecting due to location update timestamp.")
 		}
 
@@ -336,7 +331,7 @@ func IsLocationPossible(prev, next *PlaneLocationJSON) bool {
 
 	if absDeltaBearing < 90 { // don't make this less than ~45 degrees, otherwise it'll be inaccurate due to possible wind.
 		if log.Trace().Enabled() {
-			log.Trace().Str("CallSign", unPtr(next.CallSign)).
+			log.Trace().Str("CallSign", next.CallSign).
 				Str("Next", fmt.Sprintf("(%f,%f)", next.Lat, next.Lon)).
 				Str("Previous", fmt.Sprintf("(%f,%f)", prev.Lat, prev.Lon)).
 				Float64("Heading", prev.Heading).
@@ -351,7 +346,7 @@ func IsLocationPossible(prev, next *PlaneLocationJSON) bool {
 	}
 
 	if log.Trace().Enabled() {
-		log.Info().Str("CallSign", unPtr(next.CallSign)).
+		log.Info().Str("CallSign", next.CallSign).
 			Str("Next", fmt.Sprintf("(%f,%f)", next.Lat, next.Lon)).
 			Str("Previous", fmt.Sprintf("(%f,%f)", prev.Lat, prev.Lon)).
 			Float64("Bearing", bearing).

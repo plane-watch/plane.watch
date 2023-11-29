@@ -98,7 +98,5 @@ func (l AircraftList) Less(i, j int) bool {
 }
 
 func (l AircraftList) Swap(i, j int) {
-	x := l[i]
-	l[i] = l[j]
-	l[j] = x
+	l[i], l[j] = l[j], l[i]
 }

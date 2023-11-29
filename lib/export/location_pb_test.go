@@ -11,9 +11,9 @@ import (
 
 // Note: DateTime's are not encoded as RFC3339 strings in these tests.
 
-func getRefLocation() *PlaneLocationPBMsg {
-	return &PlaneLocationPBMsg{
-		PlaneLocationPB: PlaneLocationPB{
+func getRefLocation() *PlaneAndLocationInfoMsg {
+	return &PlaneAndLocationInfoMsg{
+		PlaneAndLocationInfo: &PlaneAndLocationInfo{
 			Icao:            1234,
 			Lat:             -31.1,
 			Lon:             115.9,
@@ -63,7 +63,7 @@ func getRefLocation() *PlaneLocationPBMsg {
 			CallSign:        "",
 			Operator:        "",
 			RouteCode:       "",
-			Segments:        []*PlaneSegment{},
+			Segments:        []*RouteSegment{},
 		},
 	}
 }
@@ -80,9 +80,9 @@ func BenchmarkPlaneLocationEncode(b *testing.B) {
 }
 
 // ToJsonIterBytes is a faster JSON encoder, but with Protobuf messages produces incorrect output for the timestamps
-func (pl *PlaneLocationPBMsg) ToJsonIterBytes() ([]byte, error) {
+func (pl *PlaneAndLocationInfoMsg) ToJsonIterBytes() ([]byte, error) {
 	jsonFast := jsoniter.ConfigFastest
-	jsonBuf, err := jsonFast.Marshal(&pl.PlaneLocationPB)
+	jsonBuf, err := jsonFast.Marshal(&pl.PlaneAndLocationInfo)
 	if nil != err {
 		log.Error().Err(err).Msg("could not create json bytes for sending")
 		return nil, err
@@ -191,7 +191,7 @@ func BenchmarkPlaneLocationProtobufDecode(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		msg := PlaneLocationPBMsg{}
+		msg := PlaneAndLocationInfoMsg{}
 		err = proto.Unmarshal(protobufBytes, &msg)
 		if err != nil {
 			b.Fail()

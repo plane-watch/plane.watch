@@ -40,34 +40,34 @@ var keyBindings = keyMap{
 }
 
 func runTui(c *cli.Context) error {
-	m, err := initialModel(c.String(natsURL), c.String(websocketURL))
+	m, err := initialModel(c.String(natsURL), c.String(websocketURL), c)
 	if err != nil {
 		return err
 	}
 	defer m.tapper.Disconnect()
 
-	filterIcao := c.String(icao)
+	filterIcao, _ := strconv.ParseUint(c.String(icao), 16, 32)
 	filterFeeder := c.String(feederAPIKey)
-	if err = m.tapper.IncomingDataTap(filterIcao, filterFeeder, m.handleIncomingData); err != nil {
+	if err = m.tapper.IncomingDataTap(uint32(filterIcao), filterFeeder, m.handleIncomingData); err != nil {
 		return err
 	}
 
-	if err = m.tapper.AfterIngestTap(filterIcao, filterFeeder, m.afterIngest.update); err != nil {
+	if err = m.tapper.AfterIngestTap(uint32(filterIcao), filterFeeder, m.afterIngest.update); err != nil {
 		return err
 	}
-	if err = m.tapper.AfterEnrichmentTap(filterIcao, filterFeeder, m.afterEnrichment.update); err != nil {
+	if err = m.tapper.AfterEnrichmentTap(uint32(filterIcao), filterFeeder, m.afterEnrichment.update); err != nil {
 		return err
 	}
-	if err = m.tapper.AfterRouterLowTap(filterIcao, filterFeeder, m.afterRouterLow.update); err != nil {
+	if err = m.tapper.AfterRouterLowTap(uint32(filterIcao), filterFeeder, m.afterRouterLow.update); err != nil {
 		return err
 	}
-	if err = m.tapper.AfterRouterHighTap(filterIcao, filterFeeder, m.afterRouterHigh.update); err != nil {
+	if err = m.tapper.AfterRouterHighTap(uint32(filterIcao), filterFeeder, m.afterRouterHigh.update); err != nil {
 		return err
 	}
-	if err = m.tapper.WebSocketTapLow(filterIcao, filterFeeder, m.finalLow.update); err != nil {
+	if err = m.tapper.WebSocketTapLow(uint32(filterIcao), filterFeeder, m.finalLow.update); err != nil {
 		return err
 	}
-	if err = m.tapper.WebSocketTapHigh(filterIcao, filterFeeder, m.finalHigh.update); err != nil {
+	if err = m.tapper.WebSocketTapHigh(uint32(filterIcao), filterFeeder, m.finalHigh.update); err != nil {
 		return err
 	}
 
@@ -94,12 +94,16 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.source++
 			}
 		case key.Matches(tMsg, keyBindings["Select"]):
-			m.selectedIcao = m.planesTable.SelectedRow()[0]
-			m.selectedCallSign = m.planesTable.SelectedRow()[2]
-			m.logger.Info().
-				Str("icao", m.selectedIcao).
-				Str("callsign", m.selectedCallSign).
-				Msg("Selecting Aircraft")
+			row := m.planesTable.SelectedRow()
+			if row != nil {
+				icaoUint, _ := strconv.ParseUint(row[0], 16, 32)
+				m.selectedIcao = uint32(icaoUint)
+				m.selectedCallSign = m.planesTable.SelectedRow()[2]
+				m.logger.Info().
+					Uint32("icao", m.selectedIcao).
+					Str("callsign", m.selectedCallSign).
+					Msg("Selecting Aircraft")
+			}
 		case key.Matches(tMsg, keyBindings["Help"]):
 			m.help.ShowAll = !m.help.ShowAll
 		}
@@ -195,7 +199,7 @@ func (m *model) updateIncomingStats() {
 }
 
 func (m *model) updateSelectedAircraftTable() {
-	if m.selectedIcao == "" {
+	if m.selectedIcao == 0 {
 		m.selectedTable.SetRows(m.defaultSelectedTableRows())
 		return
 	}
@@ -214,12 +218,8 @@ func (m *model) updateSelectedAircraftTable() {
 func (m *model) selectedTableIncomingRow() table.Row {
 	m.incomingMutex.Lock()
 	defer m.incomingMutex.Unlock()
-	icaoInt, err := strconv.ParseUint(m.selectedIcao, 16, 32)
 	row := m.defaultSelectedTableRows()[0]
-	if nil != err {
-		return row
-	}
-	row[1] = strconv.Itoa(m.incomingIcaoFrames[uint32(icaoInt)])
+	row[1] = strconv.Itoa(m.incomingIcaoFrames[m.selectedIcao])
 	return row
 }
 func (m *model) selectedTableRow(source planesSource, data *sourceInfo) table.Row {
@@ -265,11 +265,11 @@ func (m *model) updateAircraftTable() {
 	defer data.mu.Unlock()
 
 	rows := make([]table.Row, 0, len(data.planes))
-	var p *export.PlaneLocationJSON
+	var p *export.PlaneAndLocationInfoMsg
 	for _, icaoStr := range data.icaos {
 		p = data.planes[icaoStr]
 		rows = append(rows, table.Row{
-			icaoStr,
+			p.IcaoStr(),
 			strconv.Itoa(len(p.SourceTags)),
 			p.CallSignStr(),
 			p.SquawkStr(),
@@ -291,7 +291,7 @@ func (m *model) View() string {
 
 	view := m.heading.Render("Received Data Stats") + "\n" +
 		m.statsTable.View() + "\n" +
-		m.heading.Render("Selected Aircraft "+m.selectedIcao+" "+m.selectedCallSign) + "\n" +
+		m.heading.Render("Selected Aircraft "+strconv.FormatUint(uint64(m.selectedIcao), 16)+" "+m.selectedCallSign) + "\n" +
 		m.selectedTable.View() + "\n"
 
 	view += m.heading.Render("All Aircraft - Source: "+m.source.String()) + "\n"

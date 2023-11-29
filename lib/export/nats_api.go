@@ -6,18 +6,18 @@ import (
 )
 
 const (
-	// NatsApiSearchAirportV1 is the Nats API for searching for an airport
-	NatsApiSearchAirportV1 = "v1.search.airport"
-	// NatsApiSearchRouteV1 is teh Nats API for searching for route info
-	NatsApiSearchRouteV1 = "v1.search.route"
+	// NatsAPISearchAirportV1 is the Nats API for searching for an airport
+	NatsAPISearchAirportV1 = "v1.search.airport"
+	// NatsAPISearchRouteV1 is teh Nats API for searching for route info
+	NatsAPISearchRouteV1 = "v1.search.route"
 
-	// NatsApiEnrichAircraftV1 is the Nats API for requesting additional Enrichment data
-	NatsApiEnrichAircraftV1 = "v1.enrich.aircraft"
-	// NatsApiEnrichRouteV1 is the request name for enriching a  route
-	NatsApiEnrichRouteV1 = "v1.enrich.routes"
+	// NatsAPIEnrichAircraftV1 is the Nats API for requesting additional Enrichment data
+	NatsAPIEnrichAircraftV1 = "v1.enrich.aircraft"
+	// NatsAPIEnrichRouteV1 is the request name for enriching a  route
+	NatsAPIEnrichRouteV1 = "v1.enrich.routes"
 
-	NatsApiFeederListV1        = "v1.feeder.list"
-	NatsApiFeederStatsUpdateV1 = "v1.feeder.update-stats"
+	NatsAPIFeederListV1        = "v1.feeder.list"
+	NatsAPIFeederStatsUpdateV1 = "v1.feeder.update-stats"
 )
 
 type (

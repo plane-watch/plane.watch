@@ -117,7 +117,7 @@ func commonSetup(c *cli.Context) (*tracker.Tracker, error) {
 		trk.AddMiddleware(dedupe.NewFilter(dedupe.WithDedupeCounter(prometheusOutputFrameDedupe)))
 		// trk.AddMiddleware(dedupe.NewFilterBTree(dedupe.WithDedupeCounterBTree(prometheusOutputFrameDedupe), dedupe.WithBtreeDegree(16)))
 	}
-	sinkDest, err := setup.HandleSinkFlag(c, "pw_ingest")
+	sinkDest, err := setup.HandleSinkFlag(c, "pw_ingest+"+c.String(setup.WireProtocol))
 	if nil != err {
 		return nil, err
 	}

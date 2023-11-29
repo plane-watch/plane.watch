@@ -15,7 +15,7 @@ import (
 
 const (
 	Sink             = "sink"
-	SinkEncoding     = "sink-encoding"
+	SinkQueue        = "sink-queue"
 	SinkCollectDelay = "sink-collect-delay"
 )
 
@@ -38,10 +38,16 @@ func IncludeSinkFlags(app *cli.App) {
 			EnvVars: []string{"SINK"},
 		},
 		&cli.StringFlag{
-			Name:    SinkEncoding,
-			Usage:   "The data serialisation method. 'json' or 'protobuf'",
+			Name:    SinkQueue,
+			Usage:   "The name of the queue we are sending to",
+			Value:   "location-updates",
+			EnvVars: []string{"SINK_QUEUE"},
+		},
+		&cli.StringFlag{
+			Name:    WireProtocol,
+			Usage:   fmt.Sprintf("The data serialisation method. '%s' or '%s'", WireProtocolJSON, WireProtocolProtobuf),
 			Value:   "json",
-			EnvVars: []string{"SINK_ENCODING"},
+			EnvVars: []string{"WIRE_PROTOCOL"},
 		},
 		&cli.DurationFlag{
 			Name:    SinkCollectDelay,
@@ -55,7 +61,8 @@ func IncludeSinkFlags(app *cli.App) {
 func HandleSinkFlag(c *cli.Context, connName string) (tracker.Sink, error) {
 	sinkURL := c.String(Sink)
 	defaultTag := c.String(Tag)
-	sinkEncoding := strings.ToLower(c.String(SinkEncoding))
+	sinkEncoding := strings.ToLower(c.String(WireProtocol))
+	queueName := c.String(SinkQueue)
 	defaultDelay := c.Duration(SinkCollectDelay)
 
 	if sinkEncoding != sink.EncodingJSON && sinkEncoding != sink.EncodingProtobuf {
@@ -63,7 +70,7 @@ func HandleSinkFlag(c *cli.Context, connName string) (tracker.Sink, error) {
 	}
 
 	log.Debug().Str("sink-url", sinkURL).Msg("With Sink")
-	s, err := handleSink(connName, sinkURL, defaultTag, sinkEncoding, defaultDelay)
+	s, err := handleSink(connName, sinkURL, defaultTag, sinkEncoding, queueName, defaultDelay)
 	if nil != err {
 		log.Error().Err(err).Str("url", sinkURL).Str("what", "sink").Msg("Failed setup sink")
 		return nil, err
@@ -72,7 +79,7 @@ func HandleSinkFlag(c *cli.Context, connName string) (tracker.Sink, error) {
 	return s, nil
 }
 
-func handleSink(connName, urlSink, defaultTag, sinkEncoding string, sendDelay time.Duration) (tracker.Sink, error) {
+func handleSink(connName, urlSink, defaultTag, sinkEncoding, queueName string, sendDelay time.Duration) (tracker.Sink, error) {
 	parsedURL, err := url.Parse(urlSink)
 	if nil != err {
 		return nil, err
@@ -88,6 +95,7 @@ func handleSink(connName, urlSink, defaultTag, sinkEncoding string, sendDelay ti
 		sink.WithPrometheusCounters(prometheusOutputFrame, prometheusOutputPlaneLocation),
 		sink.WithSendDelay(sendDelay),
 		sink.WithEncoding(sinkEncoding),
+		sink.WithQueueName(queueName),
 	}
 
 	switch strings.ToLower(parsedURL.Scheme) {

@@ -12,7 +12,7 @@ import (
 
 type (
 	DataStream struct {
-		low, high chan *export.PlaneLocationJSON
+		low, high chan *export.PlaneAndLocationInfoMsg
 		chs       *clickhouse.Server
 		log       zerolog.Logger
 	}
@@ -54,8 +54,8 @@ type (
 
 func NewDataStreams(chs *clickhouse.Server) *DataStream {
 	ds := &DataStream{
-		low:  make(chan *export.PlaneLocationJSON, 1000),
-		high: make(chan *export.PlaneLocationJSON, 2000),
+		low:  make(chan *export.PlaneAndLocationInfoMsg, 1000),
+		high: make(chan *export.PlaneAndLocationInfoMsg, 2000),
 		chs:  chs,
 		log:  log.With().Str("section", "ch data stream").Logger(),
 	}
@@ -65,30 +65,24 @@ func NewDataStreams(chs *clickhouse.Server) *DataStream {
 	return ds
 }
 
-func (ds *DataStream) AddLow(frame *export.PlaneLocationJSON) {
+func (ds *DataStream) AddLow(frame *export.PlaneAndLocationInfoMsg) {
 	if frame.SourceTag != "repeat" {
 		ds.low <- frame
 	}
 }
 
-func (ds *DataStream) AddHigh(frame *export.PlaneLocationJSON) {
+func (ds *DataStream) AddHigh(frame *export.PlaneAndLocationInfoMsg) {
 	if frame.SourceTag != "repeat" {
 		ds.high <- frame
 	}
 }
 
 // handleQueue single threadedly accumulates and sends data to clickhouse for the given queue/table
-func (ds *DataStream) handleQueue(q chan *export.PlaneLocationJSON, table string) {
+func (ds *DataStream) handleQueue(q chan *export.PlaneAndLocationInfoMsg, table string) {
 	ticker := time.NewTicker(time.Second)
 	maxNumItems := 50_000
 	updates := make([]any, maxNumItems)
 	updateID := 0
-	unPtr := func(s *string) string {
-		if nil == s {
-			return ""
-		}
-		return *s
-	}
 	send := func() {
 		ds.log.Debug().Int("num", updateID).Msg("Sending Batch To Clickhouse")
 		if err := ds.chs.Inserts(table, updates, updateID); nil != err {
@@ -101,20 +95,20 @@ func (ds *DataStream) handleQueue(q chan *export.PlaneLocationJSON, table string
 		case <-ticker.C:
 			send()
 		case loc := <-q:
-			squawk, _ := strconv.ParseUint(loc.Squawk, 10, 32)
+			squawk, _ := strconv.ParseUint(loc.SquawkStr(), 10, 32)
 			updates[updateID] = &chRow{
-				Icao:            loc.Icao,
+				Icao:            loc.IcaoStr(),
 				LatLon:          orb.Point{loc.Lat, loc.Lon},
 				Heading:         loc.Heading,
 				Velocity:        loc.Velocity,
-				Altitude:        int32(loc.Altitude),
-				VerticalRate:    int32(loc.VerticalRate),
-				AltitudeUnits:   loc.AltitudeUnits,
-				CallSign:        unPtr(loc.CallSign),
-				FlightStatus:    loc.FlightStatus,
+				Altitude:        loc.Altitude,
+				VerticalRate:    loc.VerticalRate,
+				AltitudeUnits:   loc.AltitudeUnits.Describe(),
+				CallSign:        loc.CallSign,
+				FlightStatus:    loc.FlightStatus.Describe(),
 				OnGround:        loc.OnGround,
-				Airframe:        loc.Airframe,
-				AirframeType:    loc.AirframeType,
+				Airframe:        loc.AirframeType.Describe(),
+				AirframeType:    loc.AirframeType.Code(),
 				HasLocation:     loc.HasLocation,
 				HasHeading:      loc.HasHeading,
 				HasVerticalRate: loc.HasVerticalRate,
@@ -122,16 +116,16 @@ func (ds *DataStream) handleQueue(q chan *export.PlaneLocationJSON, table string
 				SourceTags:      loc.CloneSourceTags(),
 				Squawk:          uint32(squawk),
 				Special:         loc.Special,
-				TrackedSince:    loc.TrackedSince.UTC(),
-				LastMsg:         loc.LastMsg.UTC(),
-				FlagCode:        unPtr(loc.FlagCode),
-				Operator:        unPtr(loc.Operator),
-				RegisteredOwner: unPtr(loc.RegisteredOwner),
-				Registration:    unPtr(loc.Registration),
-				RouteCode:       unPtr(loc.RouteCode),
-				Serial:          unPtr(loc.Serial),
+				TrackedSince:    loc.TrackedSince.AsTime().UTC(),
+				LastMsg:         loc.LastMsg.AsTime().UTC(),
+				FlagCode:        loc.FlagCode,
+				Operator:        loc.Operator,
+				RegisteredOwner: loc.RegisteredOwner,
+				Registration:    loc.Registration,
+				RouteCode:       loc.RouteCode,
+				Serial:          loc.Serial,
 				TileLocation:    loc.TileLocation,
-				TypeCode:        unPtr(loc.TypeCode),
+				TypeCode:        loc.TypeCode,
 			}
 
 			updateID++

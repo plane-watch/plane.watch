@@ -6,11 +6,13 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/rs/zerolog"
+	"github.com/urfave/cli/v2"
 	"plane.watch/lib/export"
+	"plane.watch/lib/setup"
 	"plane.watch/lib/tracker/beast"
 	"plane.watch/lib/tracker/mode_s"
 	"plane.watch/lib/tracker/sbs1"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,9 +25,9 @@ type (
 	sourceInfo struct {
 		mu         sync.Mutex
 		frameCount uint64
-		planes     map[string]*export.PlaneLocationJSON
-		frames     map[string]uint64
-		icaos      []string
+		planes     map[uint32]*export.PlaneAndLocationInfoMsg
+		frames     map[uint32]uint64
+		icaos      []uint32
 	}
 
 	model struct {
@@ -43,7 +45,7 @@ type (
 		selectedTable    table.Model
 		planesTable      table.Model
 		source           planesSource
-		selectedIcao     string
+		selectedIcao     uint32
 		selectedCallSign string
 
 		logView      viewport.Model
@@ -76,14 +78,21 @@ type (
 	timerTick time.Time
 )
 
-func initialModel(natsURL, wsURL string) (*model, error) {
+func initialModel(natsURL, wsURL string, c *cli.Context) (*model, error) {
 	logs := &strings.Builder{}
 	logger := zerolog.New(zerolog.ConsoleWriter{Out: logs, TimeFormat: time.UnixDate}).With().Timestamp().Logger()
 
 	m := &model{
-		logger:        logger.With().Str("app", "model").Logger(),
-		startTime:     time.Now(),
-		tapper:        NewPlaneWatchTapper(WithLogger(logger)),
+		logger:    logger.With().Str("app", "model").Logger(),
+		startTime: time.Now(),
+		tapper: NewPlaneWatchTapper(
+			WithLogger(logger),
+			WithProtocol(c.String(setup.WireProtocol)),
+			WithProtocolFor(wireProtocolForIngest, c.String(wireProtocolForIngest)),
+			WithProtocolFor(wireProtocolForEnrichment, c.String(wireProtocolForEnrichment)),
+			WithProtocolFor(wireProtocolForRouter, c.String(wireProtocolForRouter)),
+			WithProtocolFor(wireProtocolForWsBroker, c.String(wireProtocolForWsBroker)),
+		),
 		help:          help.New(),
 		tickDuration:  time.Millisecond * 16,
 		focusIcaoList: make([]string, 0),
@@ -232,16 +241,16 @@ func (m *model) handleIncomingData(frameType, tag string, data []byte) {
 }
 
 func (si *sourceInfo) init() {
-	si.planes = make(map[string]*export.PlaneLocationJSON)
-	si.frames = make(map[string]uint64)
+	si.planes = make(map[uint32]*export.PlaneAndLocationInfoMsg)
+	si.frames = make(map[uint32]uint64)
 }
 
-func (si *sourceInfo) update(loc *export.PlaneLocationJSON) {
+func (si *sourceInfo) update(loc *export.PlaneAndLocationInfoMsg) {
 	si.mu.Lock()
 	defer si.mu.Unlock()
 	if _, ok := si.frames[loc.Icao]; !ok {
 		si.icaos = append(si.icaos, loc.Icao)
-		sort.Strings(si.icaos)
+		slices.Sort(si.icaos)
 	}
 	si.frameCount++
 	si.planes[loc.Icao] = loc
@@ -254,13 +263,13 @@ func (si *sourceInfo) numFrames() string {
 	return strconv.FormatUint(si.frameCount, 10)
 }
 
-func (si *sourceInfo) numFramesFor(icao string) string {
+func (si *sourceInfo) numFramesFor(icao uint32) string {
 	si.mu.Lock()
 	defer si.mu.Unlock()
 	return strconv.FormatUint(si.frames[icao], 10)
 }
 
-func (si *sourceInfo) getLoc(icao string) *export.PlaneLocationJSON {
+func (si *sourceInfo) getLoc(icao uint32) *export.PlaneAndLocationInfoMsg {
 	si.mu.Lock()
 	defer si.mu.Unlock()
 	p := si.planes[icao]

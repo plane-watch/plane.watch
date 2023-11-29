@@ -40,7 +40,7 @@ func BenchmarkSink_TrackerMsgJson(b *testing.B) {
 	le := tracker.NewPlaneLocationEvent(plane)
 
 	for n := 0; n < b.N; n++ {
-		_, _ = sink.trackerMsgJSON(le)
+		_, _ = sink.config.byteMaker(le, "test")
 	}
 }
 

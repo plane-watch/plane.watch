@@ -9,19 +9,21 @@ import (
 
 type (
 	natsIoRouter struct {
-		natsUrl  string
-		n        *nats_io.Server
-		doneChan chan bool
+		natsURL        string
+		connectionName string
+		n              *nats_io.Server
+		doneChan       chan bool
 	}
 )
 
-func newNatsIoRouter(natsUrl string) *natsIoRouter {
-	if "" == natsUrl {
+func newNatsIoRouter(natsURL, connectionName string) *natsIoRouter {
+	if natsURL == "" {
 		return nil
 	}
 	nr := &natsIoRouter{
-		natsUrl:  natsUrl,
-		doneChan: make(chan bool),
+		natsURL:        natsURL,
+		connectionName: connectionName,
+		doneChan:       make(chan bool),
 	}
 
 	return nr
@@ -30,7 +32,7 @@ func newNatsIoRouter(natsUrl string) *natsIoRouter {
 func (nr *natsIoRouter) connect() error {
 	var err error
 
-	nr.n, err = nats_io.NewServer(nats_io.WithServer(nr.natsUrl, "pw_router"))
+	nr.n, err = nats_io.NewServer(nats_io.WithServer(nr.natsURL, "pw_router+"+nr.connectionName))
 	if nil != err {
 		log.Error().
 			Err(err).

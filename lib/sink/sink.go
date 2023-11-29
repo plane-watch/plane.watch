@@ -84,7 +84,7 @@ func trackerMsgProtobuf(le *tracker.PlaneLocationEvent, sourceTag string) ([]byt
 		return nil, errors.New("no plane")
 	}
 
-	eventStruct := export.NewPlaneLocationPB(plane, sourceTag)
+	eventStruct := export.NewPlaneInfo(plane, sourceTag)
 	defer export.Release(eventStruct)
 	return eventStruct.ToProtobufBytes()
 }
@@ -105,7 +105,7 @@ func (s *Sink) sendLocationList() {
 		var jsonBuf []byte
 		jsonBuf, err = s.config.byteMaker(le, s.config.sourceTag)
 		if nil != jsonBuf && nil == err {
-			_ = s.dest.PublishJson(QueueLocationUpdates, jsonBuf)
+			_ = s.dest.PublishJson(s.config.queueName, jsonBuf)
 			if nil != s.config.stats.planeLoc {
 				s.config.stats.planeLoc.Inc()
 			}
@@ -122,7 +122,7 @@ func (s *Sink) OnEvent(e tracker.Event) {
 			var jsonBuf []byte
 			jsonBuf, err = s.config.byteMaker(le, s.config.sourceTag)
 			if jsonBuf != nil && err == nil {
-				err = s.dest.PublishJson(QueueLocationUpdates, jsonBuf)
+				err = s.dest.PublishJson(s.config.queueName, jsonBuf)
 				if err != nil {
 					fmt.Println(err)
 				}

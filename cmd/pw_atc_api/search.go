@@ -43,7 +43,7 @@ func (sa *SearchApiHandler) searchHandler(msg *nats.Msg) {
 	var respondErr error
 
 	switch msg.Subject {
-	case export.NatsApiSearchAirportV1:
+	case export.NatsAPISearchAirportV1:
 		// do a cached database lookup for airport
 		// if result in redis, return it
 		// fetch result from db
@@ -68,7 +68,7 @@ func (sa *SearchApiHandler) searchHandler(msg *nats.Msg) {
 		}
 
 		respondErr = msg.Respond(response)
-	case export.NatsApiSearchRouteV1:
+	case export.NatsAPISearchRouteV1:
 		respondErr = msg.Respond([]byte("unimplemented"))
 	default:
 		respondErr = msg.Respond([]byte(fmt.Sprintf(ErrUnsupportedResponse, msg.Subject)))

@@ -1,11 +1,9 @@
 package main
 
 import (
-	jsoniter "github.com/json-iterator/go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
-	"plane.watch/lib/export"
 	"plane.watch/lib/nats_io"
 	"sync"
 )
@@ -18,8 +16,8 @@ type (
 	}
 )
 
-func NewPwWsBrokerNats(url, routeLow, routeHigh string) (*PwWsBrokerNats, error) {
-	svr, err := nats_io.NewServer(nats_io.WithServer(url, "pw_ws_broker"))
+func NewPwWsBrokerNats(url, routeLow, routeHigh, connSuffix string) (*PwWsBrokerNats, error) {
+	svr, err := nats_io.NewServer(nats_io.WithServer(url, "pw_ws_broker+"+connSuffix))
 	if nil != err {
 		return nil, err
 	}
@@ -54,24 +52,15 @@ func (n *PwWsBrokerNats) consume(exitChan chan bool, subject, what string) {
 		return
 	}
 	var wg sync.WaitGroup
+	wg.Add(1)
 	worker := func() {
 		for msg := range ch {
-			planeData := export.PlaneLocationJSON{}
-			var json = jsoniter.ConfigFastest
-			errJson := json.Unmarshal(msg.Data, &planeData)
-			if nil != errJson {
-				log.Debug().Err(err).Msg("did not understand msg")
-				continue
-			}
-			n.processMessage(what, &planeData)
+			n.processMessage(what, msg.Data)
 		}
 		wg.Done()
 	}
-	numWorkers := 10
-	wg.Add(numWorkers)
-	for i := 0; i < numWorkers; i++ {
-		go worker()
-	}
+	// just a single worker to read from the pipe and send it on
+	go worker()
 	wg.Wait()
 	log.Info().
 		Str("subject", subject).

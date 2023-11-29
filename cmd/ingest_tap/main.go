@@ -1,21 +1,28 @@
 package main
 
 import (
+	"fmt"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 	"os"
 	"os/signal"
 	"plane.watch/lib/logging"
+	"plane.watch/lib/setup"
 	"plane.watch/lib/tracker/beast"
+	"strconv"
 	"syscall"
 )
 
 const (
-	natsURL      = "nats"
-	websocketURL = "websocket-url"
-	feederAPIKey = "api-key"
-	icao         = "icao"
-	logFile      = "file"
+	natsURL                   = "nats"
+	websocketURL              = "websocket-url"
+	feederAPIKey              = "api-key"
+	icao                      = "icao"
+	logFile                   = "file"
+	wireProtocolForIngest     = "wire-protocol-ingest"
+	wireProtocolForEnrichment = "wire-protocol-enrichment"
+	wireProtocolForRouter     = "wire-protocol-router"
+	wireProtocolForWsBroker   = "wire-protocol-broker"
 )
 
 func main() {
@@ -56,6 +63,27 @@ func main() {
 			Value: "https://localhost/planes",
 		},
 		&cli.StringFlag{
+			Name:  setup.WireProtocol,
+			Usage: fmt.Sprintf("%s or %s for determining the default wire protocol for all parts", setup.WireProtocolJSON, setup.WireProtocolProtobuf),
+			Value: setup.WireProtocolJSON,
+		},
+		&cli.StringFlag{
+			Name:  wireProtocolForIngest,
+			Usage: fmt.Sprintf("use %s or %s to override wire protocol for ingest", setup.WireProtocolJSON, setup.WireProtocolProtobuf),
+		},
+		&cli.StringFlag{
+			Name:  wireProtocolForEnrichment,
+			Usage: fmt.Sprintf("use %s or %s to override wire protocol for enrichment", setup.WireProtocolJSON, setup.WireProtocolProtobuf),
+		},
+		&cli.StringFlag{
+			Name:  wireProtocolForRouter,
+			Usage: fmt.Sprintf("use %s or %s to override wire protocol for router", setup.WireProtocolJSON, setup.WireProtocolProtobuf),
+		},
+		&cli.StringFlag{
+			Name:  wireProtocolForWsBroker,
+			Usage: fmt.Sprintf("use %s or %s to override wire protocol for ws broker", setup.WireProtocolJSON, setup.WireProtocolProtobuf),
+		},
+		&cli.StringFlag{
 			Name:  icao,
 			Usage: "if specified, only frames from the plane with the specified ICAO will be sent",
 		},
@@ -79,7 +107,14 @@ func main() {
 func logMatching(c *cli.Context) error {
 	logging.ConfigureForCli()
 
-	tapper := NewPlaneWatchTapper(WithLogger(log.Logger))
+	tapper := NewPlaneWatchTapper(
+		WithLogger(log.Logger),
+		WithProtocol(c.String(setup.WireProtocol)),
+		WithProtocolFor(wireProtocolForIngest, c.String(wireProtocolForIngest)),
+		WithProtocolFor(wireProtocolForEnrichment, c.String(wireProtocolForEnrichment)),
+		WithProtocolFor(wireProtocolForRouter, c.String(wireProtocolForRouter)),
+		WithProtocolFor(wireProtocolForWsBroker, c.String(wireProtocolForWsBroker)),
+	)
 	if err := tapper.Connect(c.String(natsURL), c.String(websocketURL)); err != nil {
 		return err
 	}
@@ -97,7 +132,8 @@ func logMatching(c *cli.Context) error {
 		fileHandles[ext] = fh
 	}
 
-	if err := tapper.IncomingDataTap(c.String(icao), c.String(feederAPIKey), handleStream(fileHandles)); err != nil {
+	icaoUint, _ := strconv.ParseUint(c.String(icao), 16, 32)
+	if err := tapper.IncomingDataTap(uint32(icaoUint), c.String(feederAPIKey), handleStream(fileHandles)); err != nil {
 		return err
 	}
 
@@ -123,7 +159,7 @@ func handleStream(fileHandles map[string]*os.File) IngestTapHandler {
 		case "beast":
 			b, err := beast.NewFrame(msgData, false)
 			if nil != err {
-				log.Error().Err(err)
+				log.Error().Err(err).Send()
 				return
 			}
 			log.Info().

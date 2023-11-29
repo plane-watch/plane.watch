@@ -46,7 +46,7 @@ func (sa *FeederApiHandler) feederHandler(msg *nats.Msg) {
 	json := jsoniter.ConfigFastest
 
 	switch msg.Subject {
-	case export.NatsApiFeederListV1:
+	case export.NatsAPIFeederListV1:
 		feeders := make(export.Feeders, 0)
 
 		respondErr = db.Select(&feeders, `
@@ -71,7 +71,7 @@ FROM feeders f
 			respondErr = msg.Respond(buf)
 		}
 
-	case export.NatsApiFeederStatsUpdateV1:
+	case export.NatsAPIFeederStatsUpdateV1:
 		updates := make(export.FeederUpdates, 0)
 		respondErr = json.Unmarshal(msg.Data, &updates)
 
