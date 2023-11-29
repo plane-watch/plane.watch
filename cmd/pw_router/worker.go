@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"github.com/golang/protobuf/proto"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/exp/maps"
+	"google.golang.org/protobuf/proto"
 	"math"
 	"plane.watch/lib/export"
 	"sync"
