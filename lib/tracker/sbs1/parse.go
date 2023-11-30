@@ -2,6 +2,7 @@ package sbs1
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -10,21 +11,26 @@ import (
 
 const (
 	sbsMsgTypeField      = 0
-	sbsMsgSubCatField    = 1
+	sbsMsgSubCatField    = 1 // transmission type
+	sbsSessionDBID       = 2
+	sbsAircraftDBID      = 3
 	sbsIcaoField         = 4
+	sbsFlightDBID        = 5
 	sbsRecvDate          = 6
 	sbsRecvTime          = 7
+	sbsDateLogged        = 8
+	sbsTimeLogged        = 9
 	sbsCallsignField     = 10
 	sbsAltitudeField     = 11
 	sbsGroundSpeedField  = 12
-	sbsTrackField        = 13
+	sbsTrackField        = 13 // Aircraft Track, not heading
 	sbsLatField          = 14
 	sbsLonField          = 15
 	sbsVerticalRateField = 16
 	sbsSquawkField       = 17
-	sbsAlertSquawkField  = 18
-	sbsEmergencyField    = 19
-	sbsSpiIdentField     = 20
+	sbsAlertSquawkField  = 18 // Flag to indicate squawk has changed.
+	sbsEmergencyField    = 19 // Flag to indicate emergency code has been set
+	sbsSpiIdentField     = 20 // Flag to indicate transponder Ident has been activated.
 	sbsOnGroundField     = 21
 )
 
@@ -44,6 +50,7 @@ type Frame struct {
 	Squawk       string
 	Alert        string
 	Emergency    string
+	SpiFlag      bool
 	OnGround     bool
 
 	HasPosition bool
@@ -59,6 +66,13 @@ func (f *Frame) TimeStamp() time.Time {
 	return f.Received
 }
 
+func getField(fields []string, fieldId int) string {
+	if len(fields) >= fieldId {
+		return fields[fieldId]
+	}
+	return ""
+}
+
 func (f *Frame) Parse() error {
 	// decode the string
 	var err error
@@ -68,30 +82,38 @@ func (f *Frame) Parse() error {
 		return nil
 	}
 
-	bits := strings.Split(f.original, ",")
-	if len(bits) != 22 {
-		return fmt.Errorf("failed to parse input - not enough parameters: %s", f.original)
+	fields := strings.Split(f.original, ",")
+	if len(fields) > 22 {
+		return fmt.Errorf("failed to parse input - too many parameters: %s", f.original)
+	}
+	// ignore 0 length
+	if len(fields) == 0 {
+		return nil
+	}
+	// ignore a blank field field
+	if getField(fields, sbsMsgTypeField) == "" {
+		return errors.New("unknown msg format, expecting a value in first field")
 	}
 
-	f.icaoStr = bits[sbsIcaoField]
-	f.IcaoInt, err = icaoStringToInt(bits[sbsIcaoField])
+	f.icaoStr = getField(fields, sbsIcaoField)
+	f.IcaoInt, err = icaoStringToInt(getField(fields, sbsIcaoField))
 	if nil != err {
 		return err
 	}
-	sTime := bits[sbsRecvDate] + " " + bits[sbsRecvTime]
+	sTime := getField(fields, sbsRecvDate) + " " + getField(fields, sbsRecvTime)
 	// 2016/06/03 00:00:38.350
 	f.Received, err = time.Parse("2006/01/02 15:04:05.999999999", sTime)
 	if nil != err {
 		f.Received = time.Now()
 	}
 
-	f.MsgType = bits[sbsMsgTypeField]
+	f.MsgType = getField(fields, sbsMsgTypeField)
 
-	switch bits[sbsMsgTypeField] { // message type
+	switch getField(fields, sbsMsgTypeField) { // message type
 	case "SEL": // SELECTION_CHANGE
-		f.CallSign = bits[sbsCallsignField]
+		f.CallSign = getField(fields, sbsCallsignField)
 	case "ID": // NEW_ID
-		f.CallSign = bits[sbsCallsignField]
+		f.CallSign = getField(fields, sbsCallsignField)
 	case "AIR": // NEW_AIRCRAFT - just indicates when a new aircraft pops up
 	case "STA": // STATUS_AIRCRAFT
 	// call sign field (10) contains one of:
@@ -102,58 +124,61 @@ func (f *Frame) Parse() error {
 	// 	OK (used to reset time-outs if aircraft returns into cover).
 	case "CLK": // CLICK
 	case "MSG": // TRANSMISSION
-		switch bits[sbsMsgSubCatField] {
+		switch getField(fields, sbsMsgSubCatField) {
 		case "1": // ES Identification and Category
-			f.CallSign = bits[sbsCallsignField]
+			f.CallSign = getField(fields, sbsCallsignField)
 
 		case "2": // ES Surface Position Message
-			f.Altitude, _ = strconv.Atoi(bits[sbsAltitudeField])
-			f.GroundSpeed, _ = strconv.Atoi(bits[sbsGroundSpeedField])
-			f.Track, _ = strconv.ParseFloat(bits[sbsTrackField], 32)
-			f.Lat, _ = strconv.ParseFloat(bits[sbsLatField], 32)
-			f.Lon, _ = strconv.ParseFloat(bits[sbsLonField], 32)
+			f.Altitude, _ = strconv.Atoi(getField(fields, sbsAltitudeField))
+			f.GroundSpeed, _ = strconv.Atoi(getField(fields, sbsGroundSpeedField))
+			f.Track, _ = strconv.ParseFloat(getField(fields, sbsTrackField), 32)
+			f.Lat, _ = strconv.ParseFloat(getField(fields, sbsLatField), 32)
+			f.Lon, _ = strconv.ParseFloat(getField(fields, sbsLonField), 32)
 			f.HasPosition = true
-			f.OnGround = bits[sbsOnGroundField] == "-1"
+			f.OnGround = getField(fields, sbsOnGroundField) == "-1"
 
 		case "3": // ES Airborne Position Message
-			f.Altitude, _ = strconv.Atoi(bits[sbsAltitudeField])
-			f.Lat, _ = strconv.ParseFloat(bits[sbsLatField], 32)
-			f.Lon, _ = strconv.ParseFloat(bits[sbsLonField], 32)
+			f.Altitude, _ = strconv.Atoi(getField(fields, sbsAltitudeField))
+			f.Lat, _ = strconv.ParseFloat(getField(fields, sbsLatField), 64)
+			f.Lon, _ = strconv.ParseFloat(getField(fields, sbsLonField), 64)
 			f.HasPosition = true
-			f.Alert = bits[sbsAlertSquawkField]
-			f.Emergency = bits[sbsEmergencyField]
-			f.OnGround = bits[sbsOnGroundField] == "-1"
-		// SPI Flag Ignored
+			f.Alert = getField(fields, sbsAlertSquawkField)
+			f.Emergency = getField(fields, sbsEmergencyField)
+			f.SpiFlag = getField(fields, sbsSpiIdentField) == "-1"
+			f.OnGround = getField(fields, sbsOnGroundField) == "-1"
 
 		case "4": // ES Airborne velocity Message
-			f.GroundSpeed, _ = strconv.Atoi(bits[sbsGroundSpeedField])
-			f.Track, _ = strconv.ParseFloat(bits[sbsTrackField], 32)
-			f.VerticalRate, _ = strconv.Atoi(bits[sbsVerticalRateField])
-			f.OnGround = bits[sbsOnGroundField] == "-1"
+			f.GroundSpeed, _ = strconv.Atoi(getField(fields, sbsGroundSpeedField))
+			f.Track, _ = strconv.ParseFloat(getField(fields, sbsTrackField), 32)
+			f.VerticalRate, _ = strconv.Atoi(getField(fields, sbsVerticalRateField))
+			f.OnGround = false // getField(fields, sbsOnGroundField) == "-1"
 
 		case "5": // Surveillance Alt Message
-			f.Altitude, _ = strconv.Atoi(bits[sbsAltitudeField])
-			f.Alert = bits[sbsAlertSquawkField]
-			f.OnGround = bits[sbsOnGroundField] == "-1"
-			f.CallSign = bits[sbsCallsignField]
-		// SPI Flag Ignored
+			f.Altitude, _ = strconv.Atoi(getField(fields, sbsAltitudeField))
+			f.Alert = getField(fields, sbsAlertSquawkField)
+			f.OnGround = getField(fields, sbsOnGroundField) == "-1"
+			f.SpiFlag = getField(fields, sbsSpiIdentField) == "-1"
+			f.CallSign = getField(fields, sbsCallsignField)
 
 		case "6": // Surveillance ID Message
-			f.CallSign = bits[sbsCallsignField]
-			f.Altitude, _ = strconv.Atoi(bits[sbsAltitudeField])
-			f.Squawk = bits[sbsSquawkField]
-			f.Alert = bits[sbsAlertSquawkField]
-			f.Emergency = bits[sbsEmergencyField]
-			f.OnGround = bits[sbsOnGroundField] == "-1"
+			f.CallSign = getField(fields, sbsCallsignField)
+			f.Altitude, _ = strconv.Atoi(getField(fields, sbsAltitudeField))
+			f.Squawk = getField(fields, sbsSquawkField)
+			f.Alert = getField(fields, sbsAlertSquawkField)
+			f.Emergency = getField(fields, sbsEmergencyField)
+			f.OnGround = getField(fields, sbsOnGroundField) == "-1"
+			f.SpiFlag = getField(fields, sbsSpiIdentField) == "-1"
 		// SPI Flag Ignored
 
 		case "7": // Air To Air Message
-			f.Altitude, _ = strconv.Atoi(bits[sbsAltitudeField])
-			f.OnGround = bits[sbsOnGroundField] == "-1"
+			f.Altitude, _ = strconv.Atoi(getField(fields, sbsAltitudeField))
+			f.OnGround = getField(fields, sbsOnGroundField) == "-1"
 
 		case "8": // All Call Reply
-			f.OnGround = bits[sbsOnGroundField] == "-1"
+			f.OnGround = getField(fields, sbsOnGroundField) == "-1"
 		}
+	default:
+		return errors.New("unknown msg type, it is probably not SBS1")
 	}
 
 	return nil
@@ -162,7 +187,7 @@ func (f *Frame) Parse() error {
 func icaoStringToInt(icao string) (uint32, error) {
 	btoi, err := hex.DecodeString(icao)
 	if nil != err {
-		return 0, fmt.Errorf("Failed to decode ICAO HEX (%s) into UINT32. %s", icao, err)
+		return 0, fmt.Errorf("failed to decode ICAO HEX (%s) into uint32. %w", icao, err)
 	}
 	return uint32(btoi[0])<<16 | uint32(btoi[1])<<8 | uint32(btoi[2]), nil
 }

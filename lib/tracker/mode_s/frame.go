@@ -659,6 +659,14 @@ func (f *Frame) AltitudeValid() bool {
 	return f.validAltitude
 }
 
+func (f *Frame) AltitudeStr() string {
+	if nil == f || !f.AltitudeValid() {
+		return ""
+	}
+
+	return fmt.Sprintf("%d %s", f.altitude, f.AltitudeUnits())
+}
+
 func (f *Frame) FlightStatusString() string {
 	if nil == f {
 		return ""
