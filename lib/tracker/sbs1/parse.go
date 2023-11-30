@@ -51,7 +51,7 @@ type Frame struct {
 
 func NewFrame(sbsString string) *Frame {
 	return &Frame{
-		original: sbsString,
+		original: strings.TrimSpace(sbsString),
 	}
 }
 
@@ -63,9 +63,14 @@ func (f *Frame) Parse() error {
 	// decode the string
 	var err error
 
+	if f.original == "" {
+		// Handle NoOp
+		return nil
+	}
+
 	bits := strings.Split(f.original, ",")
 	if len(bits) != 22 {
-		return fmt.Errorf("Failed to Parse Input - not enough parameters: %s", f.original)
+		return fmt.Errorf("failed to parse input - not enough parameters: %s", f.original)
 	}
 
 	f.icaoStr = bits[sbsIcaoField]
@@ -74,7 +79,7 @@ func (f *Frame) Parse() error {
 		return err
 	}
 	sTime := bits[sbsRecvDate] + " " + bits[sbsRecvTime]
-	//2016/06/03 00:00:38.350
+	// 2016/06/03 00:00:38.350
 	f.Received, err = time.Parse("2006/01/02 15:04:05.999999999", sTime)
 	if nil != err {
 		f.Received = time.Now()
@@ -108,7 +113,7 @@ func (f *Frame) Parse() error {
 			f.Lat, _ = strconv.ParseFloat(bits[sbsLatField], 32)
 			f.Lon, _ = strconv.ParseFloat(bits[sbsLonField], 32)
 			f.HasPosition = true
-			f.OnGround = "-1" == bits[sbsOnGroundField]
+			f.OnGround = bits[sbsOnGroundField] == "-1"
 
 		case "3": // ES Airborne Position Message
 			f.Altitude, _ = strconv.Atoi(bits[sbsAltitudeField])
@@ -117,21 +122,21 @@ func (f *Frame) Parse() error {
 			f.HasPosition = true
 			f.Alert = bits[sbsAlertSquawkField]
 			f.Emergency = bits[sbsEmergencyField]
-			f.OnGround = "-1" == bits[sbsOnGroundField]
-		//SPI Flag Ignored
+			f.OnGround = bits[sbsOnGroundField] == "-1"
+		// SPI Flag Ignored
 
 		case "4": // ES Airborne velocity Message
 			f.GroundSpeed, _ = strconv.Atoi(bits[sbsGroundSpeedField])
 			f.Track, _ = strconv.ParseFloat(bits[sbsTrackField], 32)
 			f.VerticalRate, _ = strconv.Atoi(bits[sbsVerticalRateField])
-			f.OnGround = "-1" == bits[sbsOnGroundField]
+			f.OnGround = bits[sbsOnGroundField] == "-1"
 
 		case "5": // Surveillance Alt Message
 			f.Altitude, _ = strconv.Atoi(bits[sbsAltitudeField])
 			f.Alert = bits[sbsAlertSquawkField]
-			f.OnGround = "-1" == bits[sbsOnGroundField]
+			f.OnGround = bits[sbsOnGroundField] == "-1"
 			f.CallSign = bits[sbsCallsignField]
-		//SPI Flag Ignored
+		// SPI Flag Ignored
 
 		case "6": // Surveillance ID Message
 			f.CallSign = bits[sbsCallsignField]
@@ -139,15 +144,15 @@ func (f *Frame) Parse() error {
 			f.Squawk = bits[sbsSquawkField]
 			f.Alert = bits[sbsAlertSquawkField]
 			f.Emergency = bits[sbsEmergencyField]
-			f.OnGround = "-1" == bits[sbsOnGroundField]
-		//SPI Flag Ignored
+			f.OnGround = bits[sbsOnGroundField] == "-1"
+		// SPI Flag Ignored
 
-		case "7": //Air To Air Message
+		case "7": // Air To Air Message
 			f.Altitude, _ = strconv.Atoi(bits[sbsAltitudeField])
-			f.OnGround = "-1" == bits[sbsOnGroundField]
+			f.OnGround = bits[sbsOnGroundField] == "-1"
 
 		case "8": // All Call Reply
-			f.OnGround = "-1" == bits[sbsOnGroundField]
+			f.OnGround = bits[sbsOnGroundField] == "-1"
 		}
 	}
 
