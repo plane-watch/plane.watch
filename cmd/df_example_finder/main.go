@@ -27,7 +27,6 @@ func incoming(c *cli.Context) (chan tracker.Frame, error) {
 	wg.Add(1)
 
 	for _, producer := range producers {
-
 		wg.Add(1)
 		go func(p tracker.Producer) {
 			log.Debug().
@@ -55,11 +54,11 @@ func modeSFrame(iframe tracker.Frame) *mode_s.Frame {
 	if err := iframe.Decode(); nil != err {
 		log.Error().Err(err).Str("frame", fmt.Sprintf("%X", iframe.Raw())).Send()
 	}
-	switch iframe.(type) {
+	switch t := iframe.(type) {
 	case *mode_s.Frame:
-		return iframe.(*mode_s.Frame)
+		return t
 	case *beast.Frame:
-		return iframe.(*beast.Frame).AvrFrame()
+		return t.AvrFrame()
 	}
 	return nil
 }
@@ -95,7 +94,7 @@ func gatherSamples(c *cli.Context) error {
 			existingSamples[key] = true
 		case 20, 21:
 			bdsMap[frame.BdsMessageType()]++
-			if "0.0" == frame.BdsMessageType() {
+			if frame.BdsMessageType() == "0.0" {
 				continue
 			}
 		}
@@ -149,14 +148,16 @@ func showTypes(c *cli.Context) error {
 	requestedDf := getFlagByte(c, "df")
 	requestedMt := getFlagByte(c, "mt")
 	requestedSt := getFlagByte(c, "st")
+	requestedBds := c.String("bds")
+	onlyFlightNumbers := c.Bool("has-flight-number")
 	var requestedIcao *string
-	if v := c.String("icao"); "" != v {
+	if v := c.String("icao"); v != "" {
 		requestedIcao = &v
 	}
 	export := c.Bool("export")
 
 	tbl := tablewriter.NewWriter(os.Stdout)
-	tbl.SetHeader([]string{"DF", "MT", "ST", "ICAO", "AVR", "DF Desc", "MT Desc"})
+	tbl.SetHeader([]string{"DF", "MT", "ST", "ICAO", "AVR", "DF Desc", "MT Desc", "Flight Number", "Squawk"})
 	tbl.SetBorder(false)
 	tbl.SetAutoWrapText(false)
 	exportedFrames := make([]string, 0, 1000)
@@ -179,6 +180,12 @@ func showTypes(c *cli.Context) error {
 		if nil != requestedIcao && *requestedIcao != frame.IcaoStr() {
 			continue
 		}
+		if requestedBds != "" && (frame.DownLinkType() == 20 || frame.DownLinkType() == 21) && frame.BdsMessageType() != requestedBds {
+			continue
+		}
+		if onlyFlightNumbers && frame.FlightNumber() == "" {
+			continue
+		}
 		var fields []string
 		exportedFrames = append(exportedFrames, frame.RawString())
 
@@ -192,6 +199,8 @@ func showTypes(c *cli.Context) error {
 				frame.RawString(),
 				frame.DownLinkFormat(),
 				frame.MessageTypeString(),
+				frame.FlightNumber(),
+				fmt.Sprint(frame.SquawkIdentity()),
 			}
 		case 17, 18, 19:
 			fields = []string{
@@ -202,6 +211,8 @@ func showTypes(c *cli.Context) error {
 				frame.RawString(),
 				frame.DownLinkFormat(),
 				frame.MessageTypeString(),
+				frame.FlightNumber(),
+				fmt.Sprint(frame.SquawkIdentity()),
 			}
 		case 20, 21:
 			fields = []string{
@@ -212,6 +223,8 @@ func showTypes(c *cli.Context) error {
 				frame.RawString(),
 				frame.DownLinkFormat(),
 				frame.MessageTypeString(),
+				frame.FlightNumber(),
+				fmt.Sprint(frame.SquawkIdentity()),
 			}
 		default:
 			fields = []string{
@@ -222,6 +235,8 @@ func showTypes(c *cli.Context) error {
 				frame.RawString(),
 				frame.DownLinkFormat(),
 				frame.MessageTypeString(),
+				frame.FlightNumber(),
+				fmt.Sprint(frame.SquawkIdentity()),
 			}
 		}
 		if !export {
@@ -261,6 +276,10 @@ func main() {
 					Name:  "mt",
 					Usage: "Message Type (for df 17,18,19)",
 				},
+				&cli.StringFlag{
+					Name:  "bds",
+					Usage: "BDS Message Type (for df 20/21)",
+				},
 				&cli.IntFlag{
 					Name:  "st",
 					Usage: "Message Sub Type (for df 17,18,19)",
@@ -268,6 +287,10 @@ func main() {
 				&cli.StringFlag{
 					Name:  "icao",
 					Usage: "only show messages from Airframe with this 24bit identifier (hex, e.g. 7C6CE8)",
+				},
+				&cli.BoolFlag{
+					Name:  "has-flight-number",
+					Usage: "only show messages that have a flight number",
 				},
 				&cli.BoolFlag{
 					Name:  "export",

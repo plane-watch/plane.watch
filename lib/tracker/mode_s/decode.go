@@ -166,7 +166,7 @@ func (f *Frame) parseIntoRaw() error {
 	})
 
 	// let's ensure that we have some correct data...
-	if "" == encodedFrame {
+	if encodedFrame == "" {
 		return errors.New("cannot decode empty string")
 	}
 
@@ -184,14 +184,14 @@ func (f *Frame) parseIntoRaw() error {
 
 	// ensure we have a timestamp
 	frameStart := 0
-	if "MLAT" == f.mode {
+	if f.mode == "MLAT" {
 		frameStart = 13
 		// try and use the provided timestamp
 		f.beastTimeStamp = encodedFrame[1:12]
 		if err := f.parseBeastTimeStamp(); nil != err {
 			return err
 		}
-	} else if "*" == encodedFrame[0:1] {
+	} else if encodedFrame[0:1] == "*" {
 		frameStart = 1
 	}
 	f.raw = encodedFrame[frameStart:]
@@ -386,6 +386,9 @@ func (f *Frame) decodeICAO() {
 	}
 }
 
+// decodeSquawkIdentity takes the index of the 2 bytes needed to decode our identity
+// we require the identity to be in the last 5 bits of the first byte and all of the second byte
+// these bits should contain the identity 0b0001_1111, 0b1111_1111
 func (f *Frame) decodeSquawkIdentity(byte1, byte2 int) {
 	var a, b, c, d uint32
 	var msg2, msg3 uint32
@@ -411,50 +414,6 @@ func (f *Frame) decodeSquawkIdentity(byte1, byte2 int) {
 	c = ((msg2 & 0x01) << 2) | ((msg2 & 0x04) >> 1) | ((msg2 & 0x10) >> 4)
 	d = ((msg3 & 0x01) << 2) | ((msg3 & 0x04) >> 1) | ((msg3 & 0x10) >> 4)
 	f.identity = a*1000 + b*100 + c*10 + d
-}
-
-func decodeSquawkIdentityFromBits(ID13Field uint32) uint32 {
-	var hexGillham uint32
-
-	if ID13Field&0x1000 != 0 {
-		hexGillham |= 0x0010
-	} // Bit 12 = C1
-	if ID13Field&0x0800 != 0 {
-		hexGillham |= 0x1000
-	} // Bit 11 = A1
-	if ID13Field&0x0400 != 0 {
-		hexGillham |= 0x0020
-	} // Bit 10 = C2
-	if ID13Field&0x0200 != 0 {
-		hexGillham |= 0x2000
-	} // Bit 9 = A2
-	if ID13Field&0x0100 != 0 {
-		hexGillham |= 0x0040
-	} // Bit 8 = C4
-	if ID13Field&0x0080 != 0 {
-		hexGillham |= 0x4000
-	} // Bit 7 = A4
-	// if ID13Field & 0x0040 != 0 {hexGillham |= 0x0800} // Bit 6 = X or M
-	if ID13Field&0x0020 != 0 {
-		hexGillham |= 0x0100
-	} // Bit 5 = B1
-	if ID13Field&0x0010 != 0 {
-		hexGillham |= 0x0001
-	} // Bit 4 = D1 or Q
-	if ID13Field&0x0008 != 0 {
-		hexGillham |= 0x0200
-	} // Bit 3 = B2
-	if ID13Field&0x0004 != 0 {
-		hexGillham |= 0x0002
-	} // Bit 2 = D2
-	if ID13Field&0x0002 != 0 {
-		hexGillham |= 0x0400
-	} // Bit 1 = B4
-	if ID13Field&0x0001 != 0 {
-		hexGillham |= 0x0004
-	} // Bit 0 = D4
-
-	return hexGillham
 }
 
 // bits 20-32 are the altitude
@@ -529,7 +488,7 @@ func (f *Frame) decodeFlightNumber() {
 }
 
 func decodeFlightNumber(b []byte) []byte {
-	if 6 != len(b) {
+	if len(b) != 6 {
 		panic(fmt.Sprintf("attempting to decode a flight number/callsign with too many bytes (%d)", len(b)))
 	}
 	callsign := make([]byte, 8)

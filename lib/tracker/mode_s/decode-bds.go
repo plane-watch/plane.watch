@@ -33,9 +33,9 @@ type bds struct {
 }
 
 var (
-	UnknownCommBMessage  = errors.New("unable to infer Comm-B message type")
-	CommBIncorrectLength = errors.New("Comm-B must be exactly 7 bytes")
-	bdsFields            = map[string]string{
+	ErrUnknownCommBMessage  = errors.New("unable to infer Comm-B message type")
+	ErrCommBIncorrectLength = errors.New("Comm-B must be exactly 7 bytes")
+	bdsFields               = map[string]string{
 		// ADSB Service
 		"0.5": "Extended Squitter Airborne Position",
 		"0.6": "Extended Squitter Surface Position",
@@ -77,7 +77,7 @@ func (f *Frame) decodeCommB() error {
 	f.major, f.minor, err = inferCommBMessageType(f.message[4:11])
 	if nil != err {
 		// log the error?
-		if !errors.Is(err, UnknownCommBMessage) {
+		if !errors.Is(err, ErrUnknownCommBMessage) {
 			log.Error().Err(err).Send()
 		}
 	}
@@ -89,7 +89,6 @@ func (f *Frame) decodeCommB() error {
 		// decode GICB
 	case BdsElsAircraftIdent: // 2.0
 		f.decodeFlightNumber()
-
 	}
 
 	// things get a lot murkier from here on in!
@@ -113,8 +112,8 @@ func (f *Frame) decodeCommB() error {
 // pass in the Comm-B message bytes (MB Field)
 // decoding based on this https://mode-s.org/decode/content/mode-s/9-inference.html
 func inferCommBMessageType(mb []byte) (byte, byte, error) {
-	if 7 != len(mb) {
-		return 0, 0, CommBIncorrectLength
+	if len(mb) != 7 {
+		return 0, 0, ErrCommBIncorrectLength
 	}
 
 	// BDS == Comm-B Data Selector
@@ -123,14 +122,14 @@ func inferCommBMessageType(mb []byte) (byte, byte, error) {
 
 	// BDS 1,0 - Data Link Capability Report
 	// 00 01 00 00 == 0x10  && X0 00 00 XX
-	if mb[0] == 0b0001_0000 && 0 == mb[1]&0b0111_1100 {
+	if mb[0] == 0b0001_0000 && mb[1]&0b0111_1100 == 0 {
 		return 1, 0, nil
 	}
 
 	// BDS 1,7 - Common usage GICB capability report
 	// bit 7 == 1, bits 29-56 zeros
 	// Detection: BDS Code && Reserved Bits
-	if mb[0]&0x2 == 0x2 && (0 == mb[3]&0xF && 0 == mb[4]+mb[5]+mb[6]) {
+	if mb[0]&0x2 == 0x2 && ((0 == mb[3]&0xF) && (0 == mb[4]+mb[5]+mb[6])) {
 		return 1, 7, nil
 	}
 
@@ -140,7 +139,7 @@ func inferCommBMessageType(mb []byte) (byte, byte, error) {
 	if mb[0] == 0b0010_0000 {
 		// bits 9-56 are call sign, should not contain any ? chars from aisCharset
 		callsign := string(decodeFlightNumber(mb[1:7]))
-		if !strings.Contains("?", callsign) {
+		if !strings.Contains(callsign, "?") {
 			return 2, 0, nil
 		}
 	}
@@ -160,5 +159,5 @@ func inferCommBMessageType(mb []byte) (byte, byte, error) {
 	// and lastly onto Meteorological Detection
 	// TODO: Implement MRAR and MHR
 
-	return 0, 0, UnknownCommBMessage
+	return 0, 0, ErrUnknownCommBMessage
 }

@@ -25,7 +25,6 @@ func (f *Frame) decodeAdsbLatLon() {
 }
 
 func (f *Frame) decodeAdsb() {
-
 	// Down Link Format 17 Message Types
 	f.messageType = f.message[4] >> 3
 	f.messageSubType = f.message[4] & 7
@@ -72,7 +71,6 @@ func (f *Frame) decodeAdsb() {
 			} else {
 				f.altitude = field
 			}
-
 		} else {
 			f.altitude = decodeAC12Field(field)
 		}
@@ -96,7 +94,7 @@ func (f *Frame) decodeAdsb() {
 			if verticalRateSign != 0 {
 				f.verticalRate = 0 - f.verticalRate
 			}
-			f.verticalRate = f.verticalRate * 64
+			f.verticalRate *= 64
 			f.validVerticalRate = true
 		}
 
@@ -111,8 +109,8 @@ func (f *Frame) decodeAdsb() {
 
 			if f.messageSubType == 2 {
 				// supersonic - unit is 4 knots
-				f.eastWestVelocity = f.eastWestVelocity << 2
-				f.northSouthVelocity = f.northSouthVelocity << 2
+				f.eastWestVelocity <<= 2
+				f.northSouthVelocity <<= 2
 				f.superSonic = true
 			}
 
@@ -194,22 +192,19 @@ func (f *Frame) decodeAdsb() {
 		case 0: // reserved
 		case 1: // Emergency/priority status (§B.2.3.8)
 			// EMERGENCY (or priority), EMERGENCY, THERE'S AN EMERGENCY GOING ON
-			var emergencyId = int((f.message[5] & 0xe0) >> 5)
-			f.alert = emergencyId != 0
-			f.emergency = emergencyStateTable[emergencyId]
-			var squawkRaw uint32
+			// ME bits 9,10,11 contain the emergency code (1-8 are TC/SUB) then EID bits (this)
+			// ME starts at byte 5 (TC/SUB), EID is first 3 bits of byte 6
+			f.emergencyID = int((f.message[5] & 0b1110_0000) >> 5)
+			f.alert = f.emergencyID != 0
+			f.emergency = emergencyStateTable[f.emergencyID]
 
-			squawkRaw = uint32(f.message[5]&0x1F) << 8   // take the last 5 bits
-			squawkRaw = squawkRaw | uint32(f.message[6]) // all of byte 6
-
-			f.identity = decodeSquawkIdentityFromBits(squawkRaw)
+			f.decodeSquawkIdentity(5, 6)
 
 			// can get the Mode A Address too
-			//mode_a_code = (short) (msg[2]|((msg[1]&0x1F)<<8));
+			// mode_a_code = (short) (msg[2]|((msg[1]&0x1F)<<8));
 		case 2:
 		// ACAS RA broadcast
 		case 3, 4, 5, 6, 7: //RESERVED
-
 		}
 	case 29:
 		// Target State and Status Message

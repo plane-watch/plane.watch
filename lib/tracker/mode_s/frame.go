@@ -301,6 +301,7 @@ type (
 		crc, checkSum  uint32
 		identity       uint32 // squawk identity
 		special        string
+		emergencyID    int
 		emergency      string
 		alert          bool
 		// if we have trouble decoding our frame, the message ends up here
@@ -532,43 +533,45 @@ var (
 
 func (f *Frame) MessageTypeString() string {
 	name := "Unknown"
-	if f.messageType >= 1 && f.messageType <= 4 {
+	switch {
+	case f.messageType >= 1 && f.messageType <= 4:
 		name = DF17FrameIdCat
-	} else if f.messageType >= 5 && f.messageType <= 8 {
+	case f.messageType >= 5 && f.messageType <= 8:
 		name = DF17FrameSurfacePos
-	} else if f.messageType >= 9 && f.messageType <= 18 {
+	case f.messageType >= 9 && f.messageType <= 18:
 		name = DF17FrameAirPositionBarometric
-	} else if f.messageType == 19 {
+	case f.messageType == 19:
 		if f.messageSubType >= 1 && f.messageSubType <= 4 {
 			name = DF17FrameAirVelocity
 		} else {
 			name = DF17FrameAirVelocityUnknown
 		}
-	} else if f.messageType >= 20 && f.messageType <= 22 {
+	case f.messageType >= 20 && f.messageType <= 22:
 		name = DF17FrameAirPositionGnss
-	} else if f.messageType == 23 {
+	case f.messageType == 23:
 		if f.messageSubType == 7 {
 			name = DF17FrameTestMessageSquawk
 		} else {
 			name = DF17FrameTestMessage
 		}
-	} else if f.messageType == 24 && f.messageSubType == 1 {
+	case f.messageType == 24 && f.messageSubType == 1:
 		name = DF17FrameSurfaceSystemStatus
-	} else if f.messageType == 28 {
-		if f.messageSubType == 1 {
+	case f.messageType == 28:
+		switch {
+		case f.messageSubType == 1:
 			name = DF17FrameEmergencyPriority
-		} else if f.messageSubType == 2 {
+		case f.messageSubType == 2:
 			name = DF17FrameTcasRA
-		} else {
+		default:
 			name = DF17FrameEmergencyPriorityUnknown
 		}
-	} else if f.messageType == 29 {
+	case f.messageType == 29:
 		if f.messageSubType == 0 || f.messageSubType == 1 {
 			name = DF17FrameTargetStateStatus
 		} else {
 			name = fmt.Sprintf("%s (Unknown Sub Message %d)", DF17FrameTargetStateStatus, f.messageSubType)
 		}
-	} else if f.messageType == 31 && (f.messageSubType == 0 || f.messageSubType == 1) {
+	case f.messageType == 31 && (f.messageSubType == 0 || f.messageSubType == 1):
 		name = DF17FrameAircraftOperational
 	}
 	return name
@@ -828,10 +831,10 @@ func (f *Frame) isNoOp() bool {
 	if nil == f {
 		return true
 	}
-	if "" == f.full || "*;" == f.full || "*" == f.full {
+	if f.full == "" || "*;" == f.full || "*" == f.full {
 		return true
 	}
-	if "0000000000000000000000000000" == f.full {
+	if f.full == "0000000000000000000000000000" {
 		// this is a perf thing, as this is a common case with beast
 		return true
 	}
