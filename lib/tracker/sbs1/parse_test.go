@@ -13,3 +13,28 @@ func TestIcaoStringToInt(t *testing.T) {
 		t.Errorf("Expected %s to decode to %d, but got %d", sut, expected, icaoAddr)
 	}
 }
+
+func TestKeepAliveNoOp(t *testing.T) {
+	trimableStrings := []string{
+		"",
+		"\n",
+		"\r",
+		"\r\n",
+		" ",
+		" \n",
+		"  ",
+		"  \n",
+		"   ",
+		"   \n",
+		"    ",
+		"    \n",
+		"\n\n",
+	}
+
+	for _, s := range trimableStrings {
+		f := NewFrame(s)
+		if nil != f.Parse() {
+			t.Errorf("Should not have gotten an error for a newline")
+		}
+	}
+}
