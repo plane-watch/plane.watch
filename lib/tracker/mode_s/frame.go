@@ -749,6 +749,13 @@ func (f *Frame) SquawkIdentity() uint32 {
 	return f.identity
 }
 
+func (f *Frame) SquawkIdentityStr() string {
+	if nil == f || f.identity == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%04d", f.identity)
+}
+
 func (f *Frame) OnGround() (bool, error) {
 	if f.VerticalStatusValid() {
 		return f.onGround, nil

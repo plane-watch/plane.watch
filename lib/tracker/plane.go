@@ -493,6 +493,9 @@ func (p *Plane) Registration() *string {
 
 // setFlightNumber is the flights identifier/number
 func (p *Plane) setFlightNumber(flightIdentifier string) bool {
+	if flightIdentifier == "" {
+		return false
+	}
 	p.rwLock.Lock()
 	defer p.rwLock.Unlock()
 	hasChanged := p.flight.identifier != flightIdentifier

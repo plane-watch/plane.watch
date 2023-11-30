@@ -1,6 +1,6 @@
 export GOBIN=$(shell pwd)/bin
 export GOAMD64=v3
-
+export CGO_ENABLED=0
 .PHONY: all
 
 all: tidy vet test build

@@ -875,7 +875,7 @@ func (f *Frame) showAlert(output io.Writer) {
 	f.showSpecial(output)
 }
 func (f *Frame) showSpecial(output io.Writer) {
-	if "" != f.special {
+	if f.special != "" {
 		fprintf(output, "  special           : %s\n", f.special)
 	}
 }
@@ -884,9 +884,8 @@ func (f *Frame) showFlightNumber(output io.Writer) {
 	fprintf(output, "    flight Number   : %s\n", f.FlightNumber())
 }
 
-// determines what type of mode S Message this frame is
+// DownLinkFormat determines what type of mode S Message this frame is
 func (f *Frame) DownLinkFormat() string {
-
 	if description, ok := downlinkFormatTable[f.downLinkFormat]; ok {
 		return description
 	}

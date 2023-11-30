@@ -500,6 +500,12 @@ func decodeFlightNumber(b []byte) []byte {
 	callsign[5] = aisCharset[((b[3]&3)<<4)|(b[4]>>4)]
 	callsign[6] = aisCharset[((b[4]&15)<<2)|(b[5]>>6)]
 	callsign[7] = aisCharset[b[5]&63]
+
+	// because planes have sent us things like A90004A0200000000000007D8DB4
+	// we need
+	if string(callsign) == "@@@@@@@@" {
+		callsign = nil
+	}
 	return callsign
 }
 

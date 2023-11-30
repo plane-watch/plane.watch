@@ -198,9 +198,9 @@ func showTypes(c *cli.Context) error {
 				frame.IcaoStr(),
 				frame.RawString(),
 				frame.DownLinkFormat(),
-				frame.MessageTypeString(),
+				"",
 				frame.FlightNumber(),
-				fmt.Sprint(frame.SquawkIdentity()),
+				frame.SquawkIdentityStr(),
 			}
 		case 17, 18, 19:
 			fields = []string{
@@ -212,7 +212,7 @@ func showTypes(c *cli.Context) error {
 				frame.DownLinkFormat(),
 				frame.MessageTypeString(),
 				frame.FlightNumber(),
-				fmt.Sprint(frame.SquawkIdentity()),
+				frame.SquawkIdentityStr(),
 			}
 		case 20, 21:
 			fields = []string{
@@ -222,9 +222,9 @@ func showTypes(c *cli.Context) error {
 				frame.IcaoStr(),
 				frame.RawString(),
 				frame.DownLinkFormat(),
-				frame.MessageTypeString(),
+				frame.DescribeBds(),
 				frame.FlightNumber(),
-				fmt.Sprint(frame.SquawkIdentity()),
+				frame.SquawkIdentityStr(),
 			}
 		default:
 			fields = []string{
@@ -236,7 +236,7 @@ func showTypes(c *cli.Context) error {
 				frame.DownLinkFormat(),
 				frame.MessageTypeString(),
 				frame.FlightNumber(),
-				fmt.Sprint(frame.SquawkIdentity()),
+				frame.SquawkIdentityStr(),
 			}
 		}
 		if !export {

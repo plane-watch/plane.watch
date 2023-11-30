@@ -139,7 +139,7 @@ func inferCommBMessageType(mb []byte) (byte, byte, error) {
 	if mb[0] == 0b0010_0000 {
 		// bits 9-56 are call sign, should not contain any ? chars from aisCharset
 		callsign := string(decodeFlightNumber(mb[1:7]))
-		if !strings.Contains(callsign, "?") {
+		if callsign != "" && !strings.Contains(callsign, "?") {
 			return 2, 0, nil
 		}
 	}
