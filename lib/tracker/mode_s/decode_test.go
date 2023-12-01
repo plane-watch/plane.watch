@@ -71,7 +71,6 @@ func TestDecodeString_DF17_EVEN_LAT(t *testing.T) {
 }
 
 func TestDecodeString_DF17_ODD_LAT(t *testing.T) {
-
 	var timeStamp = time.Now()
 
 	frame, err := DecodeString("8D75804B580FF6B283EB7A157117", time.Now())
@@ -81,7 +80,7 @@ func TestDecodeString_DF17_ODD_LAT(t *testing.T) {
 		return
 	}
 
-	if "NORMAL" != frame.mode {
+	if frame.mode != "NORMAL" {
 		t.Errorf("Exported mode NORMAL, Got: %s", frame.mode)
 	}
 
@@ -89,81 +88,40 @@ func TestDecodeString_DF17_ODD_LAT(t *testing.T) {
 		t.Error("Expected a timestamp that was after the test started, got something else")
 	}
 
-	if 17 != frame.downLinkFormat {
+	if frame.downLinkFormat != 17 {
 		t.Errorf("Downlink format not correct. expected 17, got %d", frame.downLinkFormat)
 	}
 
-	if 7700555 != frame.icao {
+	if frame.icao != 7700555 {
 		// 0x75804B
 		t.Errorf("Failed to decode ICAO address correctly, expected 7700555, got: %d", frame.icao)
 	}
 
-	if 11 != frame.messageType {
+	if frame.messageType != 11 {
 		t.Errorf("Expected DF Message 11 (type: %d) but got type %d", frame.MessageType(), frame.messageType)
 	}
 
-	if 0 != frame.messageSubType {
+	if frame.messageSubType != 0 {
 		t.Errorf("Got an Incorrect DF17 sub type")
 	}
 
-	if 0 != frame.timeFlag {
+	if frame.timeFlag != 0 {
 		t.Errorf("Expected time flag to not be be UTC")
 	}
 
-	if 1 != frame.cprFlagOddEven {
+	if frame.cprFlagOddEven != 1 {
 		t.Errorf("Expected the F Flag to be ODD (1) - was even instead")
 	}
 
-	if 2175 != frame.altitude {
+	if frame.altitude != 2175 {
 		t.Errorf("Incorrect altitude! expected 2175 - got: %d", frame.altitude)
 	}
 
-	if 88385 != frame.rawLatitude {
+	if frame.rawLatitude != 88385 {
 		t.Errorf("Incorrectly decoded the RAW latitude for this frame. expected 92095, got %d", frame.rawLatitude)
 	}
-	if 125818 != frame.rawLongitude {
+	if frame.rawLongitude != 125818 {
 		t.Errorf("Incorrectly decoded the RAW latitude for this frame. expected 39846, got %d", frame.rawLongitude)
-	}
-
-}
-
-// this test data liberally lifted from: http://www.ccsinfo.com/forum/viewtopic.php?p=77544
-func TestGillhamDecode(t *testing.T) {
-	var decode = map[int32]int32{
-		2:    -1000,
-		6:    -900,
-		4:    -800,
-		12:   -700,
-		14:   -600,
-		10:   -500,
-		11:   -400,
-		9:    -300,
-		25:   -200,
-		27:   -100,
-		26:   0,
-		30:   100,
-		28:   200,
-		20:   300,
-		22:   400,
-		18:   500,
-		19:   600,
-		17:   700,
-		49:   800,
-		51:   900,
-		50:   1000,
-		54:   1100,
-		52:   1200,
-		900:  46300,
-		1780: 73200,
-		1027: 126600,
-		1025: 126700,
-	}
-
-	for k, v := range decode {
-		test := gillhamToAltitude(k)
-		if v != test {
-			t.Errorf("Failed to decode Gillham Code %d should be %d, got %d", k, v, test)
-		}
 	}
 }
 

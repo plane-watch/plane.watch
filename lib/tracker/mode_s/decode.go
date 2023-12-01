@@ -162,7 +162,7 @@ func (f *Frame) parseIntoRaw() error {
 		return nil
 	}
 	encodedFrame := strings.TrimFunc(f.full, func(r rune) bool {
-		return unicode.IsSpace(r) || ';' == r
+		return unicode.IsSpace(r) || r == ';'
 	})
 
 	// let's ensure that we have some correct data...
@@ -219,7 +219,7 @@ func (f *Frame) parseRadarcapeTimeStamp() {
 }
 
 func (f *Frame) parseBeastTimeStamp() error {
-	if "" == f.beastTimeStamp || "00000000000" == f.beastTimeStamp {
+	if f.beastTimeStamp == "" || "00000000000" == f.beastTimeStamp {
 		return nil
 	}
 	// MLAT timestamps from Beast AVR are dependent on when the device started ( 500ns intervals / 12mhz)
@@ -420,67 +420,60 @@ func (f *Frame) decodeSquawkIdentity(byte1, byte2 int) {
 // the 1 bits are AC13 field
 // 00000000 00000000 00011111 1M1Q1111 00000000
 func (f *Frame) decode13bitAltitudeCode() error {
-
 	f.ac = uint32(f.message[2]&0xf)<<8 | uint32(f.message[3])
 
-	// altitude
+	// altitude type, M Bit
 	f.acM = f.ac&0x40 == 0x40 // bit 26 of message. 0 == feet, 1 = metres
-	// resolution
+	// resolution Q bit
 	f.acQ = f.ac&0x10 == 0x10 // bit 28 of message. 1 = 25 ft encoding, 0 = Gillham Mode C encoding
 
 	// make sure all the bits are good
 
-	if !f.acM {
+	switch {
+	case !f.acM && f.acQ:
+		// 25 ft increments
 		f.unit = modesUnitFeet
+		/* `n` is the 11 bit integer resulting from the removal of bit Q and M */
+		var n = int32(((f.ac & 0x1F80) >> 2) | ((f.ac & 0x0020) >> 1) | (f.ac & 0x000F))
+		/* The final altitude is due to the resulting number multiplied by 25, minus 1000. */
+		f.altitude = (n * 25) - 1000
+		f.validAltitude = true
 
-		/* N is the 11 bit integer resulting from the removal of bit Q and M */
-		var msg2 = int32(f.message[2])
-		var msg3 = int32(f.message[3])
-		var n = int32((msg2&31)<<6) | ((msg3 & 0x80) >> 2) | ((msg3 & 0x20) >> 1) | (msg3 & 15)
-
-		if f.acQ {
-			// 25 ft increments
-			/* The final altitude is due to the resulting number multiplied
-			 * by 25, minus 1000. */
-			f.altitude = (n * 25) - 1000
-			f.validAltitude = true
-		} else {
-			// altitude reported in feet, 100ft increments
-			/* Annex 10 — Aeronautical Telecommunications:
-			   SSR automatic pressure-altitude transmission code (pulse position assignment)
-			*/
-			/* If the M bit (bit 26) and the Q bit (bit 28) equal 0, the altitude shall be coded according to the
-			   pattern for Mode C replies of 3.1.1.7.12.2.3. Starting with bit 20 the sequence shall be
-			   C1, A1, C2, A2, C4, A4, ZERO, B1, ZERO, B2, D2, B4, D4.
-			*/
-
-			f.altitude = gillhamToAltitude(n)
-			f.validAltitude = true
+	case !f.acM && !f.acQ:
+		// altitude reported in feet, 100ft increments
+		f.unit = modesUnitFeet
+		f.altitude = modeAToModeC(decodeID13Field(int32(f.ac)))
+		f.validAltitude = f.altitude >= -12
+		if !f.validAltitude {
+			f.altitude = 0
 		}
-	} else {
+		f.altitude *= 100
+
+	case f.acM:
+		// we are dealing with metres
 		f.unit = modesUnitMetres
+		f.validAltitude = false
+		//TODO: Implement decoding Metres
 	}
+
 	return nil
 }
 
 func (f *Frame) getMessageLengthBits() uint32 {
-	//if f.downLinkFormat & 0x10 != 0 {
 	if f.downLinkFormat&0x10 != 0 {
 		if len(f.message) == 14 {
 			return modesShortMsgBits
 		}
 		return modesLongMsgBits
-	} else {
-		return modesShortMsgBits
 	}
+	return modesShortMsgBits
 }
 
 func (f *Frame) getMessageLengthBytes() uint32 {
 	if f.downLinkFormat&0x10 != 0 {
 		return modesLongMsgBytes
-	} else {
-		return modesShortMsgBytes
 	}
+	return modesShortMsgBytes
 }
 
 func (f *Frame) decodeFlightNumber() {
@@ -508,10 +501,3 @@ func decodeFlightNumber(b []byte) []byte {
 	}
 	return callsign
 }
-
-//func (f *Frame) decodeFlightId() {
-//	if f.message[4] == 32 && len(f.message) >= 10 {
-//		// Aircraft Identification
-//		f.decodeFlightNumber()
-//	}
-//}

@@ -3,8 +3,8 @@ package mode_s
 // var format string = "%20s = %13s"
 
 // decode an AC12 altitude field
-func decodeAC12Field(AC12Field int32) int32 {
-	qBit := (AC12Field & 0x10) == 0x10
+func decodeAC12Field(aC12Field int32) int32 {
+	qBit := (aC12Field & 0x10) == 0x10
 	var n int32
 	// log.Printf(format, "0x10", strconv.FormatInt(int64(0x10), 2))
 	// log.Printf(format, "AC12", strconv.FormatInt(int64(AC12Field), 2))
@@ -12,40 +12,19 @@ func decodeAC12Field(AC12Field int32) int32 {
 	if qBit {
 		// log.Printf(format, "Q Bit Set", strconv.FormatInt(int64(AC12Field), 2))
 		/// N is the 11 bit integer resulting from the removal of bit Q at bit 4
-		n = ((AC12Field & 0x0FE0) >> 1) | (AC12Field & 0x000F)
+		n = ((aC12Field & 0x0FE0) >> 1) | (aC12Field & 0x000F)
 		// The final altitude is the resulting number multiplied by 25, minus 1000.
 
 		return (n * 25) - 1000
-	} else {
-		// Make N a 13 bit Gillham coded altitude by inserting M=0 at bit 6
-		n = ((AC12Field & 0x0FC0) << 1) | (AC12Field & 0x003F)
-		// log.Printf(format, "Q Bit Clear", strconv.FormatInt(int64(n), 2))
-		n = modeAToModeC(decodeID13Field(n))
-		if n < -12 {
-			n = 0
-		}
-		return int32(100 * n)
 	}
-}
-
-// this code liberally lifted from: http://www.ccsinfo.com/forum/viewtopic.php?p=77544
-func gillhamToAltitude(i16GillhamValue int32) int32 {
-	var i32Result int32
-	var i16TempResult int32
-
-	// Convert Gillham value using gray code to binary conversion algorithm.
-	i16TempResult = i16GillhamValue ^ (i16GillhamValue >> 8)
-	i16TempResult ^= i16TempResult >> 4
-	i16TempResult ^= i16TempResult >> 2
-	i16TempResult ^= i16TempResult >> 1
-
-	// Convert gray code converted binary to altitude offset.
-	i16TempResult -= ((i16TempResult >> 4) * 6) + (((i16TempResult % 16) / 5) * 2)
-
-	// Convert altitude offset to altitude.
-	i32Result = (i16TempResult - 13) * 100
-
-	return i32Result
+	// Make N a 13 bit Gillham coded altitude by inserting M=0 at bit 6
+	n = ((aC12Field & 0x0FC0) << 1) | (aC12Field & 0x003F)
+	// log.Printf(format, "Q Bit Clear", strconv.FormatInt(int64(n), 2))
+	n = modeAToModeC(decodeID13Field(n))
+	if n < -12 {
+		n = 0
+	}
+	return int32(100 * n)
 }
 
 func decodeID13Field(ID13Field int32) int32 {
