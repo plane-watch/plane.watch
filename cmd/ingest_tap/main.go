@@ -80,7 +80,7 @@ func logMatching(c *cli.Context) error {
 	logging.ConfigureForCli()
 
 	tapper := NewPlaneWatchTapper(WithLogger(log.Logger))
-	if err := tapper.Connect(c.String(natsURL), ""); err != nil {
+	if err := tapper.Connect(c.String(natsURL), c.String(websocketURL)); err != nil {
 		return err
 	}
 	defer tapper.Disconnect()
