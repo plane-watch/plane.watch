@@ -14,7 +14,6 @@ func TestDecodeString_Odd_Frame_Length(t *testing.T) {
 	}
 }
 func TestDecodeString_DF17_EVEN_LAT(t *testing.T) {
-
 	var timeStamp = time.Now()
 
 	frame, err := DecodeString("8D75804B580FF2CF7E9BA6F701D0", time.Now())
@@ -24,7 +23,7 @@ func TestDecodeString_DF17_EVEN_LAT(t *testing.T) {
 		return
 	}
 
-	if "NORMAL" != frame.mode {
+	if frame.mode != "NORMAL" {
 		t.Errorf("Exported mode NORMAL, Got: %s", frame.mode)
 	}
 
@@ -32,39 +31,39 @@ func TestDecodeString_DF17_EVEN_LAT(t *testing.T) {
 		t.Error("Expected a timestamp that was after the test started, got something else")
 	}
 
-	if 17 != frame.downLinkFormat {
+	if frame.downLinkFormat != 17 {
 		t.Errorf("Downlink format not correct. expected 17, got %d", frame.downLinkFormat)
 	}
 
-	if 7700555 != frame.icao {
+	if frame.icao != 7700555 {
 		// 0x75804B
 		t.Errorf("Failed to decode ICAO address correctly, expected 7700555, got: %d", frame.icao)
 	}
 
-	if 11 != frame.messageType {
+	if frame.messageType != 11 {
 		t.Errorf("Expected DF Message 11 (type: %d) but got type %d", frame.MessageType(), frame.messageType)
 	}
 
-	if 0 != frame.messageSubType {
+	if frame.messageSubType != 0 {
 		t.Errorf("Got an Incorrect DF17 sub type")
 	}
 
-	if 0 != frame.timeFlag {
+	if frame.timeFlag != 0 {
 		t.Errorf("Expected time flag to not be be UTC")
 	}
 
-	if 0 != frame.cprFlagOddEven {
+	if frame.cprFlagOddEven != 0 {
 		t.Errorf("Expected the F Flag to be EVEN (0) - was odd instead")
 	}
 
-	if 2175 != frame.altitude {
+	if frame.altitude != 2175 {
 		t.Errorf("Incorrect altitude! expected 2175 - got: %d", frame.altitude)
 	}
 
-	if 92095 != frame.rawLatitude {
+	if frame.rawLatitude != 92095 {
 		t.Errorf("Incorrectly decoded the RAW latitude for this frame. expected 92095, got %d", frame.rawLatitude)
 	}
-	if 39846 != frame.rawLongitude {
+	if frame.rawLongitude != 39846 {
 		t.Errorf("Incorrectly decoded the RAW latitude for this frame. expected 39846, got %d", frame.rawLongitude)
 	}
 
@@ -441,6 +440,42 @@ func TestFrame_decodeDownLinkFormat(t *testing.T) {
 					tt.fields.downLinkFormat,
 					f.downLinkFormat,
 				)
+			}
+		})
+	}
+}
+
+func TestFrame_decode13bitAltitudeCode(t *testing.T) {
+	tests := map[string]int32{
+		// DF17
+		"8D7C6D9E582142CDA64A44211B82": 5500, // Q=true
+		"8D7C6D9E5821C2CEB04B35256969": 5700, // Q=true
+		"8D7C6C48580C228548352C857006": 5800, // Q=false
+
+		// DF20
+		"A0001416C759B9263E97D798A8DD": 31150, // M=false, Q=true
+		"A0001910CC3661B0A80000284CC8": 39000, // M=false, Q=true
+		"A0000182001807144000006ACF72": 5800,  // M=false, Q=false
+
+		// DF0
+		"02E61411056201": 31025, // M=false, Q=true
+		"02001428F2C704": 1100,  // M=false, Q=false
+
+		// DF4
+		"20001CB0861890": 45000, // M=false, Q=true
+		"20010D8340800E": 37900, // M=false, Q=true
+	}
+
+	for avr, expectedAlt := range tests {
+		t.Run(avr, func(tt *testing.T) {
+			frame := NewFrame(avr, time.Now())
+			if err := frame.Decode(); err != nil {
+				tt.Error(err)
+				return
+			}
+
+			if expectedAlt != frame.altitude {
+				tt.Errorf("Expected altitude of %d, got %d (M:%t Q:%t)", expectedAlt, frame.altitude, frame.acM, frame.acQ)
 			}
 		})
 	}

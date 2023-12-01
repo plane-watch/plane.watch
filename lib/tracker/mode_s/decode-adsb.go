@@ -72,7 +72,7 @@ func (f *Frame) decodeAdsb() {
 				f.altitude = field
 			}
 		} else {
-			f.altitude = decodeAC12Field(field)
+			f.altitude = f.decodeAC12Field(field)
 		}
 		f.validAltitude = f.altitude != 0
 		f.decodeAdsbLatLon()

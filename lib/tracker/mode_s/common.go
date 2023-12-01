@@ -3,13 +3,11 @@ package mode_s
 // var format string = "%20s = %13s"
 
 // decode an AC12 altitude field
-func decodeAC12Field(aC12Field int32) int32 {
-	qBit := (aC12Field & 0x10) == 0x10
+func (f *Frame) decodeAC12Field(aC12Field int32) int32 {
+	f.acQ = (aC12Field & 0x10) == 0x10
 	var n int32
-	// log.Printf(format, "0x10", strconv.FormatInt(int64(0x10), 2))
-	// log.Printf(format, "AC12", strconv.FormatInt(int64(AC12Field), 2))
 
-	if qBit {
+	if f.acQ {
 		// log.Printf(format, "Q Bit Set", strconv.FormatInt(int64(AC12Field), 2))
 		/// N is the 11 bit integer resulting from the removal of bit Q at bit 4
 		n = ((aC12Field & 0x0FE0) >> 1) | (aC12Field & 0x000F)
@@ -24,7 +22,7 @@ func decodeAC12Field(aC12Field int32) int32 {
 	if n < -12 {
 		n = 0
 	}
-	return int32(100 * n)
+	return 100 * n
 }
 
 func decodeID13Field(ID13Field int32) int32 {

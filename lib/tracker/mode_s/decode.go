@@ -420,7 +420,7 @@ func (f *Frame) decodeSquawkIdentity(byte1, byte2 int) {
 // the 1 bits are AC13 field
 // 00000000 00000000 00011111 1M1Q1111 00000000
 func (f *Frame) decode13bitAltitudeCode() error {
-	f.ac = uint32(f.message[2]&0xf)<<8 | uint32(f.message[3])
+	f.ac = uint32(f.message[2]&0x1F)<<8 | uint32(f.message[3])
 
 	// altitude type, M Bit
 	f.acM = f.ac&0x40 == 0x40 // bit 26 of message. 0 == feet, 1 = metres
