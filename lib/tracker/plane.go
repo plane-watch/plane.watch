@@ -789,21 +789,23 @@ func (p *Plane) addLatLong(lat, lon float64, ts time.Time, velocityCheck bool) (
 					Floats64("This Lat/Lon", []float64{lat, lon}).
 					Msg("A Frame Too Far")
 
-				var lastTS int64
-				p.recentFrames.Range(func(f *mode_s.Frame) bool {
-					if 0 == lastTS {
+				if p.tracker.log.Debug().Enabled() {
+					var lastTS int64
+					p.recentFrames.Range(func(f *mode_s.Frame) bool {
+						if lastTS == 0 {
+							lastTS = f.TimeStamp().UnixNano()
+						}
+						p.tracker.log.Error().
+							Str("ICAO", f.IcaoStr()).
+							Time("received", f.TimeStamp()).
+							Int64("unix nano", f.TimeStamp().UnixNano()).
+							Str("Frame", f.RawString()).
+							Int64("Time Diff ms", (lastTS-f.TimeStamp().UnixNano())/1e6).
+							Msg("Frames Leading to Broken Track")
 						lastTS = f.TimeStamp().UnixNano()
-					}
-					p.tracker.log.Error().
-						Str("ICAO", f.IcaoStr()).
-						Time("received", f.TimeStamp()).
-						Int64("unix nano", f.TimeStamp().UnixNano()).
-						Str("Frame", f.RawString()).
-						Int64("Time Diff ms", (lastTS-f.TimeStamp().UnixNano())/1e6).
-						Msg("Frames Leading to Broken Track")
-					lastTS = f.TimeStamp().UnixNano()
-					return true
-				})
+						return true
+					})
+				}
 				return
 			}
 		}

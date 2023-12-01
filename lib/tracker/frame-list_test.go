@@ -11,13 +11,13 @@ func TestStackPushPopSingle(t *testing.T) {
 
 	frame := &mode_s.Frame{}
 
-	if 0 != fl.Len() {
+	if fl.Len() != 0 {
 		t.Errorf("stack should be empty")
 	}
 
 	fl.Push(frame)
 
-	if c := fl.Len(); 1 != c {
+	if c := fl.Len(); c != 1 {
 		t.Errorf("incorrect length after push. expected 1, got %d", c)
 	}
 
@@ -26,7 +26,7 @@ func TestStackPushPopSingle(t *testing.T) {
 		t.Errorf("Failed to get the correct frame from the stack")
 	}
 
-	if c := fl.Len(); 0 != c {
+	if c := fl.Len(); c != 0 {
 		t.Errorf("incorrect length after push. expected 0, got %d", c)
 	}
 }
@@ -41,12 +41,12 @@ func TestStackPushPopMultiple(t *testing.T) {
 		originals[i] = mode_s.NewFrame("8E7C7F0D581176D7BB8D48CD7714", time.Now())
 		fl.Push(originals[i])
 
-		max := i + 1
+		maxItems := i + 1
 		if i >= numItems {
-			max = 10
+			maxItems = 10
 		}
-		if max != fl.Len() {
-			t.Errorf("incorrect number of items in stack expected %d != len %d", max, fl.Len())
+		if maxItems != fl.Len() {
+			t.Errorf("incorrect number of items in stack expected %d != len %d", maxItems, fl.Len())
 		}
 	}
 
@@ -62,13 +62,25 @@ func TestStackPushPopMultiple(t *testing.T) {
 			t.Errorf("Incorrect item fetched from stack pop %d != %d", item.TimeStamp().UnixNano(), originals[i].TimeStamp().UnixNano())
 		}
 	}
-	if c := fl.Len(); 0 != c {
+	if c := fl.Len(); c != 0 {
 		t.Errorf("incorrect length after push. expected 0, got %d", c)
 	}
 
-	//empty pop
+	// empty pop
 	if nil != fl.Pop() {
 		t.Errorf("pop'd something off an empty queue")
+	}
+}
+
+func TestLossyFrameList_RangeEmpty(t *testing.T) {
+	lfl := newLossyFrameList(10)
+	n := 0
+	lfl.Range(func(f *mode_s.Frame) bool {
+		n++
+		return true
+	})
+	if n != 0 {
+		t.Error("lossyFrameList should be empty to start with")
 	}
 }
 
