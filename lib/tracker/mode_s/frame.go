@@ -664,7 +664,7 @@ func (f *Frame) AltitudeStr() string {
 		return ""
 	}
 
-	return fmt.Sprintf("%d %s M=%t, Q=%t", f.altitude, f.AltitudeUnits(), f.acM, f.acQ)
+	// return fmt.Sprintf("%d %s M=%t, Q=%t", f.altitude, f.AltitudeUnits(), f.acM, f.acQ)
 	return fmt.Sprintf("%d %s", f.altitude, f.AltitudeUnits())
 }
 
