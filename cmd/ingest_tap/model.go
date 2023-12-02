@@ -94,7 +94,7 @@ func initialModel(natsURL, wsURL string, c *cli.Context) (*model, error) {
 			WithProtocolFor(wireProtocolForWsBroker, c.String(wireProtocolForWsBroker)),
 		),
 		help:          help.New(),
-		tickDuration:  time.Millisecond * 16,
+		tickDuration:  time.Millisecond * 32,
 		focusIcaoList: make([]string, 0),
 		source:        planesSourceWSLow,
 		logs:          logs,
@@ -102,18 +102,19 @@ func initialModel(natsURL, wsURL string, c *cli.Context) (*model, error) {
 		feederSources:      make(map[string]int),
 		incomingIcaoFrames: make(map[uint32]int),
 	}
-	if err := m.tapper.Connect(natsURL, wsURL); err != nil {
-		return nil, err
-	}
-	m.buildTables()
-	m.configureStyles()
-
 	m.afterIngest.init()
 	m.afterEnrichment.init()
 	m.afterRouterLow.init()
 	m.afterRouterHigh.init()
 	m.finalLow.init()
 	m.finalHigh.init()
+
+	if err := m.tapper.Connect(natsURL, wsURL); err != nil {
+		return nil, err
+	}
+	m.buildTables()
+	m.configureStyles()
+
 	m.logger.Debug().Msg("Startup Init Complete")
 
 	return m, nil
@@ -193,6 +194,7 @@ func (m *model) buildTables() {
 			{Title: "Altitude", Width: 10},
 			{Title: "Vert Rate", Width: 10},
 			{Title: "Heading", Width: 10},
+			{Title: "Last Msg", Width: 16},
 		}),
 		table.WithHeight(10),
 		table.WithRows([]table.Row{}),
@@ -246,6 +248,9 @@ func (si *sourceInfo) init() {
 }
 
 func (si *sourceInfo) update(loc *export.PlaneAndLocationInfoMsg) {
+	if nil == loc {
+		return
+	}
 	si.mu.Lock()
 	defer si.mu.Unlock()
 	if _, ok := si.frames[loc.Icao]; !ok {

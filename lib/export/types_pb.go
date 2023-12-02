@@ -217,7 +217,7 @@ func (pl *PlaneAndLocationInfoMsg) CloneSourceTags() map[string]uint32 {
 
 func (pl *PlaneAndLocationInfoMsg) IcaoStr() string {
 	if pl.icaoStr == "" {
-		pl.icaoStr = fmt.Sprintf("%X", pl.Icao)
+		pl.icaoStr = fmt.Sprintf("%06X", pl.Icao)
 	}
 	return pl.icaoStr
 }

@@ -106,6 +106,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case key.Matches(tMsg, keyBindings["Help"]):
 			m.help.ShowAll = !m.help.ShowAll
+			m.handleWindowSizing()
 		}
 	case tea.WindowSizeMsg:
 		m.width = tMsg.Width
@@ -135,20 +136,28 @@ func (m *model) handleWindowSizing() {
 	m.planesTable.SetWidth(m.width)
 	m.help.Width = m.width
 
-	headingHeight := lipgloss.Height(m.heading.Render("test"))
-	statsTableHeight := 3
-	selectedTableHeight := 9
+	// fixed height things
+	headingHeight := lipgloss.Height(m.heading.Render("test")) + 1
+	statsTableHeight := 4
+	selectedTableHeight := 10
+	logViewHeight := 15
+	helpHeight := lipgloss.Height(m.help.View(keyBindings))
 
-	planeViewTop := statsTableHeight + selectedTableHeight + (headingHeight * 3)
+	statsTableTop := 0
+	statsTableBottom := statsTableTop + headingHeight + statsTableHeight + 1
 
-	planesViewHeight := 20
-	if planesViewHeight+planeViewTop > m.height {
-		planesViewHeight = min(0, m.height-planeViewTop)
+	selectedTableTop := statsTableBottom
+	selectedTableBottom := selectedTableTop + headingHeight + selectedTableHeight
+
+	planesViewTop := selectedTableBottom + 1
+	planesViewHeight := m.height - (planesViewTop + headingHeight + logViewHeight + helpHeight)
+	if planesViewHeight+planesViewTop > m.height {
+		planesViewHeight = min(0, m.height-planesViewTop)
 	}
 	m.planesTable.SetHeight(planesViewHeight)
+	planesViewBottom := planesViewTop + headingHeight + planesViewHeight
 
-	logViewTop := statsTableHeight + selectedTableHeight + planesViewHeight + (headingHeight * 4)
-	logViewHeight := 15
+	logViewTop := planesViewBottom
 	if logViewHeight+logViewTop > m.height {
 		logViewHeight = min(0, m.height-logViewTop)
 	}
@@ -158,6 +167,11 @@ func (m *model) handleWindowSizing() {
 		m.logViewReady = true
 		m.logView = viewport.New(m.width, logViewHeight)
 		m.logView.YPosition = logViewTop
+		m.logView.Style = lipgloss.NewStyle().
+			PaddingLeft(2).
+			PaddingRight(2).
+			BorderForeground(lipgloss.Color("#666")).
+			Border(lipgloss.NormalBorder(), false, false, false, true)
 	} else {
 		m.logView.Width = m.width
 		m.logView.Height = logViewHeight
@@ -278,6 +292,7 @@ func (m *model) updateAircraftTable() {
 			p.AltitudeStr(),
 			p.VerticalRateStr(),
 			p.HeadingStr(),
+			p.LastMsg.AsTime().Sub(time.Now()).Abs().Truncate(time.Second).String(),
 		})
 	}
 	m.planesTable.SetRows(rows)

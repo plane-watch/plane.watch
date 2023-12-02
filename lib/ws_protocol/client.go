@@ -151,8 +151,12 @@ func (c *WsClient) reader() {
 		case setup.WireProtocolProtobuf:
 			r := &WebSocketResponse{}
 			err = proto.Unmarshal(msg, r)
-			if nil != err {
+			if err != nil {
 				c.logger.Error().Err(err).Send()
+				continue
+			}
+			if r == nil {
+				c.logger.Error().Msg("Failed to decode protobuf message")
 				continue
 			}
 
