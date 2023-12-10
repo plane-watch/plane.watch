@@ -29,7 +29,7 @@ FROM alpine:latest as compressor
 WORKDIR /app
 COPY --from=build /app/pw_ws_broker /app
 
-RUN apk --no-cache add upx=4.0.2-r0
+RUN apk --no-cache add upx=4.2.1-r0
 RUN upx --brute -9 /app/pw_ws_broker
 
 # test binary (make sure it runs after compressing)
