@@ -4,6 +4,7 @@ import (
 	"github.com/paulmach/orb"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/exp/maps"
 	"plane.watch/lib/clickhouse"
 	"plane.watch/lib/export"
 	"strconv"
@@ -80,8 +81,8 @@ func (ds *DataStream) AddHigh(frame *export.PlaneLocation) {
 // handleQueue single threadedly accumulates and sends data to clickhouse for the given queue/table
 func (ds *DataStream) handleQueue(q chan *export.PlaneLocation, table string) {
 	ticker := time.NewTicker(time.Second)
-	max := 50_000
-	updates := make([]any, max)
+	maxNumItems := 50_000
+	updates := make([]any, maxNumItems)
 	updateId := 0
 	unPtr := func(s *string) string {
 		if nil == s {
@@ -96,11 +97,13 @@ func (ds *DataStream) handleQueue(q chan *export.PlaneLocation, table string) {
 		}
 		updateId = 0
 	}
+	tags := make(map[string]uint32, 5)
 	for {
 		select {
 		case <-ticker.C:
 			send()
 		case loc := <-q:
+			maps.Clear(tags)
 			squawk, _ := strconv.ParseUint(loc.Squawk, 10, 32)
 			updates[updateId] = &chRow{
 				Icao:            loc.Icao,
@@ -119,7 +122,7 @@ func (ds *DataStream) handleQueue(q chan *export.PlaneLocation, table string) {
 				HasHeading:      loc.HasHeading,
 				HasVerticalRate: loc.HasVerticalRate,
 				HasVelocity:     loc.HasVelocity,
-				SourceTags:      loc.CloneSourceTags(),
+				SourceTags:      loc.PrepareSourceTags(tags),
 				Squawk:          uint32(squawk),
 				Special:         loc.Special,
 				TrackedSince:    loc.TrackedSince.UTC(),
@@ -135,7 +138,7 @@ func (ds *DataStream) handleQueue(q chan *export.PlaneLocation, table string) {
 			}
 
 			updateId++
-			if updateId >= max-1 {
+			if updateId >= maxNumItems-1 {
 				send()
 			}
 		}

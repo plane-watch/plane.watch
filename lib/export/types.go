@@ -119,6 +119,25 @@ func (pl *PlaneLocation) CloneSourceTags() map[string]uint32 {
 	return Clone(pl.SourceTags)
 }
 
+// PrepareSourceTags is used to return a cloned map that has the 4 digit icao code removed from a feeder id
+// YPPH-0001 -> 0001
+// YPAD-12345 -> 12345
+func (pl *PlaneLocation) PrepareSourceTags(m map[string]uint32) map[string]uint32 {
+	pl.sourceTagsMutex.Lock()
+	defer pl.sourceTagsMutex.Unlock()
+	var sk string
+	for k, v := range pl.SourceTags {
+		// allow up to 7 numbers
+		if len(k) <= 12 && k[4:5] == "-" {
+			sk = k[5:]
+		} else {
+			sk = k
+		}
+		m[sk] = v
+	}
+	return m
+}
+
 // Clone returns a copy of m.  This is a shallow clone:
 // the new keys and values are set using ordinary assignment.
 func Clone[M ~map[K]V, K comparable, V any](m M) M {
