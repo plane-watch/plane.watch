@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"strconv"
 	"sync"
@@ -211,8 +212,26 @@ func (fs FlightStatus) Describe() string {
 func (pl *PlaneAndLocationInfoMsg) CloneSourceTags() map[string]uint32 {
 	pl.sourceTagsMutex.Lock()
 	defer pl.sourceTagsMutex.Unlock()
+	return maps.Clone(pl.SourceTags)
+}
 
-	return Clone(pl.SourceTags)
+// PrepareSourceTags is used to return a cloned map that has the 4 digit icao code removed from a feeder id
+// YPPH-0001 -> 0001
+// YPAD-12345 -> 12345
+func (pl *PlaneAndLocationInfoMsg) PrepareSourceTags(m map[string]uint32) map[string]uint32 {
+	pl.sourceTagsMutex.Lock()
+	defer pl.sourceTagsMutex.Unlock()
+	var sk string
+	for k, v := range pl.SourceTags {
+		// allow up to 7 numbers
+		if len(k) <= 12 && k[4:5] == "-" {
+			sk = k[5:]
+		} else {
+			sk = k
+		}
+		m[sk] = v
+	}
+	return m
 }
 
 func (pl *PlaneAndLocationInfoMsg) IcaoStr() string {

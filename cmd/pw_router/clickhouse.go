@@ -4,6 +4,7 @@ import (
 	"github.com/paulmach/orb"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/exp/maps"
 	"plane.watch/lib/clickhouse"
 	"plane.watch/lib/export"
 	"strconv"
@@ -90,11 +91,13 @@ func (ds *DataStream) handleQueue(q chan *export.PlaneAndLocationInfoMsg, table 
 		}
 		updateID = 0
 	}
+	tags := make(map[string]uint32, 5)
 	for {
 		select {
 		case <-ticker.C:
 			send()
 		case loc := <-q:
+			maps.Clear(tags)
 			squawk, _ := strconv.ParseUint(loc.SquawkStr(), 10, 32)
 			updates[updateID] = &chRow{
 				Icao:            loc.IcaoStr(),
@@ -113,7 +116,7 @@ func (ds *DataStream) handleQueue(q chan *export.PlaneAndLocationInfoMsg, table 
 				HasHeading:      loc.HasHeading,
 				HasVerticalRate: loc.HasVerticalRate,
 				HasVelocity:     loc.HasVelocity,
-				SourceTags:      loc.CloneSourceTags(),
+				SourceTags:      loc.PrepareSourceTags(tags),
 				Squawk:          uint32(squawk),
 				Special:         loc.Special,
 				TrackedSince:    loc.TrackedSince.AsTime().UTC(),
