@@ -4,9 +4,10 @@ import (
 	"context"
 	"os"
 	"os/signal"
-	"plane.watch/lib/clickhouse"
 	"sync"
 	"syscall"
+
+	"plane.watch/lib/clickhouse"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -119,16 +120,16 @@ func main() {
 			EnvVars: []string{"SOURCE_ROUTE_KEY"},
 		},
 		&cli.StringFlag{
-			Name:    "destination-route-key",
+			Name:    "destination-route-key-low",
 			Usage:   "Name of the routing key to publish significant updates to. (low)",
 			Value:   "location-updates-enriched-reduced",
-			EnvVars: []string{"DEST_ROUTE_KEY"},
+			EnvVars: []string{"DEST_ROUTE_KEY_LOW"},
 		},
 		&cli.StringFlag{
-			Name:    "destination-route-key-merged",
+			Name:    "destination-route-key-high",
 			Usage:   "Name of the routing key to publish merged updates to. (high)",
 			Value:   "location-updates-enriched-merged",
-			EnvVars: []string{"DEST_ROUTE_KEY"},
+			EnvVars: []string{"DEST_ROUTE_KEY_HIGH"},
 		},
 		&cli.IntFlag{
 			Name:    "num-workers",
@@ -240,8 +241,8 @@ func run(c *cli.Context) error {
 	monitoring.AddHealthCheck(router)
 
 	numWorkers := c.Int("num-workers")
-	destRouteKeyLow := c.String("destination-route-key")
-	destRouteKeyMerged := c.String("destination-route-key-merged")
+	destRouteKeyLow := c.String("destination-route-key-low")
+	destRouteKeyHigh := c.String("destination-route-key-high")
 	spreadUpdates := c.Bool("spread-updates")
 
 	log.Info().Msgf("Starting with %d workers...", numWorkers)
@@ -249,7 +250,7 @@ func run(c *cli.Context) error {
 		wkr := worker{
 			router:             &router,
 			destRoutingKeyLow:  destRouteKeyLow,
-			destRoutingKeyHigh: destRouteKeyMerged,
+			destRoutingKeyHigh: destRouteKeyHigh,
 			spreadUpdates:      spreadUpdates,
 			ds:                 ds,
 		}
